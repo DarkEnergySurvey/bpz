@@ -3,13 +3,10 @@ import numpy as np
 import sys
 import os
 import yaml
-import sml_mla as ml
 import bh_photo_z_validation as pval
-import photo_z_metrics as pzm
 from scipy import stats
 import glob
 import textwrap
-import inspect
 
 #determine path to enclosing directory
 pathname = os.path.dirname(sys.argv[0])
@@ -40,13 +37,24 @@ standardPredictions: [/testConfig/photoz.yaml, /testConfig/weak_lensing.yaml]
 
 #And or / additionally choose your own metrics, as list
 #remove these if not required
+#these are the point prediction tests
 point:
+    #which photo-z predictions do we want to test
     predictions: ['MODE_Z', 'MEAN_Z', 'Z_MC']
+    
+    #what is the true redshift that we will compare with?
     truths: 'Z_SPEC'
-    bins: [Z_SPEC: 'np.linspace(0,3,10)', MAG_DETMODEL_I: '[10, 15, 20, 25, 30]']
+    
+    #what metrics do we want to measure. "numpy.std" is the standard deviation from numpy
+    # and "bh_photo_z_validation.sigma_68" is the sigma_68 metric found in the bh_photo_z_validation.py file
     metrics: [numpy.std, numpy.median, bh_photo_z_validation.sigma_68, bh_photo_z_validation.outlier_fraction]
-    tolerance:
-
+    
+    #do we want to assign an accetable tolerance to each of these tests?
+    tolerance: [0.4, 0.001, 0.02, 5]
+    
+    #Finally do we want to also measure the metrics in some "bins". 
+    #we define the column_name: 'string of bins / string of function that makes bins'
+    bins: [MAG_DETMODEL_I: '[10, 15, 20, 25, 30]', 'MODE_Z': 'np.linspace(0, 2, 20)']
 
 #these are the pdf tests
 pdf:
@@ -227,7 +235,7 @@ if len(files[ptype]) > 0:
                     for diffp in res[ptype][f][testNum][photoz][metric]:
                         print f + ',' + str(testNum) + ',' + photoz + ',' + metric + ',' + diffp + ',' + str(res[ptype][f][testNum][photoz][metric][diffp]['global'])
 
-    print "filename,testSample,ReshiftPointEstimate,metric,redidualOrRedshiftScaled,binColumn,"
+    #print "filename,testSample,ReshiftPointEstimate,metric,redidualOrRedshiftScaled,binColumn,"
     for f in res[ptype]:
         for testNum in res[ptype][f]:
             for photoz in res[ptype][f][testNum]:

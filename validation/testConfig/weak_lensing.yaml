@@ -1,6 +1,6 @@
 #these are the point predictions tests and requirements
 point:
-    predictions: ['MODE_Z', 'MEAN_Z', 'Z_MC']
+    predictions: ['Z_SPEC', 'Z_MC']
     truths: 'Z_SPEC'
     bins: [MEAN_Z: '[0.0, 0.3, 0.6, 0.9, 1.3, 2.0]']
     metrics: [numpy.median, bh_photo_z_validation.sigma_68, bh_photo_z_validation.outlier_fraction]

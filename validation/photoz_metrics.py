@@ -9,6 +9,7 @@ import photo_z_metrics as pzm
 from scipy import stats
 import glob
 import textwrap
+import inspect
 
 #determine path to enclosing directory
 pathname = os.path.dirname(sys.argv[0])
@@ -42,18 +43,14 @@ standardPredictions: [/testConfig/photoz.yaml, /testConfig/weak_lensing.yaml]
 point:
     predictions: ['MODE_Z', 'MEAN_Z', 'Z_MC']
     truths: 'Z_SPEC'
-    bins:
-        format: [Z_SPEC: 'np.linspace(0,3,10)', MAG_DETMODEL_I: '[10, 15, 20, 25, 30]']
-        tolerance:
+    bins: [Z_SPEC: 'np.linspace(0,3,10)', MAG_DETMODEL_I: '[10, 15, 20, 25, 30]']
     metrics: [numpy.std, numpy.median, bh_photo_z_validation.sigma_68, bh_photo_z_validation.outlier_fraction]
     tolerance:
 
 
 #these are the pdf tests
 pdf:
-    bins:
-        format: [Z_SPEC: 'np.linspace(0,3,10)', I_MAG: '[10, 15, 20, 25, 30]']
-        tolerance:
+    bins: [Z_SPEC: 'np.linspace(0,3,10)', I_MAG: '[10, 15, 20, 25, 30]']
     metrics: [bh_photo_z_validation.kstest, bh_photo_z_validation.npoisson, bh_photo_z_validation.log_loss]
     tolerance:
 """)
@@ -221,11 +218,6 @@ if len(files[ptype]) > 0:
 
 
 print res
-
-
-
-
-
 
 
 """ 

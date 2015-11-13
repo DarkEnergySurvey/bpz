@@ -1,22 +1,24 @@
 import numpy as np
 import sys
-
 sys.path.append('../')
 import bh_photo_z_validation as pval
 
 
-"""Units tests for reading hdf5 file format"""
+""" =============================
+tests on hdf5 file format  ======
+=================================
+"""
 
 
 def test_hdf1():
-    filename = 'data/__nonValidHDF__'
+    filename = 'data/__nonValidHDF__.hdf5'
     err, mess = pval.valid_hdf(filename, args=1)
     np.testing.assert_equal(err, False)
     np.testing.assert_equal(mess, 'file does not exist')
 
 
 def test_hdf2():
-    filename = 'data/invalidHDF'
+    filename = 'data/invalidHDF.hdf5'
     err, mess = pval.valid_hdf(filename, args=1)
     np.testing.assert_equal(err, False)
     np.testing.assert_equal(mess, 'missing column COADD_OBJECTS_ID')
@@ -24,7 +26,7 @@ def test_hdf2():
 
 #now check for wrong number of tomographic bins
 def test_hdf3():
-    filename = 'data/validHDF'
+    filename = 'data/validHDF.hdf5'
     err, mess = pval.valid_hdf(filename, args={'tomographic_bins': np.arange(100)})
     print mess
     np.testing.assert_equal(mess, 'missing column ' + 'pdf_50')
@@ -32,15 +34,18 @@ def test_hdf3():
 
 
 def test_hdf4():
-    import pandas as pd
-    filename = 'data/validHDF'
+    filename = 'data/validHDF.hdf5'
     err, mess = pval.valid_hdf(filename, args={'tomographic_bins': np.arange(50)})
     np.testing.assert_equal(err, True)
 
     #To do, fix the data type comparison
     #np.testing.assert_equal(type(mess), pd.core.frame.DataFrame)
 
-"""fits file format testing"""
+
+""" =============================
+tests on fits file format  ======
+=================================
+"""
 
 
 def test_fits1():
@@ -63,7 +68,10 @@ def test_fits3():
     np.testing.assert_equal(err, True)
 
 
-"""metric unit tests"""
+""" =============================
+tests on point predictions ======
+=================================
+"""
 
 
 def test_sigma68_1():
@@ -113,18 +121,22 @@ def test_delta_z():
 def test_outlierRate():
     #hard coded outlier rate
     arr1 = np.random.normal(size=1e6) * 0.15
-    outRate = pval.outlierRate(arr1)
+    outRate = pval.outlier_rate(arr1)
     np.testing.assert_equal(outRate + 0.68 > 0.99, True)
 
 
 def test_outlierFraction():
     #hard coded outlier rate
     arr1 = np.random.normal(size=1e6) * 0.15
-    outRate = pval.outlierFraction(arr1)
-    np.testing.assert_equal(outRate + 68 > 99.7, True)
+    outRate = pval.outlier_fraction(arr1)
+    np.testing.assert_equal(outRate + 68.1 > 99.7, True)
 
 
-"""tests on pdf """
+""" ===============
+tests on pdf ======
+===================
+"""
+
 
 def test_normalize_pdf():
     N = 1e4
@@ -133,6 +145,44 @@ def test_normalize_pdf():
     normPdf = pval.normalize_pdf(pdf, z)
     integ = np.trapz(normPdf, x=z)
     np.testing.assert_equal(np.abs(integ - 1) < 0.001, True)
+
+
+def test_ks1():
+    """ for truth check out http://scistatcalc.blogspot.de/2013/11/kolmogorov-smirnov-test-calculator.html
+    """
+    arr1 = np.arange(12)
+    arr2 = np.arange(12) + 1
+    truth = 0.083333
+    Pval = 1.0
+
+    ks = pval.ks_test(arr1, arr2)
+    np.testing.assert_equal(np.abs(ks - truth) < 0.01, True)
+
+    prob = pval.ks_test_prob(arr1, arr2)
+    np.testing.assert_equal(np.abs(prob - Pval) < 0.01, True)
+
+
+def test_ks2():
+    """ for truth check out http://scistatcalc.blogspot.de/2013/11/kolmogorov-smirnov-test-calculator.html
+    """
+    arr1 = np.arange(300)
+    arr2 = np.arange(300)*1.6
+    truth = 0.37666
+    Pval = 0
+
+    ks = pval.ks_test(arr1, arr2)
+    np.testing.assert_equal(np.abs(ks - truth) < 0.01, True)
+
+    prob = pval.ks_test_prob(arr1, arr2)
+    np.testing.assert_equal(np.abs(prob - Pval) < 0.01, True)
+
+
+def test_kulbachLeiber_bins1():
+    np.testing.assert_equal(False, True)
+
+
+""" make data for tests"""
+
 
 
 def create_data():
@@ -149,7 +199,7 @@ def create_data():
         df[pdf] = np.random.dirichlet(np.arange(N) + i)
     df['Z_SPEC'] = np.random.dirichlet(np.arange(N) + N)
     df['WEIGHT'] = np.random.dirichlet(np.arange(N) + N)
-    df.to_hdf('data/validHDF', 'pdf')
+    df.to_hdf('data/validHDF.hdf5', 'pdf')
 
     #write an invalid pdf
     #deliberate typo here
@@ -159,7 +209,7 @@ def create_data():
         df1[pdf] = np.random.dirichlet(np.arange(N) + i)
     df1['Z_SPEC'] = np.random.dirichlet(np.arange(N) + N)
     df1['WEIGHT'] = np.random.dirichlet(np.arange(N) + N)
-    df1.to_hdf('data/invalidHDF', 'pdf')
+    df1.to_hdf('data/invalidHDF.hdf5', 'pdf')
 
     np.random.seed(0)
     #create the test fits files
@@ -167,6 +217,7 @@ def create_data():
     d = {}
     d['Z_SPEC'] = np.random.dirichlet(np.arange(N) + N)
     d['COADD_OBJECTS_ID'] = np.arange(N)
+    d['MAG_DETMODEL_I'] = np.random.uniform(size=N)*15 + 15
     for i in ['MODE_Z', 'MEAN_Z', 'Z_MC']:
         d[i] = np.random.uniform(size=N)*2
     fit = Table(d)
@@ -177,6 +228,7 @@ def create_data():
     d1 = {}
     d1['Z_SPEC'] = np.random.dirichlet(np.arange(N) + N)
     d1['COADDED_OBJECTS_ID'] = np.arange(N)
+    d1['MAG_DETMODEL_I'] = np.random.uniform(size=N)*15 + 15
     for i in ['MODE_Z', 'Z_MC']:
         d1[i] = np.random.uniform(size=N)*2
     fit1 = Table(d1)
@@ -186,9 +238,8 @@ def create_data():
     fit1.write('data/invalidPointPrediction.fits', format='fits')
 
 
-
 """
-create_data()
+
 import pandas as pd
 from astropy.table import Table
 filename = 'data/ValidHDF'

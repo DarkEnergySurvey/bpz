@@ -3,6 +3,22 @@ from astropy.table import Table
 import numpy as np
 import photo_z_metrics as pzm
 import os
+import scipy as sp
+from scipy.stats import ks_2samp
+
+"""
+Authors: Ben Hoyle, Christopher Bonnet
+
+To do:
+
+ define npoisson function
+
+"""
+
+""" ========================
+Data format checking tools =
+============================
+"""
 
 
 def valid_hdf(filename, args=None):
@@ -33,7 +49,7 @@ def valid_hdf(filename, args=None):
     #does if have the correct number of tomographic bins
     for i in range(len(args['tomographic_bins'])):
         if 'pdf_' + str(i) not in df:
-            return False, 'missing column ' + 'pdf_' + str(i)
+            return False, 'missing column ' + 'pdf_' + str(i) + ' of ' + filename
 
     return True, df
 
@@ -56,11 +72,25 @@ def valid_fits(filename):
         return False, 'astropy table not standard'
 
     #are all required columns in this file
-    for i in ['MODE_Z', 'MEAN_Z', 'Z_MC', 'COADD_OBJECTS_ID', 'Z_SPEC']:
+    for i in ['MODE_Z', 'MEAN_Z', 'Z_MC', 'COADD_OBJECTS_ID', 'Z_SPEC', 'MAG_DETMODEL_I']:
         if i not in df.keys():
-            return False, 'missing column ' + i
+            return False, 'missing column ' + i + ' of ' + filename
 
     return True, df
+
+
+def valid_file(filename, args=None):
+    if '.fit' in filename:
+        return valid_fits(filename)
+    if '.hdf5' in filename:
+        return valid_hdf(filename, args)
+    return False, 'currently unable to read file'
+
+
+""" ================================
+Point prediction metrics and tools =
+====================================
+"""
 
 
 def delta_z(z_spec, z_phot):
@@ -82,14 +112,20 @@ def sigma_95(arr):
     return (upper - lower) / 2.0
 
 
-def outlierRate(arr):
+def outlier_rate(arr):
     """assumes frac outliers >0.15
     """
     return np.sum(np.abs(arr) > 0.15)*1.0/len(arr)
 
 
-def outlierFraction(arr):
-    return outlierRate(arr)*1e2
+def outlier_fraction(arr):
+    return outlier_rate(arr)*1e2
+
+
+""" ===================
+pdf metrics and tools =
+=======================
+"""
 
 
 def normalize_pdf(pdf, z):
@@ -98,6 +134,47 @@ def normalize_pdf(pdf, z):
     """
     area = np.trapz(pdf, x=z)
     return pdf / area
+
+
+def log_loss(act, pred):
+    epsilon = 1e-15
+    pred = sp.maximum(epsilon, pred)
+    pred = sp.minimum(1 - epsilon, pred)
+    ll = sum(act * sp.log(pred) + sp.subtract(1, act) * sp.log(sp.subtract(1, pred)))
+    ll = ll * -1.0 / len(act)
+    return -1 * ll
+
+
+def kulbachLeiber_bins(arr1, arr2):
+    return -1.0 / len(arr1) * np.sum(arr1 * np.log(arr2 + 1e-6))
+
+
+# what is this test?
+def npoisson(arr1, arr2):
+    return 0
+
+
+def ks_test(arr1, arr2):
+    D, pval = ks_2samp(arr1, arr2)
+    return D
+
+
+def ks_test_prob(arr1, arr2):
+    D, pval = ks_2samp(arr1, arr2)
+    return pval
+
+
+""" ==========================
+validation metrics and tools =
+==============================
+"""
+
+
+# should tolerances be on absolute values?
+def within_tolerance(val1, val2, tol):
+    return np.abs(val1 - val2) < tol
+
+
 
 
 

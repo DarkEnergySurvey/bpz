@@ -29,7 +29,7 @@ def test_hdf3():
     filename = 'data/validHDF.hdf5'
     err, mess = pval.valid_hdf(filename, args={'tomographic_bins': np.arange(100)})
     print mess
-    np.testing.assert_equal(mess, 'missing column ' + 'pdf_50')
+    np.testing.assert_equal(mess, 'missing column ' + 'pdf_50 of ' + filename)
     np.testing.assert_equal(err, False)
 
 
@@ -59,7 +59,7 @@ def test_fits2():
     filename = 'data/invalidPointPrediction.fits'
     err, mess = pval.valid_fits(filename)
     np.testing.assert_equal(err, False)
-    np.testing.assert_equal(mess, 'missing column MEAN_Z')
+    np.testing.assert_equal(mess, 'missing column MEAN_Z of ' + filename)
 
 
 def test_fits3():

@@ -134,7 +134,6 @@ testProperties = {'point': [], 'pdf': []}
 
 #if we have loaded config file, then use photo-z + WL metrics
 if 'config' in locals():
-
     #loop over point and pdf
     for ptype in testProperties:
         if key_not_none(config, ptype):
@@ -153,7 +152,6 @@ else:
         for ptype in testProperties:
             if key_not_none(p, ptype):
                 testProperties[ptype].append(p[ptype])
-
 
 #results dictionary
 res = {}
@@ -228,22 +226,21 @@ if len(files[ptype]) > 0:
                 for metric in res[ptype][f][testNum][photoz]:
                     for diffp in res[ptype][f][testNum][photoz][metric]:
                         print f + ',' + str(testNum) + ',' + photoz + ',' + metric + ',' + diffp + ',' + str(res[ptype][f][testNum][photoz][metric][diffp]['global'])
-    #print res
 
-    print "filename,testSample,ReshiftPointEstimate,metric,redidualOrRedshiftScaled,binCenter,value"
+    print "filename,testSample,ReshiftPointEstimate,metric,redidualOrRedshiftScaled,binColumn,"
     for f in res[ptype]:
         for testNum in res[ptype][f]:
             for photoz in res[ptype][f][testNum]:
                 for metric in res[ptype][f][testNum][photoz]:
                     for diffp in res[ptype][f][testNum][photoz][metric]:
-                        for binEdge in res[ptype][f][testNum][photoz][metric][diffp]['bins']:
-                            #print f + ',' + str(testNum) + ',' + photoz + ',' + metric + ',' + diffp + ',' + str(binEdge) + ',' + str(res[ptype][f][testNum][photoz][metric][diffp]['bins'][binEdge])
+                        for binCols in res[ptype][f][testNum][photoz][metric][diffp]['bins']:
+                            g = ''#print f + ',' + str(testNum) + ',' + photoz + ',' + metric + ',' + diffp + ',' + str(binCols) + ',' + str(res[ptype][f][testNum][photoz][metric][diffp]['bins'][binCols])
 
 """ 
 To do. work with pdfs
 """
 
-
+1/0
 
 #I don't know how to deal with pdf metrics yet
 ptype = 'pdf1'

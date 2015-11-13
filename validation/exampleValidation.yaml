@@ -1,0 +1,22 @@
+#paths to file locations. will assume '.fits' as point predictions '.hdf5' as pdf predictions
+#add more files to list to compare multiple files
+filePaths: ['tests/data/validPointPrediction.fits', 'tests/data/validHDF.hdf5']
+
+#Which metrics and tolerance should we measure either a list of metrics, such as
+# and or a precomputed collection of group metrics and tolerances
+#set blank, or delete this line to not use these preconfigured metrics/bins/tolerances
+standardPredictions:
+
+point:
+    predictions: ['Z_SPEC', 'Z_MC']
+    truths: 'Z_SPEC'
+    bins: [MEAN_Z: '[0.0, 0.3, 0.6, 0.9, 1.3, 2.0]']
+    metrics: [numpy.median, bh_photo_z_validation.sigma_68, bh_photo_z_validation.outlier_fraction]
+    tolerance: [0.4, 0.001, 0.03, 10]
+
+
+#these are the pdf tests
+pdf: 
+    bins:
+    metrics: [bh_photo_z_validation.kstest, bh_photo_z_validation.log_loss]
+    tolerance: [0.7, 20]

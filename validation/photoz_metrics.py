@@ -178,47 +178,66 @@ if len(files[ptype]) > 0:
         res[ptype][f] = {}
 
         #calculate all unweighted metrics for deltaz and deltaz/(1+z)
-        for m, tst in enumerate(tests):
-            res[ptype][f][m] = {}
+        for testNum, tst in enumerate(tests):
+            res[ptype][f][testNum] = {}
 
             for photoz in tst['predictions']:
-                res[ptype][f][m][photoz] = {}
+                res[ptype][f][testNum][photoz] = {}
                 diff = pval.delta_z(d[tst['truths']], d[photoz])
                 diff_1pz = pval.delta_z_1pz(d[tst['truths']], d[photoz])
 
+                points = {'delta_z': diff, 'diff_1pz': diff_1pz}
+
                 for metric in tst['metrics']:
-                    res[ptype][f][m][photoz][metric] = {}
-                    res[ptype][f][m][photoz][metric]['delta_z'] = get_function(metric)(diff)
-                    res[ptype][f][m][photoz][metric]['delta_z_1pz'] = get_function(metric)(diff_1pz)
+                    res[ptype][f][testNum][photoz][metric] = {}
 
-                    if key_not_none(tst, 'bins'):
-                        binning = tst['bins']
+                    for diffpp in points.keys():
+                        res[ptype][f][testNum][photoz][metric][diffpp] = {}
+                        res[ptype][f][testNum][photoz][metric][diffpp]['global'] = get_function(metric)(points[diffpp])
 
-                        res[ptype][f][m][photoz][metric]['bins'] = {}
-                        for binDict in binning:
-                            ky = binDict.keys()[0]
-                            if ky not in d.keys():
-                                print "You asked to bin in " + ky
-                                print "but it does not exist in file " + f
-                                print "aborting"
-                                sys.exit()
-                            try:
-                                bin_vals = eval(binDict[ky])
-                            except:
-                                print "unable to build the bins, please check syntax: " + binDict[ky]
-                                print "Aborting"
-                                sys.exit()
+                        if key_not_none(tst, 'bins'):
+                            binning = tst['bins']
 
-                        res[ptype][f][m][photoz][metric]['bins'][ky] = {}
-                        #this uses the binned_stats function
-                        """http://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.stats.binned_statistic.html
-                        """
-                        res[ptype][f][m][photoz][metric]['bins'][ky]['delta_z'] = stats.binned_statistic(d[ky], diff, bins=bin_vals, statistic=get_function(metric))
-                        res[ptype][f][m][photoz][metric]['bins'][ky]['delta_z_1pz'] = stats.binned_statistic(d[ky], diff_1pz, bins=bin_vals, statistic=get_function(metric))
+                            res[ptype][f][testNum][photoz][metric][diffpp]['bins'] = {}
+                            for binDict in binning:
+                                ky = binDict.keys()[0]
+                                if ky not in d.keys():
+                                    print "You asked to bin in " + ky
+                                    print "but it does not exist in file " + f
+                                    print "aborting"
+                                    sys.exit()
+                                try:
+                                    bin_vals = eval(binDict[ky])
+                                except:
+                                    print "unable to build the bins, please check syntax: " + binDict[ky]
+                                    print "Aborting"
+                                    sys.exit()
+
+                                res[ptype][f][testNum][photoz][metric][diffpp]['bins'][ky] = {}
+                                #this uses the binned_stats function
+                                """http://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.stats.binned_statistic.html
+                                """
+                                res[ptype][f][testNum][photoz][metric][diffpp]['bins'][ky] = stats.binned_statistic(d[ky], points[diffpp], bins=bin_vals, statistic=get_function(metric))
 
 
-print res
+    #now print out results in a nice format
+    print "filename,testSample,ReshiftPointEstimate,metric,redidualOrRedshiftScaled,value"
+    for f in res[ptype]:
+        for testNum in res[ptype][f]:
+            for photoz in res[ptype][f][testNum]:
+                for metric in res[ptype][f][testNum][photoz]:
+                    for diffp in res[ptype][f][testNum][photoz][metric]:
+                        print f + ',' + str(testNum) + ',' + photoz + ',' + metric + ',' + diffp + ',' + str(res[ptype][f][testNum][photoz][metric][diffp]['global'])
+    #print res
 
+    print "filename,testSample,ReshiftPointEstimate,metric,redidualOrRedshiftScaled,binCenter,value"
+    for f in res[ptype]:
+        for testNum in res[ptype][f]:
+            for photoz in res[ptype][f][testNum]:
+                for metric in res[ptype][f][testNum][photoz]:
+                    for diffp in res[ptype][f][testNum][photoz][metric]:
+                        for binEdge in res[ptype][f][testNum][photoz][metric][diffp]['bins']:
+                            #print f + ',' + str(testNum) + ',' + photoz + ',' + metric + ',' + diffp + ',' + str(binEdge) + ',' + str(res[ptype][f][testNum][photoz][metric][diffp]['bins'][binEdge])
 
 """ 
 To do. work with pdfs
@@ -248,13 +267,13 @@ if len(files[ptype]) > 0:
 
         #calculate all unweighted metrics for deltaz and deltaz/(1+z)
         for m, tst in enumerate(tests):
-            res[ptype][f][m] = {}
+            res[ptype][f][testNum] = {}
             for metric in tst['metrics']:
-                res[ptype][f][m][metric] = get_function(metric)(pdf)
+                res[ptype][f][testNum][metric] = get_function(metric)(pdf)
 
                 if key_not_none(tests, 'bins'):
                     binning = tests['bins']
-                    res[ptype][f][m][metric]['binned_result'] = {}
+                    res[ptype][f][testNum][metric]['binned_result'] = {}
                     for binDict in binning:
                         if key_not_none(d, binDict) is False:
                             print "You asked to bin in " + binDict

@@ -7,6 +7,8 @@ import bh_photo_z_validation as pval
 from scipy import stats
 import glob
 import textwrap
+import inspect
+import cPickle as pickle
 
 #determine path to enclosing directory
 pathname = os.path.dirname(sys.argv[0])
@@ -45,6 +47,9 @@ point:
     #what is the true redshift that we will compare with?
     truths: 'Z_SPEC'
     
+    #should we calculated weighted metrics where available?
+    weights: 'WEIGHTS'
+
     #what metrics do we want to measure. "numpy.std" is the standard deviation from numpy
     # and "bh_photo_z_validation.sigma_68" is the sigma_68 metric found in the bh_photo_z_validation.py file
     metrics: [numpy.std, numpy.median, bh_photo_z_validation.sigma_68, bh_photo_z_validation.outlier_fraction]
@@ -166,7 +171,8 @@ res = {}
 
 #First point predictions
 ptype = 'point'
-#do we have any files of this type?
+
+#do we have any files of this type to work with?
 if len(files[ptype]) > 0:
     #results dictionary
     res[ptype] = {}
@@ -197,10 +203,25 @@ if len(files[ptype]) > 0:
                 for metric in tst['metrics']:
                     res[ptype][f][testNum][photoz][metric] = {}
 
+                    #turn string into function
+                    metric_function = pval.get_function(metric)
+
+                    #does the metric function accept a 'weights' keyword
+                    use_weights = 'weights' in inspect.getargspec(metric_function).args and key_not_none(tst, 'weights')
+
+                    if use_weights:
+                        weights = d[tst['weights']]
+
+                    #which residuals shall we employ?
                     for diffpp in points.keys():
                         res[ptype][f][testNum][photoz][metric][diffpp] = {}
-                        res[ptype][f][testNum][photoz][metric][diffpp]['global'] = get_function(metric)(points[diffpp])
+                        res[ptype][f][testNum][photoz][metric][diffpp]['global'] = metric_function(points[diffpp])
 
+                        #does this metric allow weights to be passed?
+                        if use_weights:
+                            res[ptype][f][testNum][photoz][metric][diffpp]['global_weights'] = metric_function(points[diffpp], weights=weights)
+
+                        #shall we calculate binning statiscs?
                         if key_not_none(tst, 'bins'):
                             binning = tst['bins']
 
@@ -223,8 +244,7 @@ if len(files[ptype]) > 0:
                                 #this uses the binned_stats function
                                 """http://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.stats.binned_statistic.html
                                 """
-                                res[ptype][f][testNum][photoz][metric][diffpp]['bins'][ky] = stats.binned_statistic(d[ky], points[diffpp], bins=bin_vals, statistic=get_function(metric))
-
+                                res[ptype][f][testNum][photoz][metric][diffpp]['bins'][ky] = stats.binned_statistic(d[ky], points[diffpp], bins=bin_vals, statistic=metric_function)
 
     #now print out results in a nice format
     print "filename,testSample,ReshiftPointEstimate,metric,redidualOrRedshiftScaled,value"
@@ -234,6 +254,8 @@ if len(files[ptype]) > 0:
                 for metric in res[ptype][f][testNum][photoz]:
                     for diffp in res[ptype][f][testNum][photoz][metric]:
                         print f + ',' + str(testNum) + ',' + photoz + ',' + metric + ',' + diffp + ',' + str(res[ptype][f][testNum][photoz][metric][diffp]['global'])
+                        if 'global_weights' in res[ptype][f][testNum][photoz][metric][diffp]:
+                            print "weighted_value: " + str(res[ptype][f][testNum][photoz][metric][diffp]['global_weights'])
 
     #print "filename,testSample,ReshiftPointEstimate,metric,redidualOrRedshiftScaled,binColumn,"
     for f in res[ptype]:
@@ -242,16 +264,19 @@ if len(files[ptype]) > 0:
                 for metric in res[ptype][f][testNum][photoz]:
                     for diffp in res[ptype][f][testNum][photoz][metric]:
                         for binCols in res[ptype][f][testNum][photoz][metric][diffp]['bins']:
-                            g = ''#print f + ',' + str(testNum) + ',' + photoz + ',' + metric + ',' + diffp + ',' + str(binCols) + ',' + str(res[ptype][f][testNum][photoz][metric][diffp]['bins'][binCols])
+                            g = ''
+                            #print f + ',' + str(testNum) + ',' + photoz + ',' + metric + ',' + diffp + ',' + str(binCols) + ',' + str(res[ptype][f][testNum][photoz][metric][diffp]['bins'][binCols])
 
-""" 
+    #pickle.dump(res['point'], open('point_predictions.p', 'w'))
+
+"""
 To do. work with pdfs
 """
 
 1/0
 
 #I don't know how to deal with pdf metrics yet
-ptype = 'pdf1'
+ptype = 'pdf'
 #do we have any files of this type?
 if len(files[ptype]) > 0:
     #results dictionary

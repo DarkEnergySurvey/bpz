@@ -5,7 +5,9 @@ point:
     
     #what is the true redshift that we will compare with?
     truths: 'Z_SPEC'
-    
+
+    weights: 'WEIGHTS'
+
     #what metrics do we want to measure. "numpy.std" is the standard deviation from numpy
     # and "bh_photo_z_validation.sigma_68" is the sigma_68 metric found in the bh_photo_z_validation.py file
     metrics: [numpy.median, bh_photo_z_validation.sigma_68, bh_photo_z_validation.outlier_fraction]

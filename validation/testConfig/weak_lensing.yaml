@@ -1,10 +1,21 @@
-#these are the point predictions tests and requirements
+#these are the point prediction tests
 point:
+    #which photo-z predictions do we want to test
     predictions: ['Z_SPEC', 'Z_MC']
+    
+    #what is the true redshift that we will compare with?
     truths: 'Z_SPEC'
-    bins: [MEAN_Z: '[0.0, 0.3, 0.6, 0.9, 1.3, 2.0]']
+    
+    #what metrics do we want to measure. "numpy.std" is the standard deviation from numpy
+    # and "bh_photo_z_validation.sigma_68" is the sigma_68 metric found in the bh_photo_z_validation.py file
     metrics: [numpy.median, bh_photo_z_validation.sigma_68, bh_photo_z_validation.outlier_fraction]
+    
+    #do we want to assign an accetable tolerance to each of these tests?
     tolerance: [0.4, 0.001, 0.03, 10]
+    
+    #Finally do we want to also measure the metrics in some "bins". 
+    #we define the column_name: 'string of bins / string of function that makes bins'
+    bins: [MEAN_Z: '[0.0, 0.3, 0.6, 0.9, 1.3, 2.0]']
 
 
 #these are the pdf tests

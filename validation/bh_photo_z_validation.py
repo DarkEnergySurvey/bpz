@@ -15,6 +15,21 @@ To do:
 
 """
 
+
+""" ==========================
+Cool tools ===================
+==============================
+"""
+
+
+def get_function(function_string):
+    import importlib
+    module, function = function_string.rsplit('.', 1)
+    module = importlib.import_module(module)
+    function = getattr(module, function)
+    return function
+
+
 """ ========================
 Data format checking tools =
 ============================

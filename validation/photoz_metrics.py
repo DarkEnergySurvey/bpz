@@ -10,6 +10,29 @@ import textwrap
 import inspect
 import cPickle as pickle
 
+"""
+Photo-z validation codes
+
+Authors: Ben Hoyle
+
+-input:
+photoz_metrics.py data/PointPredictions1.fits data/PointPredictions*.fits
+or
+photoz_metrics.py data/pdfPredictions*.hdf5
+or a mix of the two
+photoz_metrics.py data/pdfPredictions*.hdf5 data/PointPredictions*.fits
+or you can make more fine tuned validations using a configuration yaml file
+photoz_metrics.py config.yaml 
+
+-help
+Also see the ipython notebook, called ValidationScriptExample.ipynb
+if you run 
+./photoz_metrics.py
+an example configuration file will been written to the directory.
+
+-outputs:
+"""
+
 #determine path to enclosing directory
 pathname = os.path.dirname(sys.argv[0])
 path = os.path.abspath(pathname)
@@ -326,4 +349,5 @@ if len(files[ptype]) > 0:
                         """http://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.stats.binned_statistic.html
                         """
                         res[ptype][f]['result'][photoz]['binned_result'][binDict]['bin_stats'] = stats.binned_statistic(d[binDict], diff, bins=bin_vals, statistic=get_function(metrics))
+
 

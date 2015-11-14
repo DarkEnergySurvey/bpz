@@ -132,6 +132,40 @@ def test_outlierFraction():
     np.testing.assert_equal(outRate + 68.1 > 99.7, True)
 
 
+def test_sigma_68_axis1():
+    arr = np.zeros((5e5, 10))
+    sigs = np.arange(10)*0.1 + 0.5
+    for i in range(10):
+        arr[:, i] = np.random.normal(size=5e5) * sigs[i] + sigs[i]
+    sig68 = pval.sigma_68(arr, axis=0)
+    print sig68
+    print sigs
+    np.testing.assert_almost_equal(sigs, sig68, decimal=2)
+
+
+def test_sigma_68_axis2():
+    #replicating a 'pdf'
+    arr = np.zeros((10, 5e5))
+    sigs = np.arange(10)*0.1 + 0.5
+    for i in range(10):
+        arr[i, :] = np.random.normal(size=5e5) * sigs[i] + sigs[i]
+    sig68 = pval.sigma_68(arr, axis=1)
+    print sig68
+    print sigs
+    np.testing.assert_almost_equal(sigs, sig68, decimal=2)
+
+
+def test_sigma_95_axis():
+    arr = np.zeros((5e5, 10))
+    sigs = np.arange(10)*0.1 + 0.5
+    for i in range(10):
+        arr[:, i] = np.random.normal(size=5e5) * sigs[i] + sigs[i]
+    sig95 = pval.sigma_95(arr, axis=0)
+    print sig95
+    print sigs * 2.0
+    np.testing.assert_almost_equal(sigs * 2.0, sig95, decimal=2)
+
+
 """ ===============
 tests on pdf ======
 ===================
@@ -177,13 +211,31 @@ def test_ks2():
     np.testing.assert_equal(np.abs(prob - Pval) < 0.01, True)
 
 
+""" ===========================
+tests on useful functions =====
+===============================
+"""
+
+
+def test_random_choice1():
+    arr = np.arange(55).reshape((11, 5))
+    arr2 = pval.random_choice(arr)
+    for i in range(5):
+        np.testing.assert_equal(np.all(arr[:, i] == arr2), False)
+
+
+def test_random_choice2():
+    arr = np.arange(5050)
+    arr2 = pval.random_choice(arr)
+    for i in range(5):
+        np.testing.assert_equal(np.all(arr[i] == arr2), False)
+
+
+
 def test_kulbachLeiber_bins1():
     np.testing.assert_equal(False, True)
 
-
 """ make data for tests"""
-
-
 
 def create_data():
     #make things reproducible
@@ -218,6 +270,7 @@ def create_data():
     d['Z_SPEC'] = np.random.dirichlet(np.arange(N) + N)
     d['COADD_OBJECTS_ID'] = np.arange(N)
     d['MAG_DETMODEL_I'] = np.random.uniform(size=N)*15 + 15
+    d['WEIGHTS'] = np.random.uniform(size=N)
     for i in ['MODE_Z', 'MEAN_Z', 'Z_MC']:
         d[i] = np.random.uniform(size=N)*2
     fit = Table(d)
@@ -229,6 +282,7 @@ def create_data():
     d1['Z_SPEC'] = np.random.dirichlet(np.arange(N) + N)
     d1['COADDED_OBJECTS_ID'] = np.arange(N)
     d1['MAG_DETMODEL_I'] = np.random.uniform(size=N)*15 + 15
+    d1['WEIGHTS'] = np.random.uniform(size=N)
     for i in ['MODE_Z', 'Z_MC']:
         d1[i] = np.random.uniform(size=N)*2
     fit1 = Table(d1)
@@ -239,7 +293,7 @@ def create_data():
 
 
 """
-
+create_data()
 import pandas as pd
 from astropy.table import Table
 filename = 'data/ValidHDF'

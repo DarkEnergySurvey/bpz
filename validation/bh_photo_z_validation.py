@@ -5,6 +5,8 @@ import photo_z_metrics as pzm
 import os
 import scipy as sp
 from scipy.stats import ks_2samp
+import copy
+
 
 """
 Authors: Ben Hoyle, Christopher Bonnet
@@ -28,6 +30,25 @@ def get_function(function_string):
     module = importlib.import_module(module)
     function = getattr(module, function)
     return function
+
+
+#random selects from an (n)d array
+def random_choice(arr, axis=None):
+    rc = np.shape(arr)
+    if len(rc) == 1:
+        return arr[np.random.randint(0, rc[0])]
+    else:
+        indr = np.random.randint(0, rc[1], size=rc[0])
+        return arr[np.arange(rc[0]), indr]
+
+
+#a wrapper around numpy mode
+def mode(arr, axis=None):
+    return np.mode(arr, axis=axis)[0]
+
+
+def highest_weight(pdf, axis=None):
+    return pdf[:, 0]
 
 
 """ ========================
@@ -116,14 +137,13 @@ def delta_z_1pz(z_spec, z_phot):
     return delta_z(z_spec, z_phot) / (1 + z_spec)
 
 
-def sigma_68(arr):
-    arr = np.sort(arr)
-    upper, lower = np.percentile(arr, [84.075, 15.825])
+def sigma_68(arr, axis=None):
+    upper, lower = np.percentile(arr, [84.075, 15.825], axis=axis)
     return (upper - lower) / 2.0
 
 
-def sigma_95(arr):
-    upper, lower = np.percentile(arr, [97.7, 2.3])
+def sigma_95(arr, axis=None):
+    upper, lower = np.percentile(arr, [97.7, 2.3], axis=axis)
     return (upper - lower) / 2.0
 
 

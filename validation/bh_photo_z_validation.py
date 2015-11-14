@@ -1,11 +1,9 @@
 import pandas as pd
 from astropy.table import Table
 import numpy as np
-import photo_z_metrics as pzm
 import os
 import scipy as sp
 from scipy.stats import ks_2samp
-import copy
 
 
 """
@@ -49,6 +47,31 @@ def mode(arr, axis=None):
 
 def highest_weight(pdf, axis=None):
     return pdf[:, 0]
+
+""" ===========================
+Error function checking tools =
+===============================
+"""
+
+
+def bootstrap_mean_error(arr, weight, func):
+
+    #draw this many samples
+    Nsamples = 500
+    val = np.zeros(Nsamples)
+    #what weight do each data have
+    p = weight*1.0 / np.sum(weight)
+
+    for i in np.arange(Nsamples):
+        #call the function and pass in a bootstrapped sample
+        val[i] = func(np.random.choice(arr, size=len(arr), replace=True, p=p))
+
+    #Error is the std of all samples
+    return {'mean': np.mean(val), 'sigma': np.std(val)}
+
+
+def jacknife_error(arr, weight, func):
+    return False
 
 
 """ ========================

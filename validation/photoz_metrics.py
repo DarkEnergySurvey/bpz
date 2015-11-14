@@ -65,13 +65,13 @@ standardPredictions: [/testConfig/photoz.yaml, /testConfig/weak_lensing.yaml]
 #these are the point prediction tests
 point:
     #which photo-z predictions do we want to test
-    predictions: ['MODE_Z', 'MEAN_Z', 'Z_MC']
+    predictions: [MODE_Z, MEAN_Z, Z_MC]
     
     #what is the true redshift that we will compare with?
-    truths: 'Z_SPEC'
+    truths: Z_SPEC
     
     #should we calculated weighted metrics where available?
-    weights: 'WEIGHTS'
+    weights: WEIGHTS
 
     #what metrics do we want to measure. "numpy.std" is the standard deviation from numpy
     # and "bh_photo_z_validation.sigma_68" is the sigma_68 metric found in the bh_photo_z_validation.py file
@@ -80,9 +80,13 @@ point:
     #do we want to assign an accetable tolerance to each of these tests?
     tolerance: [0.4, 0.001, 0.02, 5]
     
-    #Finally do we want to also measure the metrics in some "bins". 
+    #Finally do we want to also measure the metrics in some "bins".
     #we define the column_name: 'string of bins / string of function that makes bins'
-    bins: [MAG_DETMODEL_I: '[10, 15, 20, 25, 30]', 'MODE_Z': 'np.linspace(0, 2, 20)']
+    bins: [MAG_DETMODEL_I: '[10, 15, 20, 25, 30]', MODE_Z: 'numpy.linspace(0, 2, 20)']
+
+    #Should we calculate errors on each metric? if yes state how
+    #you can include as many different error functions as you like.
+    error_function: [bh_photo_z_validation.bootstrap_mean_error]
 
 #these are the pdf tests
 pdf:
@@ -125,6 +129,19 @@ def load_yaml(filename):
         print "check format here http://yaml-online-parser.appspot.com/"
         print "aborting"
         sys.exit()
+
+
+#get the galaxy weights
+def get_weights(_dict, _ky, _d):
+    #set all objects equal weight, unless defined
+    if key_not_none(_dict, _ky) is False:
+        print "you have not set any weights for this test"
+        print "continuing with weights=1"
+        weights = np.ones(len(d))
+    else:
+        weights = d[tst['weights']]
+
+    return weights
 
 
 #get input arguments
@@ -201,6 +218,7 @@ if len(files[ptype]) > 0:
     res[ptype] = {}
 
     tests = testProperties[ptype]
+
     #loop over all files
     for f in files[ptype]:
         okay, d = pval.valid_file(f)
@@ -216,6 +234,14 @@ if len(files[ptype]) > 0:
         for testNum, tst in enumerate(tests):
             res[ptype][f][testNum] = {}
 
+            #should we calculate an error on these metrics
+            error_function = key_not_none(tst, 'error_function')
+            if error_function:
+                err_metric = {}
+                for ef in tst['error_function']:
+                    #turn error function.string into a function
+                    err_metric[ef.split('.')[-1]] = pval.get_function(ef)
+
             for photoz in tst['predictions']:
                 res[ptype][f][testNum][photoz] = {}
                 diff = pval.delta_z(d[tst['truths']], d[photoz])
@@ -224,25 +250,29 @@ if len(files[ptype]) > 0:
                 points = {'delta_z': diff, 'diff_1pz': diff_1pz}
 
                 for metric in tst['metrics']:
+
+                    #set all objects equal weight, unless defined
+                    weights = get_weights(tst, 'weights', d)
+
                     res[ptype][f][testNum][photoz][metric] = {}
 
                     #turn string into function
                     metric_function = pval.get_function(metric)
 
                     #does the metric function accept a 'weights' keyword
-                    use_weights = 'weights' in inspect.getargspec(metric_function).args and key_not_none(tst, 'weights')
-
-                    if use_weights:
-                        weights = d[tst['weights']]
+                    use_weights = 'weights' in inspect.getargspec(metric_function).args
 
                     #which residuals shall we employ?
                     for diffpp in points.keys():
                         res[ptype][f][testNum][photoz][metric][diffpp] = {}
-                        res[ptype][f][testNum][photoz][metric][diffpp]['global'] = metric_function(points[diffpp])
+                        res[ptype][f][testNum][photoz][metric][diffpp]['VALUE'] = metric_function(points[diffpp])
 
-                        #does this metric allow weights to be passed?
-                        if use_weights:
-                            res[ptype][f][testNum][photoz][metric][diffpp]['global_weights'] = metric_function(points[diffpp], weights=weights)
+                        #calculate errors on these metrics
+                        for ef in err_metric:
+                            bstamp_mean_err = err_metric[ef](points[diffpp], weights, metric_function)
+                            res[ptype][f][testNum][photoz][metric][diffpp]['MEAN_' + ef] = bstamp_mean_err['mean']
+                            res[ptype][f][testNum][photoz][metric][diffpp]['ERROR_' + ef] =bstamp_mean_err['sigma']
+
 
                         #shall we calculate binning statiscs?
                         if key_not_none(tst, 'bins'):
@@ -276,7 +306,7 @@ if len(files[ptype]) > 0:
             for photoz in res[ptype][f][testNum]:
                 for metric in res[ptype][f][testNum][photoz]:
                     for diffp in res[ptype][f][testNum][photoz][metric]:
-                        print f + ',' + str(testNum) + ',' + photoz + ',' + metric + ',' + diffp + ',' + str(res[ptype][f][testNum][photoz][metric][diffp]['global'])
+                        print f + ',' + str(testNum) + ',' + photoz + ',' + metric + ',' + diffp + ',' + str(res[ptype][f][testNum][photoz][metric][diffp]['VALUE']) + ',' + str(res[ptype][f][testNum][photoz][metric][diffp]['VALUE'])
                         if 'global_weights' in res[ptype][f][testNum][photoz][metric][diffp]:
                             print "weighted_value: " + str(res[ptype][f][testNum][photoz][metric][diffp]['global_weights'])
 

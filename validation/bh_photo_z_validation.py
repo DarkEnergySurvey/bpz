@@ -3,7 +3,7 @@ from astropy.table import Table
 import numpy as np
 import os
 import scipy as sp
-from scipy.stats import ks_2samp
+from scipy.stats import ks_2samp, binned_statistic
 
 
 """
@@ -57,7 +57,7 @@ Error function checking tools =
 def bootstrap_mean_error(arr, weight, func):
 
     #draw this many samples
-    Nsamples = 500
+    Nsamples = 100
     val = np.zeros(Nsamples)
     #what weight do each data have
     p = weight*1.0 / np.sum(weight)
@@ -73,6 +73,22 @@ def bootstrap_mean_error(arr, weight, func):
 def jacknife_error(arr, weight, func):
     return False
 
+
+def bootstrap_mean_error_binned(x, arr, weight, bins, func):
+    Nsamples = 5000
+    val = np.zeros((Nsamples, len(bins)-1))
+    #what weight do each data have
+    p = weight*1.0 / np.sum(weight)
+    ind = np.arange(len(arr))
+
+    for i in np.arange(Nsamples):
+        indrs = np.random.choice(ind, size=len(ind), replace=True, p=p)
+
+        #call the function and pass in a bootstrapped sample
+        val[i] = binned_statistic(x[indrs], arr[indrs], bins=bins, statistic=func).statistic
+
+    #Error is the std of all samples
+    return {'mean': np.mean(val, axis=0), 'sigma': np.std(val, axis=0)}
 
 """ ========================
 Data format checking tools =
@@ -231,9 +247,6 @@ validation metrics and tools =
 # should tolerances be on absolute values?
 def within_tolerance(val1, val2, tol):
     return np.abs(val1 - val2) < tol
-
-
-
 
 
 

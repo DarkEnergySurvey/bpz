@@ -1,12 +1,12 @@
 #these are the point prediction tests
 point:
     #which photo-z predictions do we want to test
-    predictions: ['Z_SPEC', 'Z_MC']
+    predictions: [MEAN_Z, Z_MC]
     
     #what is the true redshift that we will compare with?
-    truths: 'Z_SPEC'
+    truths: Z_SPEC
 
-    weights: 'WEIGHTS'
+    weights: WEIGHTS
 
     #what metrics do we want to measure. "numpy.std" is the standard deviation from numpy
     # and "bh_photo_z_validation.sigma_68" is the sigma_68 metric found in the bh_photo_z_validation.py file
@@ -21,10 +21,12 @@ point:
 
     #Should we calculate errors on each metric? if yes state how
     #you can include as many different error functions as you like.
-    error_function: [bh_photo_z_validation.bootstrap_error]
+    error_function: [bh_photo_z_validation.bootstrap_mean_error]
     
 #these are the pdf tests
 pdf: 
     bins:
     metrics: [bh_photo_z_validation.kstest, bh_photo_z_validation.log_loss]
     tolerance: [0.7, 20]
+    #shall we use weights when calculating metrics, if so specify here.
+    weights: WEIGHTS

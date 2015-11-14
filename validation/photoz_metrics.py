@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 import numpy as np
+numpy = np
 import sys
 import os
 import yaml
@@ -9,6 +10,7 @@ import glob
 import textwrap
 import inspect
 import cPickle as pickle
+
 
 """
 Photo-z validation codes
@@ -164,7 +166,9 @@ for arg in args:
         if 'filePaths' in config:
             if key_not_none(config, 'filePaths'):
                 for i in config['filePaths']:
-                    files = fileType(i, files)
+                    f = glob.glob(i)
+                    for ii in f:
+                        files = fileType(ii, files)
 
 
 if len(files['point']) + len(files['pdf']) < 1:
@@ -271,8 +275,7 @@ if len(files[ptype]) > 0:
                         for ef in err_metric:
                             bstamp_mean_err = err_metric[ef](points[diffpp], weights, metric_function)
                             res[ptype][f][testNum][photoz][metric][diffpp]['MEAN_' + ef] = bstamp_mean_err['mean']
-                            res[ptype][f][testNum][photoz][metric][diffpp]['ERROR_' + ef] =bstamp_mean_err['sigma']
-
+                            res[ptype][f][testNum][photoz][metric][diffpp]['SIGMA_' + ef] = bstamp_mean_err['sigma']
 
                         #shall we calculate binning statiscs?
                         if key_not_none(tst, 'bins'):
@@ -297,18 +300,24 @@ if len(files[ptype]) > 0:
                                 #this uses the binned_stats function
                                 """http://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.stats.binned_statistic.html
                                 """
-                                res[ptype][f][testNum][photoz][metric][diffpp]['bins'][ky] = stats.binned_statistic(d[ky], points[diffpp], bins=bin_vals, statistic=metric_function)
+                                bn_stats = stats.binned_statistic(d[ky], points[diffpp], bins=bin_vals, statistic=metric_function)
+
+                                res[ptype][f][testNum][photoz][metric][diffpp]['bins'][ky]['VALUE'] = bn_stats.statistic
+
+                                #calculate the mean and error by bootstrapping
+                                bn_bs_stats = pval.bootstrap_mean_error_binned(d[ky], points[diffpp], weights, bin_vals, metric_function)
+
+                                res[ptype][f][testNum][photoz][metric][diffpp]['bins'][ky]['MEAN'] = bn_bs_stats['mean']
+                                res[ptype][f][testNum][photoz][metric][diffpp]['bins'][ky]['SIGMA'] = bn_bs_stats['sigma']
 
     #now print out results in a nice format
-    print "filename,testSample,ReshiftPointEstimate,metric,redidualOrRedshiftScaled,value"
+    print "filename,testSample,ReshiftPointEstimate,metric,residualOrRedshiftScaled,value,bootStrapMean,booStrapSigma"
     for f in res[ptype]:
         for testNum in res[ptype][f]:
             for photoz in res[ptype][f][testNum]:
                 for metric in res[ptype][f][testNum][photoz]:
                     for diffp in res[ptype][f][testNum][photoz][metric]:
-                        print f + ',' + str(testNum) + ',' + photoz + ',' + metric + ',' + diffp + ',' + str(res[ptype][f][testNum][photoz][metric][diffp]['VALUE']) + ',' + str(res[ptype][f][testNum][photoz][metric][diffp]['VALUE'])
-                        if 'global_weights' in res[ptype][f][testNum][photoz][metric][diffp]:
-                            print "weighted_value: " + str(res[ptype][f][testNum][photoz][metric][diffp]['global_weights'])
+                        print f + ',' + str(testNum) + ',' + photoz + ',' + metric + ',' + diffp + ',' + str(res[ptype][f][testNum][photoz][metric][diffp]['VALUE']) + ',' + str(res[ptype][f][testNum][photoz][metric][diffp]['MEAN_bootstrap_mean_error']) + ',' + str(res[ptype][f][testNum][photoz][metric][diffp]['SIGMA_bootstrap_mean_error'])
 
     #print "filename,testSample,ReshiftPointEstimate,metric,redidualOrRedshiftScaled,binColumn,"
     for f in res[ptype]:
@@ -320,7 +329,7 @@ if len(files[ptype]) > 0:
                             g = ''
                             #print f + ',' + str(testNum) + ',' + photoz + ',' + metric + ',' + diffp + ',' + str(binCols) + ',' + str(res[ptype][f][testNum][photoz][metric][diffp]['bins'][binCols])
 
-    #pickle.dump(res['point'], open('point_predictions.p', 'w'))
+    pickle.dump(res['point'], open('point_predictions.p', 'w'))
 
 """
 To do. work with pdfs

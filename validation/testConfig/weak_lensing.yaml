@@ -24,9 +24,22 @@ point:
     error_function: [bh_photo_z_validation.bootstrap_mean_error]
     
 #these are the pdf tests
-pdf: 
-    bins:
-    metrics: [bh_photo_z_validation.kstest, bh_photo_z_validation.log_loss]
-    tolerance: [0.7, 20]
-    #shall we use weights when calculating metrics, if so specify here.
-    weights: WEIGHTS
+pdf:
+    #we can examine individual redshift pdfs
+    individual:
+        truths: Z_SPEC
+        bins: [MAG_DETMODEL_I: '[ 17.5, 19, 22, 25]']
+        metrics: [bh_photo_z_validation.eval_pdf_point]
+        tolerance: [0.7, 20]
+        #shall we use weights when calculating metrics, if so specify here.
+        weights: WEIGHTS
+    #or shall we compare against stacked pdfs
+    stacks:
+        truths: Z_SPEC
+        bins: [MAG_DETMODEL_I: '[ 17.5, 19, 22, 25]']
+        metrics: [bh_photo_z_validation.kstest, bh_photo_z_validation.log_loss]
+        tolerance: [0.7, 20]
+        #shall we use weights when calculating metrics, if so specify here.
+        weights: WEIGHTS
+
+

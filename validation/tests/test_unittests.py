@@ -5,6 +5,59 @@ import bh_photo_z_validation as pval
 
 
 """ =============================
+tests on file tools  ======
+=================================
+"""
+
+
+def test_required_cols1():
+    """extracts the required columns from a test file"""
+
+    t = {'point': {'metrics': ['bh_photo_z_validation.sigma_68'], 'truths': 'Z_SPEC', 'weights': 'WEIGHTS', 'predictions': ['Z_MC'], 'bins': [{'Z_MC': '[0, 0.5, 1.0, 2.0]'}]}}
+
+    cols = pval.required_cols([t], 'point')
+    corr_cols = ['COADD_OBJECTS_ID', 'Z_SPEC', 'Z_MC', 'WEIGHTS']
+    for c in corr_cols:
+        np.testing.assert_equal(c in cols, True)
+
+
+def test_required_cols2():
+    """extracts the required columns from a test file"""
+
+    t = {'pdf': {'individual': {'metrics': ['bh_photo_z_validation.eval_pdf_point'], 'truths': 'Z_SPEC', 'tolerance': [0.7, 20], 'weights': 'WEIGHTS', 'bins': [{'MAG_DETMODEL_I': '[ 17.5, 19, 22, 25]'}]}}}
+
+    cols = pval.required_cols([t], 'pdf')
+
+    corr_cols = ['COADD_OBJECTS_ID', 'Z_SPEC', 'MAG_DETMODEL_I', 'WEIGHTS']
+    for c in corr_cols:
+        np.testing.assert_equal(c in cols, True)
+
+
+def test_required_cols3():
+    """extracts the required columns from a test file"""
+
+    t = {'pdf': {'stacks': {'metrics': ['bh_photo_z_validation.kstest', 'bh_photo_z_validation.npoisson', 'bh_photo_z_validation.log_loss'], 'metric_bins': [{'MAG_DETMODEL_I': '[ 17.5, 19, 22, 25]'}], 'weights': 'WEIGHTS_LSS', 'truth_bins': [{'Z_SPEC': 'numpy.linspace(0, 2, 4)'}], 'tolerance': [0.7, 20], 'truths': 'Z_SPEC'}}}
+
+    cols = pval.required_cols([t], 'pdf')
+
+    corr_cols = ['COADD_OBJECTS_ID', 'Z_SPEC', 'MAG_DETMODEL_I', 'WEIGHTS_LSS']
+    for c in corr_cols:
+        np.testing.assert_equal(c in cols, True)
+
+
+def test_required_cols4():
+    """extracts the required columns from a test file"""
+
+    t = {'pdf': {'stacks': {'metrics': ['bh_photo_z_validation.kstest', 'bh_photo_z_validation.npoisson', 'bh_photo_z_validation.log_loss'], 'metric_bins': [{'MAG_DETMODEL_I': '[ 17.5, 19, 22, 25]'}], 'weights': 'WEIGHTS_LSS', 'truth_bins': [{'Z_SPEC': 'numpy.linspace(0, 2, 4)'}], 'tolerance': [0.7, 20], 'truths': 'Z_SPEC'}, 'stacks': {'metrics': ['bh_photo_z_validation.kstest', 'bh_photo_z_validation.npoisson', 'bh_photo_z_validation.log_loss'], 'metric_bins': [{'MAG_DETMODEL_I': '[ 17.5, 19, 22, 25]'}], 'weights': 'WEIGHTS_LSS', 'truth_bins': [{'Z_SPEC': 'numpy.linspace(0, 2, 4)'}], 'tolerance': [0.7, 20], 'truths': 'Z_SPEC'}}, 'point': {'metrics': ['bh_photo_z_validation.sigma_68'], 'truths': 'Z_SPEC', 'predictions': ['Z_MC'], 'bins': [{'Z_MC': '[0, 0.5, 1.0, 2.0]'}]}}
+
+    cols = pval.required_cols([t], 'pdf')
+
+    corr_cols = ['COADD_OBJECTS_ID', 'Z_SPEC', 'MAG_DETMODEL_I', 'WEIGHTS_LSS']
+    for c in corr_cols:
+        np.testing.assert_equal(c in cols, True)
+
+
+""" =============================
 tests on hdf5 file format  ======
 =================================
 """
@@ -13,7 +66,8 @@ tests on hdf5 file format  ======
 def test_hdf1():
     """test get correct error with non-existent hdf5 file """
     filename = 'data/__nonValidHDF__.hdf5'
-    err, mess = pval.valid_hdf(filename, args=1)
+    cols = ['COADD_OBJECTS_ID', 'Z_SPEC', 'pdf_0']
+    err, mess = pval.valid_file(filename, cols)
     np.testing.assert_equal(err, False)
     np.testing.assert_equal(mess, 'file does not exist')
 
@@ -21,25 +75,17 @@ def test_hdf1():
 def test_hdf2():
     """test get correct error with non valid hdf5 file """
     filename = 'data/invalidHDF.hdf5'
-    err, mess = pval.valid_hdf(filename, args=1)
+    cols = ['COADD_OBJECTS_ID', 'Z_SPEC', 'pdf_0']
+    err, mess = pval.valid_file(filename, cols)
     np.testing.assert_equal(err, False)
     np.testing.assert_equal(mess, 'missing column COADD_OBJECTS_ID')
-
-
-#now check for wrong number of tomographic bins
-def test_hdf3():
-    """test get correct error with wrong number of bins in hdf5 file """
-    filename = 'data/validHDF.hdf5'
-    err, mess = pval.valid_hdf(filename, args={'tomographic_bins': np.arange(100)})
-    print mess
-    np.testing.assert_equal(mess, 'missing column ' + 'pdf_50 of ' + filename)
-    np.testing.assert_equal(err, False)
 
 
 def test_hdf4():
     """test can load valid hdf5 file """
     filename = 'data/validHDF.hdf5'
-    err, mess = pval.valid_hdf(filename, args={'tomographic_bins': np.arange(50)})
+    cols = ['COADD_OBJECTS_ID', 'Z_SPEC', 'pdf_0']
+    err, mess = pval.valid_hdf(filename, cols)
     np.testing.assert_equal(err, True)
 
     #To do, fix the data type comparison
@@ -55,7 +101,8 @@ tests on fits file format  ======
 def test_fits1():
     """test get correct error with non-existent fits file """
     filename = 'data/NotHerevalidPointPrediction.fits'
-    err, mess = pval.valid_fits(filename)
+    cols = ['COADDED_OBJECTS_ID', 'MEAN_Z', 'Z_SPEC']
+    err, mess = pval.valid_file(filename, cols)
     np.testing.assert_equal(err, False)
     np.testing.assert_equal(mess, 'file does not exist')
 
@@ -63,7 +110,8 @@ def test_fits1():
 def test_fits2():
     """test get correct error with invalid fits file """
     filename = 'data/invalidPointPrediction.fits'
-    err, mess = pval.valid_fits(filename)
+    cols = ['COADDED_OBJECTS_ID', 'MEAN_Z', 'Z_SPEC']
+    err, mess = pval.valid_file(filename, cols)
     np.testing.assert_equal(err, False)
     np.testing.assert_equal(mess, 'missing column MEAN_Z of ' + filename)
 
@@ -71,7 +119,10 @@ def test_fits2():
 def test_fits3():
     """test can load a valid fits file """
     filename = 'data/validPointPrediction.fits'
-    err, mess = pval.valid_fits(filename)
+    cols = ['COADD_OBJECTS_ID', 'MEAN_Z', 'Z_SPEC']
+    err, mess = pval.valid_file(filename, cols)
+    if err is False:
+        print mess
     np.testing.assert_equal(err, True)
 
 
@@ -213,7 +264,7 @@ def test_bootstrap_mean_error2():
         #test mean and std
         errorOnmean = err/np.sqrt(len(arr))
         np.testing.assert_approx_equal(res['mean'], mean, 2)
-        np.testing.assert_approx_equal(res['sigma'], errorOnmean, 1)
+        np.testing.assert_approx_equal(np.abs(res['sigma'] - errorOnmean) / errorOnmean < 0.1, True)
 
 
 def test_bootstrap_mean_error_binned():
@@ -239,9 +290,9 @@ def test_bootstrap_mean_error_binned():
     np.testing.assert_array_almost_equal(bsS['mean'], sigs, decimal=2)
 
 
-""" ===============
-tests on pdf ======
-===================
+""" ==========================
+tests two distributions ======
+==============================
 """
 
 
@@ -289,6 +340,12 @@ def test_kulbachLeiber_bins1():
     np.testing.assert_equal(False, True)
 
 
+""" ==================================
+tests point distributions  in pdf ====
+======================================
+"""
+
+
 
 """ ===========================
 tests on useful functions =====
@@ -331,6 +388,7 @@ def create_data():
     for i, pdf in enumerate(['pdf_' + str(j) for j in range(50)]):
         df[pdf] = np.random.dirichlet(np.arange(N) + i)
     df['Z_SPEC'] = np.random.dirichlet(np.arange(N) + N)
+    df['Z_SPEC'] = df['Z_SPEC']/np.amax(df['Z_SPEC']) * 2.0
     df['WEIGHT'] = np.random.dirichlet(np.arange(N) + N)
     df.to_hdf('data/validHDF.hdf5', 'pdf')
 
@@ -341,6 +399,7 @@ def create_data():
     for i, pdf in enumerate(['pdf_' + str(j) for j in range(3)]):
         df1[pdf] = np.random.dirichlet(np.arange(N) + i)
     df1['Z_SPEC'] = np.random.dirichlet(np.arange(N) + N)
+    df1['Z_SPEC'] = df1['Z_SPEC']/np.amax(df1['Z_SPEC']) * 2.0
     df1['WEIGHT'] = np.random.dirichlet(np.arange(N) + N)
     df1.to_hdf('data/invalidHDF.hdf5', 'pdf')
 
@@ -349,11 +408,12 @@ def create_data():
     from astropy.table import Table
     d = {}
     d['Z_SPEC'] = np.random.dirichlet(np.arange(N) + N)
+    d['Z_SPEC'] = d['Z_SPEC'] / np.amax(d['Z_SPEC']) * 2.0
     d['COADD_OBJECTS_ID'] = np.arange(N)
-    d['MAG_DETMODEL_I'] = np.random.uniform(size=N)*15 + 15
+    d['MAG_DETMODEL_I'] = np.random.uniform(size=N) * 15 + 15
     d['WEIGHTS'] = np.random.uniform(size=N)
     for i in ['MODE_Z', 'MEAN_Z', 'Z_MC']:
-        d[i] = np.random.uniform(size=N)*2
+        d[i] = np.random.uniform(size=N) * 2
     fit = Table(d)
     if os.path.exists('data/validPointPrediction.fits'):
         os.remove('data/validPointPrediction.fits')
@@ -361,11 +421,12 @@ def create_data():
 
     d1 = {}
     d1['Z_SPEC'] = np.random.dirichlet(np.arange(N) + N)
+    d1['Z_SPEC'] = d1['Z_SPEC']/np.amax(d1['Z_SPEC']) * 2.0
     d1['COADDED_OBJECTS_ID'] = np.arange(N)
-    d1['MAG_DETMODEL_I'] = np.random.uniform(size=N)*15 + 15
+    d1['MAG_DETMODEL_I'] = np.random.uniform(size=N) * 15 + 15
     d1['WEIGHTS'] = np.random.uniform(size=N)
     for i in ['MODE_Z', 'Z_MC']:
-        d1[i] = np.random.uniform(size=N)*2
+        d1[i] = np.random.uniform(size=N) * 2
     fit1 = Table(d1)
     if os.path.exists('data/invalidPointPrediction.fits'):
         os.remove('data/invalidPointPrediction.fits')

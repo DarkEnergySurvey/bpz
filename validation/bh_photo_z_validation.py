@@ -4,7 +4,7 @@ import numpy as np
 import os
 import scipy as sp
 from scipy.stats import ks_2samp, binned_statistic
-
+from scipy import interpolate
 
 """
 Authors: Ben Hoyle, Christopher Bonnet
@@ -45,8 +45,11 @@ def mode(arr, axis=None):
     return np.mode(arr, axis=axis)[0]
 
 
+#extracts the output of a pdf from a decision tree, in this the first column has the highest weight
+#this is ordered okay (even for weighted-pdfs) because the first tree has the most weight
 def highest_weight(pdf, axis=None):
     return pdf[:, 0]
+
 
 """ ===========================
 Error function checking tools =
@@ -54,10 +57,12 @@ Error function checking tools =
 """
 
 
-def bootstrap_mean_error(arr, weight, func):
+def bootstrap_mean_error(arr, weight, func, Nsamples=None):
 
     #draw this many samples
-    Nsamples = 100
+    if Nsamples is None:
+        Nsamples = 150
+
     val = np.zeros(Nsamples)
     #what weight do each data have
     p = weight*1.0 / np.sum(weight)
@@ -70,12 +75,14 @@ def bootstrap_mean_error(arr, weight, func):
     return {'mean': np.mean(val), 'sigma': np.std(val)}
 
 
-def jacknife_error(arr, weight, func):
+def jacknife_error(arr, weight, func, Nsamples=None):
     return False
 
 
-def bootstrap_mean_error_binned(x, arr, weight, bins, func):
-    Nsamples = 5000
+def bootstrap_mean_error_binned(x, arr, weight, bins, func, Nsamples=None):
+    if Nsamples is None:
+        Nsamples = 500
+    
     val = np.zeros((Nsamples, len(bins)-1))
     #what weight do each data have
     p = weight*1.0 / np.sum(weight)
@@ -90,18 +97,72 @@ def bootstrap_mean_error_binned(x, arr, weight, bins, func):
     #Error is the std of all samples
     return {'mean': np.mean(val, axis=0), 'sigma': np.std(val, axis=0)}
 
+
 """ ========================
 Data format checking tools =
 ============================
 """
 
 
-def valid_hdf(filename, args=None):
+#check the existence and non-nullness of a key
+def key_not_none(_dict, ky):
+    if ky in _dict:
+        if _dict[ky] is not None:
+            return True
+    return False
+
+
+#extract all columns we are asking to work with
+def required_cols(_dict, pointOrPdf):
+    cols = []
+    for dd in _dict:
+        if pointOrPdf == 'point':
+            if key_not_none(dd, 'point'):
+                cols += extract_cols(dd['point'])
+
+        if pointOrPdf == 'pdf':
+            if key_not_none(dd, 'pdf'):
+
+                    if key_not_none(dd['pdf'], 'individual'):
+                        cols += extract_cols(dd['pdf']['individual'])
+
+                    if key_not_none(dd['pdf'], 'stacks'):
+                        cols += extract_cols(dd['pdf']['stacks'])
+    return [i for i in np.unique(cols)]
+
+
+#extract all columns we are asking to work with
+def extract_cols(_dict):
+    #must have coadd_objects_id
+    cols = ['COADD_OBJECTS_ID']
+    for i in _dict:
+        if key_not_none(_dict, 'predictions'):
+            [cols.append(c) for c in _dict['predictions'] if c not in cols]
+
+        if key_not_none(_dict, 'truths'):
+            [cols.append(c) for c in [_dict['truths']] if c not in cols]
+
+        if key_not_none(_dict, 'weights'):
+            [cols.append(c) for c in [_dict['weights']] if c not in cols]
+
+        if key_not_none(_dict, 'bins'):
+            [cols.append(c.keys()[0]) for c in _dict['bins'] if c.keys()[0] not in cols]
+
+        if key_not_none(_dict, 'truth_bins'):
+            [cols.append(c.keys()[0]) for c in _dict['truth_bins'] if c.keys()[0] not in cols]
+
+        if key_not_none(_dict, 'metric_bins'):
+            [cols.append(c.keys()[0]) for c in _dict['metric_bins'] if c.keys()[0] not in cols]
+
+    return cols
+
+
+def valid_hdf(filename, cols):
     """ Checks that the hdf file is a valid file for our purposes"
     """
     #is args set?
-    if args is None:
-        return False, 'you must have at least args={tomographic_bins:}'
+    if cols is None:
+        return False, 'you must have at least some defined cols'
     #does the file exist
     if os.path.exists(filename) is False:
         return False, 'file does not exist'
@@ -117,19 +178,19 @@ def valid_hdf(filename, args=None):
         return False, 'pandas dataframe not standard'
 
     #does it have the required columns?
-    for i in ['COADD_OBJECTS_ID', 'Z_SPEC', 'WEIGHT']:
+    for i in cols:
         if i not in df:
             return False, 'missing column ' + i
 
     #does if have the correct number of tomographic bins
-    for i in range(len(args['tomographic_bins'])):
-        if 'pdf_' + str(i) not in df:
-            return False, 'missing column ' + 'pdf_' + str(i) + ' of ' + filename
+    #for i in range(len(args['tomographic_bins'])):
+    #    if 'pdf_' + str(i) not in df:
+    #        return False, 'missing column ' + 'pdf_' + str(i) + ' of ' + filename
 
     return True, df
 
 
-def valid_fits(filename):
+def valid_fits(filename, cols):
     """ checks if the fits file is readable and formatted correctly
     """
     #does file exist
@@ -147,18 +208,19 @@ def valid_fits(filename):
         return False, 'astropy table not standard'
 
     #are all required columns in this file
-    for i in ['MODE_Z', 'MEAN_Z', 'Z_MC', 'COADD_OBJECTS_ID', 'Z_SPEC', 'MAG_DETMODEL_I']:
+    for i in cols:
         if i not in df.keys():
             return False, 'missing column ' + i + ' of ' + filename
 
     return True, df
 
 
-def valid_file(filename, args=None):
-    if '.fit' in filename:
-        return valid_fits(filename)
+def valid_file(filename, cols):
+
+    if ('.fit' in filename) or ('.csv' in filename):
+        return valid_fits(filename, cols)
     if '.hdf5' in filename:
-        return valid_hdf(filename, args)
+        return valid_hdf(filename, cols)
     return False, 'currently unable to read file'
 
 
@@ -236,6 +298,14 @@ def ks_test(arr1, arr2):
 def ks_test_prob(arr1, arr2):
     D, pval = ks_2samp(arr1, arr2)
     return pval
+
+
+def eval_pdf_point(pdf, bins, point):
+    val = np.zeros(len(point))
+    for i in np.arange(len(pdf)):
+        f = interpolate.interp1d(pdf[i], bins)
+        val[i] = f(point[i])
+    return val
 
 
 """ ==========================

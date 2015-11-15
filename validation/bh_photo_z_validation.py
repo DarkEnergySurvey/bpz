@@ -82,7 +82,7 @@ def jacknife_error(arr, weight, func, Nsamples=None):
 def bootstrap_mean_error_binned(x, arr, weight, bins, func, Nsamples=None):
     if Nsamples is None:
         Nsamples = 500
-    
+
     val = np.zeros((Nsamples, len(bins)-1))
     #what weight do each data have
     p = weight*1.0 / np.sum(weight)
@@ -308,16 +308,43 @@ def eval_pdf_point(pdf, bins, point):
     return val
 
 
+def stackpdfs(pdfs):
+    """ numpy shape np.array( (galaxy, pdfbins)) """
+    stk_pdf = np.sum(pdfs, axis=0)
+    return stk_pdf
+
+
+def normalisepdfs(pdfs, x):
+    """ numpy shape (galaxy, pdfbins) """
+
+    if len(np.shape(pdfs)) > 1:
+        smm = np.trapz(pdfs, x, axis=1)
+    else:
+        smm = np.trapz(pdfs, x)
+
+    #tricks to allow array (ngal, pdfbins) to be divided by array (ngal)
+    npdfs = (pdfs.T / smm).T
+
+    return npdfs
+
+
+def integrate_dist_bin(dfs, x, minval, maxval):
+    """Please note! we assume that the minval and maxval are (or are close to) x bin edges. If this is not the case
+    This routine will be approximate
+    """
+    ind = (x >= minval) * (x <= maxval)
+
+    if len(np.shape(dfs)) > 1:
+        smm = np.trapz(dfs[:, ind], x[ind], axis=1)
+    else:
+        smm = np.trapz(dfs[ind], x[ind])
+
+    return smm
+
 """ ==========================
 validation metrics and tools =
 ==============================
 """
-
-
-# should tolerances be on absolute values?
-def within_tolerance(val1, val2, tol):
-    return np.abs(val1 - val2) < tol
-
 
 
 def ld_writedicts(filepath, dictionary):

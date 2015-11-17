@@ -15,23 +15,25 @@ def create_data():
     np.random.seed(0)
     import pandas as pd
     import os
-    N = 1000
+    N = 10000
     zbins = np.arange(300)/300.0 * 2
     #write hdf5 files
     df = pd.DataFrame()
     df['COADD_OBJECTS_ID'] = np.arange(N)
 
+    df['Z_SPEC'] = np.abs(np.random.normal(size=N))
+    df['Z_SPEC'] = df['Z_SPEC']/np.amax(df['Z_SPEC']) * 1.89
+
     pdfs = np.zeros((N, 300))
     for i in range(N):
-        h = np.histogram(np.abs(np.random.normal(size=1e5) * np.random.uniform()*0.01 + np.random.uniform() * 1.5), bins=np.append(zbins, 2))[0]
+        h = np.histogram(np.abs(np.random.normal(size=1e5) * np.random.uniform()*0.2 + (np.random.uniform()-0.5)*0.1 + df['Z_SPEC'][i]) , bins=np.append(zbins, 2))[0]
         pdfs[i] = h
 
     npdfs = pval.normalisepdfs(pdfs, zbins)
 
     for i, pdf in enumerate(['pdf_' + str(j) for j in zbins]):
         df[pdf] = npdfs[:, i]
-    df['Z_SPEC'] = np.abs(np.random.normal(size=N))
-    df['Z_SPEC'] = df['Z_SPEC']/np.amax(df['Z_SPEC']) * 2.0
+
     df['WEIGHT'] = np.random.dirichlet(np.arange(N) + N)
     df['MAG_DETMODEL_I'] = np.random.uniform(size=N) * 15 + 15
     df.to_hdf('data/validHDF.hdf5', 'pdf')

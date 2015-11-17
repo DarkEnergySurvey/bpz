@@ -5,6 +5,7 @@ import os
 import scipy as sp
 from scipy.stats import ks_2samp, binned_statistic
 from scipy import interpolate
+import sys
 
 """
 Authors: Ben Hoyle, Christopher Bonnet
@@ -14,7 +15,6 @@ To do:
  define npoisson function
 
 """
-
 
 """ ==========================
 Cool tools ===================
@@ -98,6 +98,29 @@ def bootstrap_mean_error_binned(x, arr, weight, bins, func, Nsamples=None):
     return {'mean': np.mean(val, axis=0), 'sigma': np.std(val, axis=0)}
 
 
+def bootstrap_mean_error_pdf_point(_pdf, _bins, _point, _weights, func, Nsamples=None):
+    """boot strap error, _pdf is shape (ngals, zbins), _bins = zbins beginings, _weights = galaxy weights
+    func = metric function, must accept (pdf[ngals,zbins], zbins, points(ngals)"""
+
+    if Nsamples is None:
+        Nsamples = 200
+
+    val = np.zeros(Nsamples)
+    #what weight do each data have
+    p = _weights * 1.0 / np.sum(_weights)
+    ind = np.arange(len(_pdf))
+
+    for i in np.arange(Nsamples):
+        indrs = np.random.choice(ind, size=len(ind), replace=True, p=p)
+
+        #call the function and pass in a bootstrapped sample
+        val[i] = func(_pdf[indrs], _bins, _point[indrs])
+
+    #Error is the std of all samples
+    return {'mean': np.mean(val), 'sigma': np.std(val)}
+
+
+
 """ ========================
 Data format checking tools =
 ============================
@@ -122,12 +145,10 @@ def required_cols(_dict, pointOrPdf):
 
         if pointOrPdf == 'pdf':
             if key_not_none(dd, 'pdf'):
+                for ttype in ['individual', 'stacks']:
+                    if key_not_none(dd['pdf'], ttype):
+                        cols += extract_cols(dd['pdf'][ttype])
 
-                    if key_not_none(dd['pdf'], 'individual'):
-                        cols += extract_cols(dd['pdf']['individual'])
-
-                    if key_not_none(dd['pdf'], 'stacks'):
-                        cols += extract_cols(dd['pdf']['stacks'])
     return [i for i in np.unique(cols)]
 
 
@@ -155,6 +176,30 @@ def extract_cols(_dict):
             [cols.append(c.keys()[0]) for c in _dict['metric_bins'] if c.keys()[0] not in cols]
 
     return cols
+
+
+def keytst(_tst):
+    for bn in ['bins', 'metric_bins']:
+        if key_not_none(_tst, bn):
+            for binkyv in _tst[bn]:
+                try:
+                    bins = eval(binkyv[binkyv.keys()[0]])
+                except:
+                    print "unable to generate bins in this test"
+                    print ' ' + bn + ' ' + binkyv.keys()[0]
+                    sys.exit()
+
+
+def valid_tests(tsts):
+    """ check the tests are all valid. """
+    for tst in tsts:
+        for ttype in tst:
+            keytst(ttype)
+            for pdftype in ['individual', 'stacks']:
+                if key_not_none(ttype, pdftype):
+                    keytst(ttype[pdftype])
+
+    return True
 
 
 def valid_hdf(filename, cols):
@@ -287,7 +332,8 @@ def kulbachLeiber_bins(arr1, arr2):
 
 # what is this test?
 def npoisson(arr1, arr2):
-    return 0
+
+    return False
 
 
 def ks_test(arr1, arr2):
@@ -340,6 +386,106 @@ def integrate_dist_bin(dfs, x, minval, maxval):
         smm = np.trapz(dfs[ind], x[ind])
 
     return smm
+
+
+
+def cumaltive_to_point(dfs, x, points):
+    """ This assumes bin widths are small enough to ignore.
+    Expected shape: numpy dfs shape (galaxy, bins), x begins at 0, ends at just before 2 """
+
+    #calcaulte the cumaltive distribution
+    if len(np.shape(dfs)) > 1:
+        cum = np.cumsum(dfs, axis=1)
+        cum = (cum.T / cum[:, -1]).T
+
+        #determine which index is just <= each point value]
+        indx = np.arange(len(x))
+        ind_max = np.array([np.amax(indx[x <= p]) for p in points])
+
+        #return these cfd values at the points of interst
+        return cum[np.arange(len(dfs)), ind_max]
+    else:
+        cum = np.cumsum(dfs)
+        cum = cum / float(cum[-1])
+        return cum[x <= points][-1]
+
+
+def gini(sorted_list):
+    """ from https://planspacedotorg.wordpress.com/2013/06/21/how-to-calculate-gini-coefficient-from-raw-data-in-python/
+    """
+
+    height, area = 0, 0
+    for value in sorted_list:
+        height += value
+        area += height - value / 2.
+    fair_area = height * len(sorted_list) / 2
+    return (fair_area - area) / fair_area
+
+
+def Bordoloi_pdf_test(dfs, x, points, n_yaxis_bins=None):
+    """determine a test described here:
+    http://arxiv.org/pdf/1201.0995.pdf
+    Is the pdf flat, in bins of Pval?
+    """
+
+    #calculate the cum pdf values up to each point (or spec-z)
+    pvals = cumaltive_to_point(dfs, x, points)
+
+    if n_yaxis_bins is None:
+        n_yaxis_bins = 100
+
+    #make a histogram of this in steps of 0.01. Must be smaller than 0.03 otherwise
+    hp = np.histogram(pvals, bins=np.arange(n_yaxis_bins + 1) / float(n_yaxis_bins))[0]
+
+    #return the giniCoefficient of this distribution. Flat = 0 = great!
+    return gini(hp)
+
+
+def dfs_mode(dfs, x):
+    """calcaulte the location of the mode of a heap of dfs"""
+    if len(np.shape(dfs)) > 1:
+        mx = np.argmax(dfs, axis=1)
+        return x[mx]
+    else:
+        return x[np.argmax(dfs)]
+
+
+def binned_pdf_point_stats(_data_to_bin, _bin_vals, _pdf, _zbins, _truths, _weights, func, Nsamples=None):
+    """ take a binning vector, and bins edges, and calculate the pdf-point statistic. Use Boot strap resampling to use weights keyword. If weights are given, we use bootstrap to estimate the weighted average value of the metric
+
+    _data_to_bin[size ngals], _bin_vals = bins to bin _data_to_bin, _pdf[ngals, nzbins], _zbins the zbins of the pdf
+    _truths[ngals] point predictions, _weights[ngals] galaxy weights, func = metric of choice"""
+
+    if Nsamples is None:
+        Nsamples = 150
+    res = {}
+    p = _weights / np.sum(_weights)
+    for i in np.arange(len(_bin_vals)-1):
+        res[i] = {}
+
+        if i == len(_bin_vals)-1:
+            #catch edge case
+            ind = (_data_to_bin >= _bin_vals[i]) * (_data_to_bin <= _bin_vals[i+1])
+        else:
+            ind = (_data_to_bin >= _bin_vals[i]) * (_data_to_bin < _bin_vals[i+1])
+
+        res[i]['weighted_bin_center'] = np.average(_data_to_bin[ind], weights=p[ind])
+
+        #do we need to both reweighting?
+        if np.sum(_weights[ind]) != np.sum(ind):
+
+            val = np.zeros(Nsamples)
+            indx = np.arange(len(_data_to_bin))[ind]
+            for j in np.arange(Nsamples):
+                indr = np.random.choice(indx, size=len(indx), replace=True, p=p[ind])
+                val[i] = func(_pdf[indr], _zbins, _truths[indr])
+            res[i]['weighted_value'] = np.mean(val)
+        else:
+            res[i]['weighted_value'] = func(_pdf[ind], _zbins, _truths[ind])
+
+    return res
+
+
 
 """ ==========================
 validation metrics and tools =

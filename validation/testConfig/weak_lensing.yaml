@@ -1,3 +1,4 @@
+test_name: wl-wg
 #these are the point prediction tests
 point:
     #which photo-z predictions do we want to test

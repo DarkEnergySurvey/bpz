@@ -79,3 +79,81 @@ def test_integrate_dist_bin2():
         np.testing.assert_almost_equal(tot[i], (maxval-minval) * (i + 1), 4)
 
 
+def test_cumaltive_to_point1():
+    """ can we determine cumulative 1-d pdf at a set of points"""
+
+    #generate a fake df, flat across the 500 bins
+    pdf = np.ones(500)
+
+    #calcalate cumulative df of this, up to 0, 1, 2, 3,.. ngals etc
+    for i in np.arange(40):
+        res = pval.cumaltive_to_point(pdf, np.arange(500), i)
+        print i, res
+        np.testing.assert_equal(res, i + 1)
+
+
+def test_cumaltive_to_point2():
+    """ can we determine cumulative n-d pdf at a set of points"""
+
+    #generate a fake df, flat across the 500 bins
+    ngals = 56
+    pdfs = np.zeros((ngals, 500))
+    for i in range(ngals):
+        pdfs[i, :] = i
+
+    #calcalate cumulative df of this, up to 0, 1, 2, 3,.. ngals etc
+    res = pval.cumaltive_to_point(pdfs, np.arange(500), np.arange(ngals))
+
+    for i in range(ngals):
+        print i, res[i], np.sum(pdfs[i, 0:i+1])
+        np.testing.assert_equal(res[i], np.sum(pdfs[i, 0:i+1]))
+
+
+def test_gini_criteria():
+    """ test gini codes, using values found
+    https://en.wikipedia.org/wiki/Gini_coefficient
+    """
+    np.testing.assert_equal(pval.gini(np.ones(10)), 0)
+    np.testing.assert_almost_equal(pval.gini(np.sqrt(np.arange(100)/101.0)), 0.2, 2)
+    np.testing.assert_almost_equal(pval.gini(np.power(np.arange(100)/101.0, 2)), 0.5, 2)
+    np.testing.assert_almost_equal(pval.gini(np.power(np.arange(100)/101.0, 3)), 0.6, 2)
+
+
+def test_dfs_mode1():
+    """test we can extract the mode from a distribution"""
+    pdfs = np.array([[0, 1, 12, 3, 5], [10, 9, 8, 7, 0], [0, 1, 2, 3, 4]])
+    print np.shape(pdfs)
+    x = np.arange(5)
+    mds = pval.dfs_mode(pdfs, x)
+    np.testing.assert_array_equal(mds, [2, 0, 4])
+
+
+def test_dfs_mode2():
+    """test we can extract the mode from a distribution"""
+    pdfs = np.array([0, 1, 12, 3, 5])
+    x = np.arange(5)
+    mds = pval.dfs_mode(pdfs, x)
+    np.testing.assert_equal(mds, 2)
+
+
+def test_Bordoloi_pdf():
+    """test the cum pdf distribution upto a point estimate is flat between 0-1 for a heap of samples.
+    We use the gini criteria to check for equivilence"""
+
+    #make a normalised pdf
+    h = np.histogram(np.random.normal(size=5e6)*0.1 + 2, bins=800)
+    dist = h[0]
+    bn = h[1][1:] - (h[1][1] - h[1][0]) / 2.0
+    pdf = pval.normalisepdfs(dist, bn)
+
+    ngals = 1e5
+    pdfs = np.tile(pdf, [ngals, 1])
+
+    specz = np.random.normal(size=ngals)*0.1 + 2
+
+    gini = pval.Bordoloi_pdf_test(pdfs, bn, specz)
+
+    print gini
+    np.testing.assert_almost_equal(gini, 0, decimal=1)
+
+

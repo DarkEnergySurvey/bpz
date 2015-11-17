@@ -6,6 +6,7 @@ import scipy as sp
 from scipy.stats import ks_2samp, binned_statistic
 from scipy import interpolate
 import sys
+from weighted_kde import gaussian_kde
 
 """
 Authors: Ben Hoyle, Christopher Bonnet
@@ -701,7 +702,7 @@ def weighted_nz_distributions(df, binning, weights=None, tomo_bins=np.array([0, 
     assert isinstance(z_phot, np.ndarray), 'z_phot must be a numpy array'
     assert len(z_phot) == len(df), 'Length of z_phot must be equal to that of df'
     df['phot_sel'] = z_phot  # Make the selection photo-z a part of the DataFrame
-    assert 'z_spec' in df.columns, 'The df needs a "z_spec" in df.columns'
+    assert 'Z_SPEC' in df.columns, 'The df needs a "Z_SPEC" in df.columns'
     pdf_names = ['pdf_' + str(i) for i in range(500) if 'pdf_' + str(i) in df.columns]
 
     phot_iter = {}
@@ -719,14 +720,14 @@ def weighted_nz_distributions(df, binning, weights=None, tomo_bins=np.array([0, 
 
             for i in xrange(n_resample):
                 df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=df_sel[weights])
-                kde_w_spec_pdf = gaussian_kde(df_sample.z_spec.values, bw_method='silverman')
+                kde_w_spec_pdf = gaussian_kde(df_sample['Z_SPEC'].values, bw_method='silverman')
                 kde_w_spec_pdf = kde_w_spec_pdf(binning)
 
                 phot_iter[j + 1][i + 1] = _normalize_pdf(df_sample[pdf_names].sum(), binning[1] - binning[0]).values
                 spec_iter[j + 1][i + 1] = kde_w_spec_pdf
 
             phot_iter[j + 1][0] = _normalize_pdf(df_sel[pdf_names].sum(), binning[1] - binning[0]).values
-            kde_w_spec_pdf = gaussian_kde(df_sel.z_spec.values, bw_method='silverman')
+            kde_w_spec_pdf = gaussian_kde(df_sel['Z_SPEC'].values, bw_method='silverman')
             spec_iter[j + 1][0] = kde_w_spec_pdf(binning)
 
     # In the following section the full n(z) is treated i.e not in tomographic bins
@@ -738,14 +739,14 @@ def weighted_nz_distributions(df, binning, weights=None, tomo_bins=np.array([0, 
 
     for i in xrange(n_resample):
         df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=df_sel[weights])
-        kde_w_spec_pdf = gaussian_kde(df_sample.z_spec.values, bw_method='silverman')
+        kde_w_spec_pdf = gaussian_kde(df_sample['Z_SPEC'].values, bw_method='silverman')
         kde_w_spec_pdf = kde_w_spec_pdf(binning)
 
         phot_iter[0][i + 1] = _normalize_pdf(df_sample[pdf_names].sum(), binning[1] - binning[0]).values
         spec_iter[0][i + 1] = kde_w_spec_pdf
 
     phot_iter[0][0] = _normalize_pdf(df_sel[pdf_names].sum(), binning[1] - binning[0]).values
-    kde_w_spec_pdf = gaussian_kde(df_sel.z_spec.values, bw_method='silverman')
+    kde_w_spec_pdf = gaussian_kde(df_sel['Z_SPEC'].values, bw_method='silverman')
     spec_iter[0][0] = kde_w_spec_pdf(binning)
 
     data_for_wl = {'binning': binning, 'phot': phot_iter, 'spec': spec_iter}

@@ -53,11 +53,15 @@ def get_function(function_string):
 def writeExampleConfig():
     if os.path.isfile('exampleValidation.yaml') is False:
         f = open('exampleValidation.yaml', 'w')
-        txt = textwrap.dedent("""#paths to file locations. will assume '.fits' as point predictions '.hdf5' as pdf predictions
+        txt = textwrap.dedent("""
+#test name.
+test_name: MyExampleTest1
+
+#paths to file locations. will assume '.fits' as point predictions '.hdf5' as pdf predictions
 #add more files to list to compare multiple files
 filePaths: ['tests/data/validPointPrediction.fits', 'tests/data/validHDF.hdf5']
 
-#Which metrics and tolerance should we measure either a list of metrics, such as
+#1) OPTIONAL Which metrics and tolerance should we measure either a list of metrics, such as
 # and or a precomputed collection of group metrics and tolerances
 #set blank, or delete this line to not use these preconfigured metrics/bins/tolerances
 standardPredictions: [/testConfig/photoz.yaml, /testConfig/weak_lensing.yaml]
@@ -65,6 +69,7 @@ standardPredictions: [/testConfig/photoz.yaml, /testConfig/weak_lensing.yaml]
 # what will the path/ and or/base file name of the results be called?
 resultsFilePrefix: 
 
+#2) EITHER 1) AND OR OPTIONAL Tests here:
 #And or / additionally choose your own metrics, as list
 #remove these if not required
 #these are the point prediction tests
@@ -90,7 +95,7 @@ point:
     bins: [MAG_DETMODEL_I: '[10, 15, 20, 25, 30]', MODE_Z: 'numpy.linspace(0, 2, 20)']
 
     #Should we calculate errors on each metric? if yes state how
-    #you can include as many different error functions as you like.
+    #you can include as many different error functions as you like. Take care when changing this.
     error_function: [bh_photo_z_validation.bootstrap_mean_error]
 
 #these are the pdf tests
@@ -98,11 +103,19 @@ pdf:
     #we can examine individual redshift pdfs. Remove this part you don't need to compare
     individual:
         truths: Z_SPEC
-        metrics: [bh_photo_z_validation.eval_pdf_point]
+
+        #let's perform the test found in Bordoloi et al 2012
+        metrics: [bh_photo_z_validation.Bordoloi_pdf_test]
+        tolerance: [0.7]
+
+        #show we calculate the metric in some user specified bins?
         bins: [MAG_DETMODEL_I: '[ 17.5, 19, 22, 25]']
-        tolerance: [0.7, 20]
+
         #shall we use weights when calculating metrics, if so specify here.
         weights: WEIGHTS
+
+        #how will we calculate an error on this test? Take care when changing this
+        error_function: [bh_photo_z_validation.bootstrap_mean_error_pdf_point]
 
     #or shall we compare against stacked pdfs
     stacks:
@@ -160,7 +173,7 @@ def get_weights(_dict, _ky, _d):
 
 
 def load_file(f, cols):
-    okay, d = pval.valid_file(f, reqcols)
+    okay, d = pval.valid_file(f, cols)
     if okay is False:
         print "Aborting because"
         print "error reading file: " + f
@@ -250,6 +263,10 @@ if len(files[ptype]) > 0:
 
     #obtain the tests and required cols
     tests = testProperties[ptype]
+
+    #check these test are "valid"
+    cont = pval.valid_tests(tests)
+
     reqcols = pval.required_cols(tests, ptype)
 
     #loop over all files
@@ -261,7 +278,11 @@ if len(files[ptype]) > 0:
         res[ptype][f] = {}
 
         #calculate all unweighted metrics for deltaz and deltaz/(1+z)
-        for testNum, tst in enumerate(tests):
+        for tst in tests:
+            testNum = 'Test_randid' + str(np.random.randint(0, 1000))
+            if pval.key_not_none(tst, 'test_name'):
+                testNum = tst['test_name']
+
             res[ptype][f][testNum] = {}
 
             #should we calculate an error on these metrics
@@ -290,9 +311,6 @@ if len(files[ptype]) > 0:
                     #turn string into function
                     metric_function = pval.get_function(metric)
 
-                    #does the metric function accept a 'weights' keyword
-                    use_weights = 'weights' in inspect.getargspec(metric_function).args
-
                     #which residuals shall we employ?
                     for diffpp in points.keys():
                         res[ptype][f][testNum][photoz][metric][diffpp] = {}
@@ -311,17 +329,7 @@ if len(files[ptype]) > 0:
                             res[ptype][f][testNum][photoz][metric][diffpp]['bins'] = {}
                             for binDict in binning:
                                 ky = binDict.keys()[0]
-                                if ky not in d.keys():
-                                    print "You asked to bin in " + ky
-                                    print "but it does not exist in file " + f
-                                    print "aborting"
-                                    sys.exit()
-                                try:
-                                    bin_vals = eval(binDict[ky])
-                                except:
-                                    print "unable to build the bins, please check syntax: " + binDict[ky]
-                                    print "Aborting"
-                                    sys.exit()
+                                bin_vals = eval(binDict[ky])
 
                                 res[ptype][f][testNum][photoz][metric][diffpp]['bins'][ky] = {}
                                 #this uses the binned_stats function
@@ -351,7 +359,7 @@ if len(files[ptype]) > 0:
                                 res[ptype][f][testNum][photoz][metric][diffpp]['bins'][ky]['SIGMA_BS'] = [np.asscalar(vv) for vv in bn_bs_stats['sigma']]
 
     #save this output to a file
-    with open('point_' + resultsFilePrefix + '.yml', 'w') as outfile:
+    with open('point_' + resultsFilePrefix + '.yaml', 'w') as outfile:
         outfile.write(yaml.dump(res[ptype], default_flow_style=False))
 
     pickle.dump(res['point'], open('point_' + resultsFilePrefix + '.p', 'w'))
@@ -378,14 +386,76 @@ if len(files[ptype]) > 0:
         d = load_file(f, reqcols)
 
         res[ptype][f] = {}
-        pdf = d['PDF']
 
-        1/0
-        #calculate all unweighted metrics for deltaz and deltaz/(1+z)
-        for m, tst in enumerate(tests):
+        zcols = [c for c in d.keys() if 'pdf_' in c]
+        zbins = np.array([float(c.split('f_')[-1]) for c in zcols])
+        pdf = np.array(d[zcols])
+
+        for tsts in tests:
+
+            testNum = 'Test_randid' + str(np.random.randint(0, 10000))
+            if pval.key_not_none(tsts, 'test_name'):
+                testNum = tsts['test_name']
+
             res[ptype][f][testNum] = {}
-            for metric in tst['metrics']:
-                res[ptype][f][testNum][metric] = get_function(metric)(pdf)
+
+            if pval.key_not_none(tsts, 'individual'):
+
+                tst = tsts['individual']
+
+                #set standard bins, or use those in the test file
+                truths = np.array(d[tst['truths']])
+                weights = get_weights(tst, 'weights', d)
+
+                for metric in tst['metrics']:
+                    metric_function = get_function(metric)
+                    res[ptype][f][testNum][metric] = {}
+                    res[ptype][f][testNum][metric]['VALUE'] = np.asscalar(metric_function(pdf, zbins, truths))
+
+                    #calculate error on statistic
+                    if pval.key_not_none(tst, 'error_function'):
+                        for errf in tst['error_function']:
+                            bserr = get_function(errf)(pdf, zbins, truths, weights, metric_function)
+                            res[ptype][f][testNum][metric]['MEAN_BS' + errf] = np.asscalar(bserr['mean'])
+                            res[ptype][f][testNum][metric]['SIGMA_BS' + errf] = np.asscalar(bserr['sigma'])
+
+                        if pval.key_not_none(tests, 'bins'):
+                            binning = tests['bins']
+                            res[ptype][f][testNum][metric]['binned_result'] = {}
+                            for binDict in binning:
+                                ky = binDict.keys()[0]
+                                ## remove to file testing location
+                                bin_vals = eval(binning[ky])
+                                data_to_bin = np.array(d[ky])
+
+                                res[ptype][f]['result'][photoz]['binned_result'][ky] = {}
+                                res[ptype][f]['result'][photoz]['binned_result'][ky]['bin_column'] = ky
+                                res[ptype][f]['result'][photoz]['binned_result'][ky]['bin_values'] = bin_vals
+
+                                binstats = pval.binned_pdf_point_stats(data_to_bin, bin_vals, pdf, zbins, truths, weights, metric_function)
+                                res[ptype][f]['result'][photoz]['binned_result'][ky]['BIN_CENTERS'] = [np.asscalar(binstats[vv]['weighted_bin_center']) for vv in binstats]
+                                res[ptype][f]['result'][photoz]['binned_result'][ky]['VALUE'] = [np.asscalar(binstats[vv]['weighted_value']) for vv in binstats]
+
+                    """ to do, add errors boot strap to this pdf=point binned stats"""
+
+            if pval.key_not_none(tsts, 'stacks'):
+                #perform stacks tests
+                tst = tsts['stacks']
+
+                #set standard bins, or use those in the test file
+                if pval.key_not_none(tst, 'truth_bins'):
+                    truth_col = tst['truth_bins'][0].keys()[0]
+                    truth_bins_edges = eval(tst['truth_bins'][0][truth_col])
+
+                truths = np.array(d[truth_col])
+                truth_dist = np.histogram(truths, bins=truth_bins_edges)[0]*1.0
+
+                truth_pdf = pval.normalisepdfs(truth_dist, truth_bins_edges)
+
+                print truth_col, truth_bins_edges, truth_dist, truth_pdf
+
+                for metric in tst['metrics']:
+                    res[ptype][f][testNum][metric] = get_function(metric)(pdf)
 
                 if pval.key_not_none(tests, 'bins'):
                     binning = tests['bins']

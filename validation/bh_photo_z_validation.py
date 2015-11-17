@@ -583,12 +583,11 @@ def mean(df, binning, z_phot, metric='mean', weights=None, tomo_bins=np.array([0
     assert isinstance(z_phot, np.ndarray), 'z_phot must be a numpy array'
     assert len(z_phot) == len(df), 'Length of z_phot must be equal to that of df'
     df['phot_sel'] = z_phot  # Make the selection photo-z a part of the DataFrame
-    assert 'z_spec' in df.columns, 'The df needs a "z_spec" columns'
-    assert 'pdf_0' in df.columns, 'The pdf values must have pdf_i column name'
-    pdf_names = ['pdf_' + str(i) for i in range(500) if 'pdf_' + str(i) in df.columns]
+    assert 'Z_SPEC' in df.columns, 'The df needs a "z_spec" columns'
+    pdf_names = [c for c in df.keys() if 'pdf_' in str(c)]
 
     if metric == 'mode':
-        df['z_phot'] = binning[np.argmax([df[pdf_names].values], axis=1)][0]
+        df['z_phot'] = binning[np.argmax(df[pdf_names].values, axis=1)]
     elif metric == 'mean':
         df['z_phot'] = np.inner(binning, df[pdf_names].values)
     else:
@@ -629,11 +628,11 @@ def mean(df, binning, z_phot, metric='mean', weights=None, tomo_bins=np.array([0
 
             for i in xrange(n_resample):
                 df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=None)
-                mean_spec_array.append(df_sample.z_spec.mean())
+                mean_spec_array.append(df_sample.Z_SPEC.mean())
                 mean_phot_array.append(df_sample.z_phot.mean())
 
                 df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=df_sel[weights])
-                w_mean_spec_array.append(np.average(df_sample.z_spec))
+                w_mean_spec_array.append(np.average(df_sample.Z_SPEC))
                 w_mean_phot_array.append(np.average(df_sample.z_phot))
 
             mean_spec = np.mean(mean_spec_array)
@@ -703,7 +702,7 @@ def weighted_nz_distributions(df, binning, weights=None, tomo_bins=np.array([0, 
     assert len(z_phot) == len(df), 'Length of z_phot must be equal to that of df'
     df['phot_sel'] = z_phot  # Make the selection photo-z a part of the DataFrame
     assert 'Z_SPEC' in df.columns, 'The df needs a "Z_SPEC" in df.columns'
-    pdf_names = ['pdf_' + str(i) for i in range(500) if 'pdf_' + str(i) in df.columns]
+    pdf_names = [c for c in df.keys() if 'pdf_' in str(c)]
 
     phot_iter = {}
     spec_iter = {}

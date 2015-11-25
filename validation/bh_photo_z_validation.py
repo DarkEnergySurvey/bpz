@@ -1,6 +1,8 @@
 import pandas as pd
 from astropy.table import Table
 import numpy as np
+
+#don't remove double numpy please :D
 import numpy as numpy
 import os
 import scipy as sp

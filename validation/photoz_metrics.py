@@ -24,11 +24,11 @@ photoz_metrics.py data/pdfPredictions*.hdf5
 or a mix of the two
 photoz_metrics.py data/pdfPredictions*.hdf5 data/PointPredictions*.fits
 or you can make more fine tuned validations using a configuration yaml file
-photoz_metrics.py config.yaml 
+photoz_metrics.py config.yaml
 
 -help
 Also see the ipython notebook, called ValidationScriptExample.ipynb
-if you run 
+if you run
 ./photoz_metrics.py
 an example configuration file will been written to the directory.
 
@@ -67,7 +67,7 @@ filePaths: ['tests/data/validPointPrediction.fits', 'tests/data/validHDF.hdf5']
 standardPredictions: [/testConfig/photoz.yaml, /testConfig/weak_lensing.yaml]
 
 # what will the path/ and or/base file name of the results be called?
-resultsFilePrefix: 
+resultsFilePrefix:
 
 #2) EITHER 1) AND OR OPTIONAL Tests here:
 #And or / additionally choose your own metrics, as list
@@ -112,7 +112,7 @@ pdf:
         bins: [MAG_DETMODEL_I: '[ 17.5, 19, 22, 25]']
 
         #shall we use weights when calculating metrics, if so specify here.
-        weights: WEIGHTS
+        weights: WEIGHT
 
         #how will we calculate an error on this test? Take care when changing this
         error_function: [bh_photo_z_validation.bootstrap_mean_error_pdf_point]
@@ -121,14 +121,14 @@ pdf:
     stacks:
         truths: Z_SPEC
         #we convert truths to a distribution by choosing these bins
-        truth_bins: [Z_SPEC: '(numpy.arange(20)+1)*0.1']
+        truth_bins: [Z_SPEC: 'numpy.arange(5)*0.33']
 
         #which additional bins shall we use to calculate metrics?
         bins: [MAG_DETMODEL_I: '[ 17.5, 19, 22, 25]']
         metrics: [bh_photo_z_validation.ks_test, bh_photo_z_validation.npoisson, bh_photo_z_validation.log_loss]
         tolerance: [0.7, 20, 50]
         #shall we use weights when calculating metrics, if so specify here. e.g. WEIGHTS_LSS
-        weights: WEIGHTS
+        weights: WEIGHT
 """)
         f.write(txt)
         f.close()
@@ -385,6 +385,10 @@ if len(files[ptype]) > 0:
 
     #obtain the tests and required cols
     tests = testProperties[ptype]
+
+    #check these test are "valid"
+    cont = pval.valid_tests(tests)
+
     reqcols = pval.required_cols(tests, ptype)
 
     #loop over all files
@@ -395,7 +399,7 @@ if len(files[ptype]) > 0:
 
         zcols = [c for c in d.keys() if 'pdf_' in c]
         pdf_z_edge = np.array([float(c.split('f_')[-1]) for c in zcols])
-        pdf_z_center = pdf_z_edge + np.append((pdf_z_edge[1:] - pdf_z_edge[0:-1]) / 2.0, (pdf_z_edge[-1] -pdf_z_edge[-2]) / 2.0)
+        pdf_z_center = pdf_z_edge + np.append((pdf_z_edge[1:] - pdf_z_edge[0: -1]) / 2.0, (pdf_z_edge[-1] - pdf_z_edge[-2]) / 2.0)
 
         pdf = np.array(d[zcols])
 
@@ -470,7 +474,7 @@ if len(files[ptype]) > 0:
                 #bin centers are defined as the <z> value in the bin, not center of bin.
                 truth_bins_centers = stats.binned_statistic(truths, truths, bins=truth_bins_edges, statistic=np.mean).statistic
                 #turn distribution into a pdfs [? remove this ?]
-                truth_pdf = pval.normalisepdfs(truth_dist, truth_bins_centers)
+                #truth_pdf = pval.normalisepdfs(truth_dist, truth_bins_centers)
 
                 #stack the pdfs (but don't normalise)
                 stacked_pdf = pval.stackpdfs(pdf)
@@ -482,27 +486,29 @@ if len(files[ptype]) > 0:
                 #print stacked_pdf, pdf_z_center
 
                 for metric in tst['metrics']:
-                    res[ptype][f][test_name][metric] = np.asscalar(get_function(metric)(truth_dist, stckd_pdfs_at_trth_cntrs))
+                    func_ = get_function(metric)
+                    res[ptype][f][test_name][metric] = {}
+                    res[ptype][f][test_name][metric]['VALUE'] = np.asscalar(func_(truth_dist, stckd_pdfs_at_trth_cntrs))
 
-                if pval.key_not_none(tests, 'bins'):
+                    if pval.key_not_none(tst, 'bins'):
 
-                    binning = tests['bins']
-                    res[ptype][f][test_name][metric]['binned_result'] = {}
-                    for binDict in binning:
+                        binning = tst['bins']
+                        res[ptype][f][test_name][metric]['binned_result'] = {}
+                        for binDict in binning:
+                            bnCol = binDict.keys()[0]
+                            bin_vals = eval(binDict[bnCol])
 
-                        bin_vals = eval(binning[binDict])
+                            res[ptype][f][test_name][metric]['binned_result'][bnCol] = {}
+                            res[ptype][f][test_name][metric]['binned_result'][bnCol]['bin_column'] = bnCol
 
-                        res[ptype][f][test_name][metric]['binned_result'][binDict] = {}
-                        res[ptype][f][test_name][metric]['binned_result'][binDict]['bin_column'] = binDict
-     
-                        #this uses the binned_stats function
-                        """http://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.stats.binned_statistic.html
-                        """
-                        binned_stats = pval.binned_statistic_dist1_dist2(d[binDict], bin_vals, truths, truth_bins, pdf,  pdf_z_center, get_function(metrics))
+                            #this uses the binned_stats function
+                            """http://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.stats.binned_statistic.html
+                            """
+                            binned_stats = pval.binned_statistic_dist1_dist2(np.array(d[bnCol]), bin_vals, truths, truth_bins_edges, pdf, pdf_z_center, func_)
 
-                        res[ptype][f][test_name][metric]['binned_result'][binDict]['BIN_CENTERS'] = [np.asscalar(binned_stats[vv]['weighted_bin_center']) for vv in binned_stats]
+                            res[ptype][f][test_name][metric]['binned_result'][bnCol]['BIN_CENTERS'] = [np.asscalar(binned_stats[vv]['weighted_bin_center']) for vv in binned_stats]
 
-                        res[ptype][f][test_name][metric]['binned_result'][binDict]['VALUE'] = [np.asscalar(binned_stats[vv]['weighted_value']) for vv in binned_stats]
+                            res[ptype][f][test_name][metric]['binned_result'][bnCol]['VALUE'] = [np.asscalar(binned_stats[vv]['weighted_value']) for vv in binned_stats]
 
     #save this output to a file
     with open('pdf_' + resultsFilePrefix + '.yaml', 'w') as outfile:

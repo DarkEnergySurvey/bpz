@@ -2,7 +2,7 @@ test_name: photoz-wg
 #these are the point prediction tests
 point:
     #which photo-z predictions do we want to test
-    predictions: [MODE_Z, MEAN_Z, Z_MC]
+    predictions: [MODE_Z, Z_MC]
     
     #what is the true redshift that we will compare with?
     truths: Z_SPEC
@@ -12,7 +12,7 @@ point:
 
     #what metrics do we want to measure. "numpy.std" is the standard deviation from numpy
     # and "bh_photo_z_validation.sigma_68" is the sigma_68 metric found in the bh_photo_z_validation.py file
-    metrics: [numpy.std, numpy.median, bh_photo_z_validation.sigma_68, bh_photo_z_validation.outlier_fraction, makusra.dndn_fforcat]
+    metrics: [numpy.std, numpy.median, bh_photo_z_validation.sigma_68, bh_photo_z_validation.outlier_fraction]
     
     #do we want to assign an accetable tolerance to each of these tests?
     tolerance: [0.4, 0.001, 0.02, 5]
@@ -38,17 +38,19 @@ pdf:
         metric_bins: [MAG_DETMODEL_I: '[ 17.5, 19, 22, 25]']
         tolerance: [0.7, 20]
         #shall we use weights when calculating metrics, if so specify here.
-        weights: WEIGHTS
+        weights: WEIGHT
     
     #or shall we compare against stacked pdfs
     stacks:
+
+        truths: Z_SPEC
         #we convert truths to a distribution by choosing these bins
-        truth_bins: [Z_SPEC: 'numpy.linspace(0, 2, 4)']
+        truth_bins: [Z_SPEC: 'numpy.arange(5)*0.33']
 
         #which additional bins shall we use to calculate metrics?
-        metric_bins: [MAG_DETMODEL_I: '[ 17.5, 19, 22, 25]']
-        metrics: [bh_photo_z_validation.kstest, bh_photo_z_validation.npoisson, bh_photo_z_validation.log_loss]
+        bins: [MAG_DETMODEL_I: '[ 17.5, 19, 22, 25]']
+        metrics: [bh_photo_z_validation.ks_test, bh_photo_z_validation.npoisson, bh_photo_z_validation.log_loss]
         tolerance: [0.7, 20]
         #shall we use weights when calculating metrics, if so specify here.
-        weights: WEIGHTS
+        weights: WEIGHT
 

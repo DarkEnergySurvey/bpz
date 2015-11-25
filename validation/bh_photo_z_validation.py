@@ -1,6 +1,7 @@
 import pandas as pd
 from astropy.table import Table
 import numpy as np
+import numpy as numpy
 import os
 import scipy as sp
 from scipy.stats import ks_2samp, binned_statistic
@@ -14,7 +15,7 @@ Authors: Ben Hoyle, Christopher Bonnet
 
 To do:
 
- define npoisson function
+ add weights to binned_statistic_dist1_dist2
 
 """
 
@@ -141,18 +142,13 @@ def key_not_none(_dict, ky):
 def required_cols(_dict, pointOrPdf):
     cols = []
     for dd in _dict:
-        if pointOrPdf == 'point':
-            if key_not_none(dd, 'point'):
-                cols += extract_cols(dd['point'])
+        cols += extract_cols(dd)
 
-        if pointOrPdf == 'pdf':
-            if key_not_none(dd, 'pdf'):
-                for ttype in ['individual', 'stacks']:
-                    if key_not_none(dd['pdf'], ttype):
-                        cols += extract_cols(dd['pdf'][ttype])
+        for ttype in ['individual', 'stacks']:
+            if key_not_none(dd, ttype):
+                cols += extract_cols(dd[ttype])
 
     return [i for i in np.unique(cols)]
-
 
 #extract all columns we are asking to work with
 def extract_cols(_dict):
@@ -181,7 +177,8 @@ def extract_cols(_dict):
 
 
 def keytst(_tst):
-    for bn in ['bins', 'metric_bins']:
+
+    for bn in ['bins', 'truth_bins']:
         if key_not_none(_tst, bn):
             for binkyv in _tst[bn]:
                 try:
@@ -189,17 +186,17 @@ def keytst(_tst):
                 except:
                     print "unable to generate bins in this test"
                     print ' ' + bn + ' ' + binkyv.keys()[0]
+                    print binkyv[binkyv.keys()[0]]
                     sys.exit()
 
 
 def valid_tests(tsts):
     """ check the tests are all valid. """
     for tst in tsts:
-        for ttype in tst:
-            keytst(ttype)
-            for pdftype in ['individual', 'stacks']:
-                if key_not_none(ttype, pdftype):
-                    keytst(ttype[pdftype])
+        keytst(tst)
+        for pdftype in ['individual', 'stacks']:
+            if key_not_none(tst, pdftype):
+                keytst(tst[pdftype])
 
     return True
 
@@ -514,7 +511,7 @@ def binned_pdf_point_stats(_data_to_bin, _bin_vals, _pdf, _zbins, _truths, _weig
 
         res[i]['weighted_bin_center'] = np.average(_data_to_bin[ind], weights=p[ind])
 
-        #do we need to both reweighting?
+        #do we need to bother reweighting?
         if np.sum(_weights[ind]) != np.sum(ind):
 
             val = np.zeros(Nsamples)
@@ -538,12 +535,14 @@ def interpolate_dist(_df1, _bins1, _bins2, kind=None):
     return I(_bins2)
 
 
-def binned_statistic_dist1_dist2(arr_, bin_vals_, truths_, truth_bins_, pdf_, pdf_z_center_, funv, weights=None):
+def binned_statistic_dist1_dist2(arr_, bin_vals_, truths_, truth_bins_, pdf_, pdf_z_center_, func_, weights=None):
     """ bins the stacked pdf and truths in bins of arr, then calculates the metric on these distributions"""
     """ metric doesn't work so well with weights at the mo"""
 
     if weights is None:
         weights = np.ones(len(arr_))
+
+    p = weights / np.sum(weights)
 
     res = {}
     for i in np.arange(len(bin_vals_)-1):
@@ -551,14 +550,20 @@ def binned_statistic_dist1_dist2(arr_, bin_vals_, truths_, truth_bins_, pdf_, pd
         if np.sum(ind_) > 0:
             res[i] = {}
             truth_dist_ = np.histogram(truths_[ind_], bins=truth_bins_)[0]
-            truth_bins_centers_ = stats.binned_statistic(truths[ind_], truths[ind_], bins=truth_bins_, statistic=np.mean).statistic
-            stacked_pdf_ = pval.stackpdfs(pdf_[ind_])
-            stckd_pdfs_at_trth_cntrs_ = pval.interpolate_dist(stacked_pdf_, pdf_z_center_, truth_bins_centers_)
 
-            res[i]['weighted_bin_center'] = np.average(_data_to_bin[ind], weights=p[ind])
+            if np.any(truth_dist_ == 0):
+                print "You have zero objects in your `truth` bin, inside bh_photo_z_validation.binned_statistic_dist1_dist2"
+                print "this is unstable. Aborting"
+                sys.exit()
+
+            truth_bins_centers_ = binned_statistic(truths_[ind_], truths_[ind_], bins=truth_bins_, statistic=np.mean).statistic
+            stacked_pdf_ = stackpdfs(pdf_[ind_])
+            stckd_pdfs_at_trth_cntrs_ = interpolate_dist(stacked_pdf_, pdf_z_center_, truth_bins_centers_)
+
+            res[i]['weighted_bin_center'] = np.average(arr_[ind_], weights=p[ind_])
 
             """ Add weights in here  """
-            res[i]['weighted_value'] = func(truth_dist, stckd_pdfs_at_trth_cntrs)
+            res[i]['weighted_value'] = func_(truth_dist_, stckd_pdfs_at_trth_cntrs_)
 
     return res
 

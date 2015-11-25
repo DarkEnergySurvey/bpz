@@ -12,7 +12,7 @@ point:
 
     #what metrics do we want to measure. "numpy.std" is the standard deviation from numpy
     # and "bh_photo_z_validation.sigma_68" is the sigma_68 metric found in the bh_photo_z_validation.py file
-    metrics: [numpy.std, numpy.median, bh_photo_z_validation.sigma_68, bh_photo_z_validation.outlier_fraction]
+    metrics: [numpy.std, numpy.median, bh_photo_z_validation.sigma_68, bh_photo_z_validation.outlier_fraction, makusra.dndn_fforcat]
     
     #do we want to assign an accetable tolerance to each of these tests?
     tolerance: [0.4, 0.001, 0.02, 5]

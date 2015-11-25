@@ -7,6 +7,7 @@ from scipy.stats import ks_2samp, binned_statistic
 from scipy import interpolate
 import sys
 from weighted_kde import gaussian_kde
+import collections
 
 """
 Authors: Ben Hoyle, Christopher Bonnet
@@ -41,9 +42,9 @@ def random_choice(arr, axis=None):
         return arr[np.arange(rc[0]), indr]
 
 
-#a wrapper around numpy mode
+#a wrapper around scipy mode
 def mode(arr, axis=None):
-    return np.mode(arr, axis=axis)[0]
+    return sp.mode(arr, axis=axis)[0]
 
 
 #extracts the output of a pdf from a decision tree, in this the first column has the highest weight
@@ -294,10 +295,12 @@ def sigma_95(arr, axis=None):
     return (upper - lower) / 2.0
 
 
-def outlier_rate(arr):
+def outlier_rate(arr, outR=None):
     """assumes frac outliers >0.15
     """
-    return np.sum(np.abs(arr) > 0.15)*1.0/len(arr)
+    if outR is None:
+        outR = 0.15
+    return np.sum(np.abs(arr) > outR)*1.0/len(arr)
 
 
 def outlier_fraction(arr):
@@ -332,9 +335,12 @@ def kulbachLeiber_bins(arr1, arr2):
 
 
 # what is this test?
-def npoisson(arr1, arr2):
-
-    return False
+def npoisson(dndspecz, dndphotz):
+    """ according to https://cdcvs.fnal.gov/redmine/projects/des-photoz/wiki/DC6_Photo-z_Challenge"""
+    #unnormalised dn/dz (true number in bins)
+    nznorm = (dndphotz - dndspecz) / np.sqrt(dndspecz)
+    nzrms = np.sqrt(np.mean(nznorm * nznorm))
+    return nzrms
 
 
 def ks_test(arr1, arr2):
@@ -389,10 +395,20 @@ def integrate_dist_bin(dfs, x, minval, maxval):
     return smm
 
 
-
 def cumaltive_to_point(dfs, x, points):
     """ This assumes bin widths are small enough to ignore.
     Expected shape: numpy dfs shape (galaxy, bins), x begins at 0, ends at just before 2 """
+    """Note: all points < x[0] are set to x[0]"""
+    """Note: all points > x[-1] are set to x[-1]"""
+
+    if isinstance(points, collections.Iterable):
+        points[points > x[-1]] = x[-1]
+        points[points < x[0]] = x[0]
+    else:
+        if points > x[-1]:
+            points = x[-1]
+        if points < x[0]:
+            points = x[0]
 
     #calcaulte the cumaltive distribution
     if len(np.shape(dfs)) > 1:
@@ -411,16 +427,42 @@ def cumaltive_to_point(dfs, x, points):
         return cum[x <= points][-1]
 
 
+def xval_cumaltive_at_ypoint(dfs, x, point):
+    """returns the xvals of dfs(ngal, nxbins), x(bins in xdir) point(1), for a point
+    which sits on the y-axis of the cdf"""
+
+    """Note: all points < x[0] are set to x[0]"""
+    """Note: all points > x[-1] are set to x[-1]"""
+
+    if point > x[-1]:
+        point = x[-1]
+    if point < x[0]:
+        point = x[0]
+
+    if len(np.shape(dfs)) > 1:
+        cum = np.cumsum(dfs, axis=1)
+        cum = (cum.T / cum[:, -1]).T
+
+        #determine which index is just <= each point value]
+        xarr = np.array([np.amax(x[c <= point]) for c in cum])
+
+        #return these x values  correspondong to the y-axis = point interst cdf
+        return xarr
+    else:
+        cum = np.cumsum(dfs)
+        cum = cum / float(cum[-1])
+        return x[cum <= point][-1]
+
+
 def gini(sorted_list):
     """ from https://planspacedotorg.wordpress.com/2013/06/21/how-to-calculate-gini-coefficient-from-raw-data-in-python/
     """
-
-    height, area = 0, 0
-    for value in sorted_list:
-        height += value
-        area += height - value / 2.
-    fair_area = height * len(sorted_list) / 2
-    return (fair_area - area) / fair_area
+    cum = np.cumsum(sorted_list)
+    cum = cum * 1.0 / cum[-1]
+    cumx = np.cumsum([1] * len(cum))
+    cumx = cumx * 1.0 / cumx[-1]
+    gini_v = np.mean(np.abs(cumx - cum)) * 2.0
+    return gini_v
 
 
 def Bordoloi_pdf_test(dfs, x, points, n_yaxis_bins=None):
@@ -487,6 +529,38 @@ def binned_pdf_point_stats(_data_to_bin, _bin_vals, _pdf, _zbins, _truths, _weig
     return res
 
 
+def interpolate_dist(_df1, _bins1, _bins2, kind=None):
+    """interpolate df1 at locations _bins2 """
+    if kind is None:
+        kind = 'linear'
+    I = interpolate.interp1d(_bins1, _df1, kind=kind)
+
+    return I(_bins2)
+
+
+def binned_statistic_dist1_dist2(arr_, bin_vals_, truths_, truth_bins_, pdf_, pdf_z_center_, funv, weights=None):
+    """ bins the stacked pdf and truths in bins of arr, then calculates the metric on these distributions"""
+    """ metric doesn't work so well with weights at the mo"""
+
+    if weights is None:
+        weights = np.ones(len(arr_))
+
+    res = {}
+    for i in np.arange(len(bin_vals_)-1):
+        ind_ = (arr_ >= bin_vals_[i]) * (arr_ < bin_vals_[i + 1])
+        if np.sum(ind_) > 0:
+            res[i] = {}
+            truth_dist_ = np.histogram(truths_[ind_], bins=truth_bins_)[0]
+            truth_bins_centers_ = stats.binned_statistic(truths[ind_], truths[ind_], bins=truth_bins_, statistic=np.mean).statistic
+            stacked_pdf_ = pval.stackpdfs(pdf_[ind_])
+            stckd_pdfs_at_trth_cntrs_ = pval.interpolate_dist(stacked_pdf_, pdf_z_center_, truth_bins_centers_)
+
+            res[i]['weighted_bin_center'] = np.average(_data_to_bin[ind], weights=p[ind])
+
+            """ Add weights in here  """
+            res[i]['weighted_value'] = func(truth_dist, stckd_pdfs_at_trth_cntrs)
+
+    return res
 
 """ ==========================
 validation metrics and tools =

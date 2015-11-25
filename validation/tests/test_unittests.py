@@ -84,7 +84,7 @@ def test_hdf2():
 def test_hdf4():
     """test can load valid hdf5 file """
     filename = 'data/validHDF.hdf5'
-    cols = ['COADD_OBJECTS_ID', 'Z_SPEC', 'pdf_0']
+    cols = ['COADD_OBJECTS_ID', 'Z_SPEC']
     err, mess = pval.valid_hdf(filename, cols)
     np.testing.assert_equal(err, True)
 

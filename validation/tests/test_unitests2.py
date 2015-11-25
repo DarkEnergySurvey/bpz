@@ -86,10 +86,10 @@ def test_cumaltive_to_point1():
     pdf = np.ones(500)
 
     #calcalate cumulative df of this, up to 0, 1, 2, 3,.. ngals etc
-    for i in np.arange(40):
+    for i in np.arange(40)+1:
         res = pval.cumaltive_to_point(pdf, np.arange(500), i)
         print i, res
-        np.testing.assert_equal(res, i + 1)
+        np.testing.assert_equal(res, np.sum(pdf[0:i+1])/500.0)
 
 
 def test_cumaltive_to_point2():
@@ -98,15 +98,18 @@ def test_cumaltive_to_point2():
     #generate a fake df, flat across the 500 bins
     ngals = 56
     pdfs = np.zeros((ngals, 500))
-    for i in range(ngals):
-        pdfs[i, :] = i
+
+    for i in np.arange(ngals):
+        pdfs[i, :] = i + 1
+
+    npfds = pval.normalisepdfs(pdfs, np.arange(500))
 
     #calcalate cumulative df of this, up to 0, 1, 2, 3,.. ngals etc
-    res = pval.cumaltive_to_point(pdfs, np.arange(500), np.arange(ngals))
+    res = pval.cumaltive_to_point(npfds, np.arange(500), np.arange(ngals))
 
-    for i in range(ngals):
-        print i, res[i], np.sum(pdfs[i, 0:i+1])
-        np.testing.assert_equal(res[i], np.sum(pdfs[i, 0:i+1]))
+    for i in np.arange(ngals-1) + 1:
+        print i, res[i], np.sum(npfds[i, 0:i+1])
+        np.testing.assert_almost_equal(res[i], np.sum(npfds[i, 0:i+1]), 1)
 
 
 def test_gini_criteria():

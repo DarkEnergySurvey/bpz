@@ -26,7 +26,7 @@ def create_data():
 
     pdfs = np.zeros((N, 300))
     for i in range(N):
-        h = np.histogram(np.abs(np.random.normal(size=1e5) * np.random.uniform()*0.2 + (np.random.uniform()-0.5)*0.1 + df['Z_SPEC'][i]) , bins=np.append(zbins, 2))[0]
+        h = np.histogram(np.abs(np.random.normal(size=1e5) * np.random.uniform()*0.2 + (np.random.uniform()-0.5)*0.1 + df['Z_SPEC'][i]), bins=np.append(zbins, 2))[0]
         pdfs[i] = h
 
     npdfs = pval.normalisepdfs(pdfs, zbins)

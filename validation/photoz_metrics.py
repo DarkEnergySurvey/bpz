@@ -121,13 +121,13 @@ pdf:
     stacks:
         truths: Z_SPEC
         #we convert truths to a distribution by choosing these bins
-        truth_bins: [Z_SPEC: 'numpy.linspace(0, 2, 4)']
+        truth_bins: [Z_SPEC: '(numpy.arange(20)+1)*0.1']
 
         #which additional bins shall we use to calculate metrics?
-        metric_bins: [MAG_DETMODEL_I: '[ 17.5, 19, 22, 25]']
-        metrics: [bh_photo_z_validation.kstest, bh_photo_z_validation.npoisson, bh_photo_z_validation.log_loss]
-        tolerance: [0.7, 20]
-        #shall we use weights when calculating metrics, if so specify here.
+        bins: [MAG_DETMODEL_I: '[ 17.5, 19, 22, 25]']
+        metrics: [bh_photo_z_validation.ks_test, bh_photo_z_validation.npoisson, bh_photo_z_validation.log_loss]
+        tolerance: [0.7, 20, 50]
+        #shall we use weights when calculating metrics, if so specify here. e.g. WEIGHTS_LSS
         weights: WEIGHTS
 """)
         f.write(txt)
@@ -253,6 +253,10 @@ if pval.key_not_none(config, 'resultsFilePrefix'):
 #results dictionary
 res = {}
 
+test_name = None
+if pval.key_not_none(config, 'test_name'):
+    test_name = config['test_name']
+
 #First point predictions
 ptype = 'point'
 
@@ -279,11 +283,13 @@ if len(files[ptype]) > 0:
 
         #calculate all unweighted metrics for deltaz and deltaz/(1+z)
         for tst in tests:
-            testNum = 'Test_randid' + str(np.random.randint(0, 1000))
-            if pval.key_not_none(tst, 'test_name'):
-                testNum = tst['test_name']
 
-            res[ptype][f][testNum] = {}
+            if test_name is None:
+                test_name = 'Test_randid' + str(np.random.randint(0, 1000))
+                if pval.key_not_none(tst, 'test_name'):
+                    test_name = tst['test_name']
+
+            res[ptype][f][test_name] = {}
 
             #should we calculate an error on these metrics
             error_function = pval.key_not_none(tst, 'error_function')
@@ -295,7 +301,7 @@ if len(files[ptype]) > 0:
                     err_metric[ef.split('.')[-1]] = pval.get_function(ef)
 
             for photoz in tst['predictions']:
-                res[ptype][f][testNum][photoz] = {}
+                res[ptype][f][test_name][photoz] = {}
                 diff = pval.delta_z(d[tst['truths']], d[photoz])
                 diff_1pz = pval.delta_z_1pz(d[tst['truths']], d[photoz])
 
@@ -306,32 +312,32 @@ if len(files[ptype]) > 0:
                     #set all objects equal weight, unless defined
                     weights = get_weights(tst, 'weights', d)
 
-                    res[ptype][f][testNum][photoz][metric] = {}
+                    res[ptype][f][test_name][photoz][metric] = {}
 
                     #turn string into function
                     metric_function = pval.get_function(metric)
 
                     #which residuals shall we employ?
                     for diffpp in points.keys():
-                        res[ptype][f][testNum][photoz][metric][diffpp] = {}
-                        res[ptype][f][testNum][photoz][metric][diffpp]['VALUE'] = np.asscalar(metric_function(points[diffpp]))
+                        res[ptype][f][test_name][photoz][metric][diffpp] = {}
+                        res[ptype][f][test_name][photoz][metric][diffpp]['VALUE'] = np.asscalar(metric_function(points[diffpp]))
 
                         #calculate errors on these metrics
                         for ef in err_metric:
                             bstamp_mean_err = err_metric[ef](points[diffpp], weights, metric_function)
-                            res[ptype][f][testNum][photoz][metric][diffpp]['MEAN_' + ef] = np.asscalar(bstamp_mean_err['mean'])
-                            res[ptype][f][testNum][photoz][metric][diffpp]['SIGMA_' + ef] = np.asscalar(bstamp_mean_err['sigma'])
+                            res[ptype][f][test_name][photoz][metric][diffpp]['MEAN_' + ef] = np.asscalar(bstamp_mean_err['mean'])
+                            res[ptype][f][test_name][photoz][metric][diffpp]['SIGMA_' + ef] = np.asscalar(bstamp_mean_err['sigma'])
 
                         #shall we calculate binning statiscs?
                         if pval.key_not_none(tst, 'bins'):
                             binning = tst['bins']
 
-                            res[ptype][f][testNum][photoz][metric][diffpp]['bins'] = {}
+                            res[ptype][f][test_name][photoz][metric][diffpp]['bins'] = {}
                             for binDict in binning:
                                 ky = binDict.keys()[0]
                                 bin_vals = eval(binDict[ky])
 
-                                res[ptype][f][testNum][photoz][metric][diffpp]['bins'][ky] = {}
+                                res[ptype][f][test_name][photoz][metric][diffpp]['bins'][ky] = {}
                                 #this uses the binned_stats function
                                 """http://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.stats.binned_statistic.html
                                 """
@@ -342,8 +348,8 @@ if len(files[ptype]) > 0:
                                 #determine the center of each bin
                                 bn_cntr_sts = stats.binned_statistic(d[ky], d[ky], bins=bin_vals, statistic=np.mean)
 
-                                res[ptype][f][testNum][photoz][metric][diffpp]['bins'][ky]['BIN_CENTERS'] = [np.asscalar(vv) for vv in bn_cntr_sts.statistic]
-                                res[ptype][f][testNum][photoz][metric][diffpp]['bins'][ky]['VALUE'] = [np.asscalar(vv) for vv in bn_stats.statistic]
+                                res[ptype][f][test_name][photoz][metric][diffpp]['bins'][ky]['BIN_CENTERS'] = [np.asscalar(vv) for vv in bn_cntr_sts.statistic]
+                                res[ptype][f][test_name][photoz][metric][diffpp]['bins'][ky]['VALUE'] = [np.asscalar(vv) for vv in bn_stats.statistic]
 
                                 #calculate the mean and error by bootstrapping
                                 bn_bs_stats = pval.bootstrap_mean_error_binned(d[ky], points[diffpp], weights, bin_vals, metric_function)
@@ -351,18 +357,18 @@ if len(files[ptype]) > 0:
                                 #calculate the bin 'centers' by boot strapping
                                 bn_bs_cnters = pval.bootstrap_mean_error_binned(d[ky], d[ky], weights, bin_vals, np.mean)
 
-                                res[ptype][f][testNum][photoz][metric][diffpp]['bins'][ky]['BIN_CENTERS_MEAN_BS'] = [np.asscalar(vv) for vv in bn_bs_cnters['mean']]
+                                res[ptype][f][test_name][photoz][metric][diffpp]['bins'][ky]['BIN_CENTERS_MEAN_BS'] = [np.asscalar(vv) for vv in bn_bs_cnters['mean']]
 
-                                res[ptype][f][testNum][photoz][metric][diffpp]['bins'][ky]['BIN_CENTERS_SIGMA_BS'] = [np.asscalar(vv) for vv in bn_bs_cnters['sigma']]
+                                res[ptype][f][test_name][photoz][metric][diffpp]['bins'][ky]['BIN_CENTERS_SIGMA_BS'] = [np.asscalar(vv) for vv in bn_bs_cnters['sigma']]
 
-                                res[ptype][f][testNum][photoz][metric][diffpp]['bins'][ky]['MEAN_BS'] = [np.asscalar(vv) for vv in bn_bs_stats['mean']]
-                                res[ptype][f][testNum][photoz][metric][diffpp]['bins'][ky]['SIGMA_BS'] = [np.asscalar(vv) for vv in bn_bs_stats['sigma']]
+                                res[ptype][f][test_name][photoz][metric][diffpp]['bins'][ky]['MEAN_BS'] = [np.asscalar(vv) for vv in bn_bs_stats['mean']]
+                                res[ptype][f][test_name][photoz][metric][diffpp]['bins'][ky]['SIGMA_BS'] = [np.asscalar(vv) for vv in bn_bs_stats['sigma']]
 
     #save this output to a file
     with open('point_' + resultsFilePrefix + '.yaml', 'w') as outfile:
         outfile.write(yaml.dump(res[ptype], default_flow_style=False))
 
-    pickle.dump(res['point'], open('point_' + resultsFilePrefix + '.p', 'w'))
+    pickle.dump(res[ptype], open('point_' + resultsFilePrefix + '.p', 'w'))
 
 
 """ ==========================
@@ -388,16 +394,20 @@ if len(files[ptype]) > 0:
         res[ptype][f] = {}
 
         zcols = [c for c in d.keys() if 'pdf_' in c]
-        zbins = np.array([float(c.split('f_')[-1]) for c in zcols])
+        pdf_z_edge = np.array([float(c.split('f_')[-1]) for c in zcols])
+        pdf_z_center = pdf_z_edge + np.append((pdf_z_edge[1:] - pdf_z_edge[0:-1]) / 2.0, (pdf_z_edge[-1] -pdf_z_edge[-2]) / 2.0)
+
         pdf = np.array(d[zcols])
 
         for tsts in tests:
 
-            testNum = 'Test_randid' + str(np.random.randint(0, 10000))
-            if pval.key_not_none(tsts, 'test_name'):
-                testNum = tsts['test_name']
+            "do we have a test name for this code"
+            if test_name is None:
+                test_name = 'Test_randid' + str(np.random.randint(0, 1000))
+                if pval.key_not_none(tst, 'test_name'):
+                    test_name = tst['test_name']
 
-            res[ptype][f][testNum] = {}
+            res[ptype][f][test_name] = {}
 
             if pval.key_not_none(tsts, 'individual'):
 
@@ -409,19 +419,19 @@ if len(files[ptype]) > 0:
 
                 for metric in tst['metrics']:
                     metric_function = get_function(metric)
-                    res[ptype][f][testNum][metric] = {}
-                    res[ptype][f][testNum][metric]['VALUE'] = np.asscalar(metric_function(pdf, zbins, truths))
+                    res[ptype][f][test_name][metric] = {}
+                    res[ptype][f][test_name][metric]['VALUE'] = np.asscalar(metric_function(pdf, pdf_z_center, truths))
 
                     #calculate error on statistic
                     if pval.key_not_none(tst, 'error_function'):
                         for errf in tst['error_function']:
-                            bserr = get_function(errf)(pdf, zbins, truths, weights, metric_function)
-                            res[ptype][f][testNum][metric]['MEAN_BS' + errf] = np.asscalar(bserr['mean'])
-                            res[ptype][f][testNum][metric]['SIGMA_BS' + errf] = np.asscalar(bserr['sigma'])
+                            bserr = get_function(errf)(pdf, pdf_z_center, truths, weights, metric_function)
+                            res[ptype][f][test_name][metric]['MEAN_BS' + errf] = np.asscalar(bserr['mean'])
+                            res[ptype][f][test_name][metric]['SIGMA_BS' + errf] = np.asscalar(bserr['sigma'])
 
                         if pval.key_not_none(tests, 'bins'):
                             binning = tests['bins']
-                            res[ptype][f][testNum][metric]['binned_result'] = {}
+                            res[ptype][f][test_name][metric]['binned_result'] = {}
                             for binDict in binning:
                                 ky = binDict.keys()[0]
                                 ## remove to file testing location
@@ -432,12 +442,13 @@ if len(files[ptype]) > 0:
                                 res[ptype][f]['result'][photoz]['binned_result'][ky]['bin_column'] = ky
                                 res[ptype][f]['result'][photoz]['binned_result'][ky]['bin_values'] = bin_vals
 
-                                binstats = pval.binned_pdf_point_stats(data_to_bin, bin_vals, pdf, zbins, truths, weights, metric_function)
+                                binstats = pval.binned_pdf_point_stats(data_to_bin, bin_vals, pdf, pdf_z_center, truths, weights, metric_function)
                                 res[ptype][f]['result'][photoz]['binned_result'][ky]['BIN_CENTERS'] = [np.asscalar(binstats[vv]['weighted_bin_center']) for vv in binstats]
                                 res[ptype][f]['result'][photoz]['binned_result'][ky]['VALUE'] = [np.asscalar(binstats[vv]['weighted_value']) for vv in binstats]
 
                     """ to do, add errors boot strap to this pdf=point binned stats"""
 
+            """Complete pdf - point comparions, no do pdf - pdf comparisons"""
             if pval.key_not_none(tsts, 'stacks'):
                 #perform stacks tests
                 tst = tsts['stacks']
@@ -449,36 +460,53 @@ if len(files[ptype]) > 0:
 
                 truths = np.array(d[truth_col])
                 truth_dist = np.histogram(truths, bins=truth_bins_edges)[0]*1.0
+                if np.any(truth_dist == 0):
+                    print 'truth_bins have some 0 truths. This is dangerous'
+                    print truth_col, truth_bins_edges
+                    print truth_dist
+                    print "aborting"
+                    sys.exit()
 
-                truth_pdf = pval.normalisepdfs(truth_dist, truth_bins_edges)
+                #bin centers are defined as the <z> value in the bin, not center of bin.
+                truth_bins_centers = stats.binned_statistic(truths, truths, bins=truth_bins_edges, statistic=np.mean).statistic
+                #turn distribution into a pdfs [? remove this ?]
+                truth_pdf = pval.normalisepdfs(truth_dist, truth_bins_centers)
 
-                print truth_col, truth_bins_edges, truth_dist, truth_pdf
+                #stack the pdfs (but don't normalise)
+                stacked_pdf = pval.stackpdfs(pdf)
+
+                #determine the stacked values,  at bin centers of pdfs
+                stckd_pdfs_at_trth_cntrs = pval.interpolate_dist(stacked_pdf, pdf_z_center, truth_bins_centers)
+
+                #print truth_col, truth_bins_edges, truth_bins_centers, truth_dist, truth_pdf
+                #print stacked_pdf, pdf_z_center
 
                 for metric in tst['metrics']:
-                    res[ptype][f][testNum][metric] = get_function(metric)(pdf)
+                    res[ptype][f][test_name][metric] = np.asscalar(get_function(metric)(truth_dist, stckd_pdfs_at_trth_cntrs))
 
                 if pval.key_not_none(tests, 'bins'):
+
                     binning = tests['bins']
-                    res[ptype][f][testNum][metric]['binned_result'] = {}
+                    res[ptype][f][test_name][metric]['binned_result'] = {}
                     for binDict in binning:
-                        if pval.key_not_none(d, binDict) is False:
-                            print "You asked to bin in " + binDict
-                            print "but it does not exist in file " + f
-                            print "aborting"
-                            sys.exit()
 
-                        try:
-                            bin_vals = eval(binning[binDict])
-                        except:
-                            print "unable to build the bins, please check syntax: " + binning[binDict]
-                            print "Aborting"
-                            sys.exit()
+                        bin_vals = eval(binning[binDict])
 
-                        res[ptype][f]['result'][photoz]['binned_result'][binDict] = {}
-                        res[ptype][f]['result'][photoz]['binned_result'][binDict]['bin_column'] = binDict
-                        res[ptype][f]['result'][photoz]['binned_result'][binDict]['bin_values'] = bin_vals
-
+                        res[ptype][f][test_name][metric]['binned_result'][binDict] = {}
+                        res[ptype][f][test_name][metric]['binned_result'][binDict]['bin_column'] = binDict
+     
                         #this uses the binned_stats function
                         """http://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.stats.binned_statistic.html
                         """
-                        res[ptype][f]['result'][photoz]['binned_result'][binDict]['bin_stats'] = stats.binned_statistic(d[binDict], diff, bins=bin_vals, statistic=get_function(metrics))
+                        binned_stats = pval.binned_statistic_dist1_dist2(d[binDict], bin_vals, truths, truth_bins, pdf,  pdf_z_center, get_function(metrics))
+
+                        res[ptype][f][test_name][metric]['binned_result'][binDict]['BIN_CENTERS'] = [np.asscalar(binned_stats[vv]['weighted_bin_center']) for vv in binned_stats]
+
+                        res[ptype][f][test_name][metric]['binned_result'][binDict]['VALUE'] = [np.asscalar(binned_stats[vv]['weighted_value']) for vv in binned_stats]
+
+    #save this output to a file
+    with open('pdf_' + resultsFilePrefix + '.yaml', 'w') as outfile:
+        outfile.write(yaml.dump(res[ptype], default_flow_style=False))
+
+    pickle.dump(res[ptype], open('pdf_' + resultsFilePrefix + '.p', 'w'))
+

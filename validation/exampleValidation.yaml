@@ -1,23 +1,76 @@
+
+#test name.
+test_name: MyExampleTest1
+
 #paths to file locations. will assume '.fits' as point predictions '.hdf5' as pdf predictions
 #add more files to list to compare multiple files
 filePaths: ['tests/data/validPointPrediction.fits', 'tests/data/validHDF.hdf5']
 
-#Which metrics and tolerance should we measure either a list of metrics, such as
+#1) OPTIONAL Which metrics and tolerance should we measure either a list of metrics, such as
 # and or a precomputed collection of group metrics and tolerances
 #set blank, or delete this line to not use these preconfigured metrics/bins/tolerances
-standardPredictions:
+standardPredictions: [/testConfig/photoz.yaml, /testConfig/weak_lensing.yaml]
 
+# what will the path/ and or/base file name of the results be called?
+resultsFilePrefix:
+
+#2) EITHER 1) AND OR OPTIONAL Tests here:
+#And or / additionally choose your own metrics, as list
+#remove these if not required
+#these are the point prediction tests
 point:
-    predictions: ['Z_SPEC', 'Z_MC']
-    truths: 'Z_SPEC'
-    weights: 'WEIGHTS'
-    bins: [MEAN_Z: '[0.0, 0.3, 0.6, 0.9, 1.3, 2.0]']
-    metrics: [numpy.average, bh_photo_z_validation.sigma_68, bh_photo_z_validation.outlier_fraction]
-    tolerance: [0.4, 0.001, 0.03, 10]
+    #which photo-z predictions do we want to test
+    predictions: [MODE_Z, MEAN_Z, Z_MC]
 
+    #what is the true redshift that we will compare with?
+    truths: Z_SPEC
+
+    #should we calculated weighted metrics where available?
+    weights: WEIGHTS
+
+    #what metrics do we want to measure. "numpy.std" is the standard deviation from numpy
+    # and "bh_photo_z_validation.sigma_68" is the sigma_68 metric found in the bh_photo_z_validation.py file
+    metrics: [numpy.std, numpy.median, bh_photo_z_validation.sigma_68, bh_photo_z_validation.outlier_fraction]
+
+    #do we want to assign an accetable tolerance to each of these tests?
+    tolerance: [0.4, 0.001, 0.02, 5]
+
+    #Finally do we want to also measure the metrics in some "bins".
+    #we define the column_name: 'string of bins / string of function that makes bins'
+    bins: [MAG_DETMODEL_I: '[10, 15, 20, 25, 30]', MODE_Z: 'numpy.linspace(0, 2, 20)']
+
+    #Should we calculate errors on each metric? if yes state how
+    #you can include as many different error functions as you like. Take care when changing this.
+    error_function: [bh_photo_z_validation.bootstrap_mean_error]
 
 #these are the pdf tests
 pdf: 
-    bins:
-    metrics: [bh_photo_z_validation.kstest, bh_photo_z_validation.log_loss]
-    tolerance: [0.7, 20]
+    #we can examine individual redshift pdfs. Remove this part you don't need to compare
+    individual:
+        truths: Z_SPEC
+
+        #let's perform the test found in Bordoloi et al 2012
+        metrics: [bh_photo_z_validation.Bordoloi_pdf_test]
+        tolerance: [0.7]
+
+        #show we calculate the metric in some user specified bins?
+        bins: [MAG_DETMODEL_I: '[ 17.5, 19, 22, 25]']
+
+        #shall we use weights when calculating metrics, if so specify here.
+        weights: WEIGHT
+
+        #how will we calculate an error on this test? Take care when changing this
+        error_function: [bh_photo_z_validation.bootstrap_mean_error_pdf_point]
+
+    #or shall we compare against stacked pdfs
+    stacks:
+        truths: Z_SPEC
+        #we convert truths to a distribution by choosing these bins
+        truth_bins: [Z_SPEC: 'numpy.arange(5)*0.33']
+
+        #which additional bins shall we use to calculate metrics?
+        bins: [MAG_DETMODEL_I: '[ 17.5, 19, 22, 25]']
+        metrics: [bh_photo_z_validation.ks_test, bh_photo_z_validation.npoisson, bh_photo_z_validation.log_loss]
+        tolerance: [0.7, 20, 50]
+        #shall we use weights when calculating metrics, if so specify here. e.g. WEIGHTS_LSS
+        weights: WEIGHT

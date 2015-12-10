@@ -289,6 +289,11 @@ def sigma_68(arr, axis=None):
     return (upper - lower) / 2.0
 
 
+def mad(arr, axis=None):
+    mad_ = np.median(np.abs(arr - np.median(arr)))
+    return mad_
+
+
 def sigma_95(arr, axis=None):
     upper, lower = np.percentile(arr, [97.7, 2.3], axis=axis)
     return (upper - lower) / 2.0

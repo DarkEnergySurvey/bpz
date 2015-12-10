@@ -34,6 +34,9 @@ def create_data():
     for i, pdf in enumerate(['pdf_' + str(j) for j in zbins]):
         df[pdf] = npdfs[:, i]
 
+    for i in ['MODE_Z', 'MEAN_Z', 'Z_MC']:
+        df[i] = df['Z_SPEC'] + np.random.uniform(size=N) * 0.1
+
     df['WEIGHT'] = np.random.dirichlet(np.arange(N) + N)
     df['MAG_DETMODEL_I'] = np.random.uniform(size=N) * 15 + 15
     df.to_hdf('data/validHDF.hdf5', 'pdf')

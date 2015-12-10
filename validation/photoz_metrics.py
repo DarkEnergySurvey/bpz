@@ -238,6 +238,10 @@ if 'config' in locals():
                 if pval.key_not_none(p, ptype):
                     testProperties[ptype].append(p[ptype])
 else:
+    import string
+    import random
+    config = {'test_name': 'test_' + ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(5))}
+
     #if nothing specified, use the standard tests
     for i in glob.glob(path + '/testConfig/*.yaml'):
         p = load_yaml(i)

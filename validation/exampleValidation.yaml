@@ -4,7 +4,7 @@ test_name: photoz_wgExampleTest1
 
 #paths to file locations. will assume '.fits' as point predictions '.hdf5' as pdf predictions
 #add more files to list to compare multiple files
-filePaths: ['tests/data/validPointPrediction.fits', 'tests/data/validHDF.hdf5']
+filePaths: [/Users/Christopher_old/Desktop/RF_S82_POINT_estimates.fits]
 
 #1) OPTIONAL Which metrics and tolerance should we measure either a list of metrics, such as
 # and or a precomputed collection of group metrics and tolerances
@@ -12,4 +12,4 @@ filePaths: ['tests/data/validPointPrediction.fits', 'tests/data/validHDF.hdf5']
 standardPredictions: [/testConfig/photoz.yaml]
 
 # what will the path/ and or/base file name of the results be called?
-resultsFilePrefix: photoz_wg
+resultsFilePrefix: RF_POINT_ONLY

@@ -8,8 +8,9 @@ import os
 import scipy as sp
 from scipy.stats import ks_2samp, binned_statistic
 from scipy import interpolate
+from scipy.stats import gaussian_kde
 import sys
-from weighted_kde import gaussian_kde
+#from weighted_kde import gaussian_kde
 import collections
 
 """
@@ -47,7 +48,7 @@ def random_choice(arr, axis=None):
 
 #a wrapper around scipy mode
 def mode(arr, axis=None):
-    return sp.mode(arr, axis=axis)[0]
+    return sp.stats.mode(arr, axis=axis)[0]
 
 
 #extracts the output of a pdf from a decision tree, in this the first column has the highest weight
@@ -70,11 +71,11 @@ def bootstrap_mean_error(arr, weight, func, Nsamples=None):
 
     val = np.zeros(Nsamples)
     #what weight do each data have
-    p = weight*1.0 / np.sum(weight)
+    prob = weight * 1.0 / np.sum(weight)
 
     for i in np.arange(Nsamples):
         #call the function and pass in a bootstrapped sample
-        val[i] = func(np.random.choice(arr, size=len(arr), replace=True, p=p))
+        val[i] = func(np.random.choice(arr, size=len(arr), replace=True, p=prob))
 
     #Error is the std of all samples
     return {'mean': np.mean(val), 'sigma': np.std(val)}
@@ -106,24 +107,25 @@ def bootstrap_mean_error_binned(x, arr, weight, bins, func, Nsamples=None):
 def bootstrap_mean_error_pdf_point(_pdf, _bins, _point, _weights, func, Nsamples=None):
     """boot strap error, _pdf is shape (ngals, zbins), _bins = zbins beginings, _weights = galaxy weights
     func = metric function, must accept (pdf[ngals,zbins], zbins, points(ngals)"""
-
+ 
     if Nsamples is None:
         Nsamples = 200
 
     val = np.zeros(Nsamples)
     #what weight do each data have
-    p = _weights * 1.0 / np.sum(_weights)
+    prob = _weights * 1.0 / np.sum(_weights)
+    print 'p.sum(prob)', np.sum(prob)
+
     ind = np.arange(len(_pdf))
 
     for i in np.arange(Nsamples):
-        indrs = np.random.choice(ind, size=len(ind), replace=True, p=p)
+        indrs = np.random.choice(ind, size=len(ind), replace=True, p=prob)
 
         #call the function and pass in a bootstrapped sample
         val[i] = func(_pdf[indrs], _bins, _point[indrs])
 
     #Error is the std of all samples
     return {'mean': np.mean(val), 'sigma': np.std(val)}
-
 
 
 """ ========================
@@ -151,6 +153,7 @@ def required_cols(_dict, pointOrPdf):
                 cols += extract_cols(dd[ttype])
 
     return [i for i in np.unique(cols)]
+
 
 #extract all columns we are asking to work with
 def extract_cols(_dict):
@@ -263,9 +266,9 @@ def valid_fits(filename, cols):
 
 def valid_file(filename, cols):
 
-    if ('.fit' in filename) or ('.csv' in filename):
+    if ('.fit' in filename[-7:]) or ('.csv' in filename[-7:]):
         return valid_fits(filename, cols)
-    if '.hdf5' in filename:
+    if '.hdf5' in filename[-5:]:
         return valid_hdf(filename, cols)
     return False, 'currently unable to read file'
 
@@ -294,6 +297,11 @@ def mad(arr, axis=None):
     return mad_
 
 
+def mean_mad(arr, axis=None):
+    mad_ = np.mean(np.abs(arr - np.mean(arr)))
+    return mad_
+
+
 def sigma_95(arr, axis=None):
     upper, lower = np.percentile(arr, [97.7, 2.3], axis=axis)
     return (upper - lower) / 2.0
@@ -317,13 +325,21 @@ pdf metrics and tools =
 """
 
 
+def dist_pdf(arr, binCenters):
+    if len(np.shape(arr)) > 1:
+        pdfs = np.array([gaussian_kde(arr[i]).evaluate(binCenters) for i in np.arange(len(arr))])
+        return pdfs
+    else:
+        pdfs = gaussian_kde(arr).evaluate(binCenters)
+    return pdfs
+
+
 def normalize_pdf(pdf, z):
     """
     returns normalized pdf
     """
     area = np.trapz(pdf, x=z)
     return pdf / area
-
 
 def log_loss(act, pred):
     epsilon = 1e-15
@@ -431,9 +447,9 @@ def cumaltive_to_point(dfs, x, points):
         return cum[x <= points][-1]
 
 
-def xval_cumaltive_at_ypoint(dfs, x, point):
+def xval_cumaltive_at_ypoint(dfs, x, point, k=None):
     """returns the xvals of dfs(ngal, nxbins), x(bins in xdir) point(1), for a point
-    which sits on the y-axis of the cdf"""
+    which sits on the y-axis of the cdf. We interpolate the cdf for precision"""
 
     """Note: all points < x[0] are set to x[0]"""
     """Note: all points > x[-1] are set to x[-1]"""
@@ -442,21 +458,19 @@ def xval_cumaltive_at_ypoint(dfs, x, point):
         point = x[-1]
     if point < x[0]:
         point = x[0]
-
+    if k is None:
+        k = 3
     if len(np.shape(dfs)) > 1:
         cum = np.cumsum(dfs, axis=1)
         cum = (cum.T / cum[:, -1]).T
 
-        #determine which index is just <= each point value]
-        xarr = np.array([np.amax(x[c <= point]) for c in cum])
-
-        #return these x values  correspondong to the y-axis = point interst cdf
+        #return these x values  corresponding to the y-axis = point interst cdf
+        xarr = np.array([interpolate.InterpolatedUnivariateSpline(c, x, k=k)(point) for c in cum])
         return xarr
     else:
         cum = np.cumsum(dfs)
         cum = cum / float(cum[-1])
-        return x[cum <= point][-1]
-
+        return interpolate.InterpolatedUnivariateSpline(cum, x, k=k)(point)
 
 def gini(sorted_list):
     """ from https://planspacedotorg.wordpress.com/2013/06/21/how-to-calculate-gini-coefficient-from-raw-data-in-python/
@@ -573,6 +587,7 @@ def binned_statistic_dist1_dist2(arr_, bin_vals_, truths_, truth_bins_, pdf_, pd
             res[i]['weighted_value'] = func_(truth_dist_, stckd_pdfs_at_trth_cntrs_)
 
     return res
+
 
 """ ==========================
 validation metrics and tools =

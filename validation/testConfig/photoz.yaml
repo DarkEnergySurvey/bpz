@@ -2,7 +2,7 @@ test_name: photoz-wg
 #these are the point prediction tests
 point:
     #which photo-z predictions do we want to test
-    predictions: [MEDIAN_Z, MODE_Z, Z_MC, MEAN_Z]
+    predictions: [MEDIAN_Z, MODE_Z, MEAN_Z]
     
     #what is the true redshift that we will compare with?
     truths: Z_SPEC

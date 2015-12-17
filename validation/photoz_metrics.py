@@ -59,7 +59,7 @@ test_name: MyExampleTest1
 
 #paths to file locations. will assume '.fits' as point predictions '.hdf5' as pdf predictions
 #add more files to list to compare multiple files
-filePaths: ['tests/data/validPointPrediction.fits', 'tests/data/validHDF.hdf5']
+filePaths: ['Y1A1_GOLD101_Y1A1trainValid_14.12.2015.valid.fits', 'Y1A1_GOLD101_Y1A1trainValid_14.12.2015.valid.hdf5']
 
 #1) OPTIONAL Which metrics and tolerance should we measure either a list of metrics, such as
 # and or a precomputed collection of group metrics and tolerances

@@ -6,7 +6,9 @@ PhotoZ validation code
 
 3. data formats
 
-4. More information
+4. tests
+
+5. More information
 
 
 1. ===== About this doc and the code =====
@@ -40,7 +42,9 @@ Then you can define the tests, and files, and run the code like:
 This will run all of the battery of tests, which are related to point predictions, and are found in the testConfig/ directory on each of the input files. It will also check that the fits files are formatted correctly, with the column names required by the tests.
 
 
-3) %>./photoz_metrics.py  PathToPointPredictions1.fits PathToPointPredictions2.fits ...
+3) %>./photoz_metrics.py  pdfFilePredictions.hdf5
+
+This will run all of the battery of pdf tests, such as ks-tests etc.
 
 For a detailed walkthrough of the code, run the ipython notebook
 %>ipython notebook
@@ -51,6 +55,7 @@ and navigate to/ load the file
 
 3. === Format of the files ===
 
+3.1 Point predictions file
 Point predictions file must be a fits file, and it must have the columns:
 
 [upper-case]
@@ -67,7 +72,23 @@ weights_valid
 It must also have any extra columns that you use in the test file, in the correct case.
 
 
-4. === More information ===
+3.2 pdf file
+The pdf file must be a hdf5 file format, and it should have the extension /pdf/ for all the pdfs.
+Other useful extensions are /bins/ and also /point_predictions/ which can also store point predictions
+
+
+You can also check out /validation/tests/create_testingdata.py to see how the unit test data has been made.
+
+4. === Unit tests====
+We perform a battery of unit tests on the metrics. Navigate to /validation/tests and run
+
+%>nosetests
+
+To perform all the unit tests. They should all (except 1) pass.
+
+
+
+5. === More information ===
 For an interactive demo open the ipython notebook
 
 %>cd notebook/

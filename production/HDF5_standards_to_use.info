@@ -1,0 +1,25 @@
+This files contains the standards to use for HDF5 so that they are standardized across DES 
+
+library versions : 
+
+pandas 0.17.0
+pytables 3.2.2
+
+How to check
+
+import pandas
+print pandas.__version__
+import tables
+print tables.__version__
+
+Compression (we all want to use the same compression):
+
+blosc:snappy
+
+#example 
+store = pd.HDFStore('HDF5_file.h5', mode='a')
+for i in xrange(4): # here we append the same df 5 times to thre HDF5 file 
+    print i
+    store.append('label', df, complevel=5, complib='blosc:snappy')
+store.close()
+

@@ -8,6 +8,8 @@ DRAFT README for any photo-z file that wants to hosted at COSMOHUB
 
 # features trained on 
 
+# if an HDF5 file, note the pandas and pytables version compression used to write the HDF5 file
+
 # the redshift binning 
 
 # link to DES-wiki page on which the release is documented

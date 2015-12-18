@@ -9,6 +9,10 @@ DRAFT README for any photo-z file that wants to hosted at COSMOHUB
 # features trained on 
 
 # if an HDF5 file, note the pandas and pytables version compression used to write the HDF5 file
+# should be 
+# pandas 0.17.0
+# pytables 3.2.2
+# compression blosc:snappy
 
 # the redshift binning 
 

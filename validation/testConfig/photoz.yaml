@@ -32,8 +32,6 @@ pdf:
     #or shall we compare against stacked pdfs
     stacks:
         truths: Z_SPEC
-        #we convert truths to a distribution by choosing these bins
-        truth_bins: [Z_SPEC: 'numpy.arange(19)*0.1']
 
         #which additional bins shall we use to calculate metrics?
         bins:

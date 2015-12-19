@@ -169,7 +169,7 @@ def get_weights(_dict, _ky, _d):
     else:
         weights = d[tst['weights']]
 
-    return weights
+    return weights / np.sum(weights)
 
 
 def load_file(f, cols):
@@ -456,7 +456,7 @@ if len(files[ptype]) > 0:
 
                     """ to do, add errors boot strap to this pdf=point binned stats"""
 
-            """Complete pdf - point comparions, no do pdf - pdf comparisons"""
+            """Complete pdf - point comparions, now do pdf - pdf comparisons"""
             if pval.key_not_none(tsts, 'stacks'):
                 #perform stacks tests
                 tst = tsts['stacks']
@@ -464,35 +464,31 @@ if len(files[ptype]) > 0:
                 #set standard bins, or use those in the test file
                 if pval.key_not_none(tst, 'truth_bins'):
                     truth_col = tst['truth_bins'][0].keys()[0]
-                    truth_bins_edges = eval(tst['truth_bins'][0][truth_col])
 
                 truths = np.array(d[truth_col])
-                truth_dist = np.histogram(truths, bins=truth_bins_edges)[0]*1.0
+                weights = get_weights(tst, 'weights', d)
+
+                truth_dist = pval.dist_pdf(np.random.choice(truths, size=3e5, p=weights, replace=True), pdf_z_center)
+
                 if np.any(truth_dist == 0):
-                    print 'truth_bins have some 0 truths. This is dangerous'
-                    print truth_col, truth_bins_edges
-                    print truth_dist
+                    print 'KDE have some 0 values. This is dangerous!'
+                    print truth_dist, pdf_z_center
                     print "aborting"
                     sys.exit()
 
                 #bin centers are defined as the <z> value in the bin, not center of bin.
-                truth_bins_centers = stats.binned_statistic(truths, truths, bins=truth_bins_edges, statistic=np.mean).statistic
+                #truth_bins_centers = stats.binned_statistic(truths, truths, bins=truth_bins_edges, statistic=np.mean).statistic
                 #turn distribution into a pdfs [? remove this ?]
                 #truth_pdf = pval.normalisepdfs(truth_dist, truth_bins_centers)
 
-                #stack the pdfs (but don't normalise)
-                stacked_pdf = pval.stackpdfs(pdf)
-
-                #determine the stacked values,  at bin centers of pdfs
-                stckd_pdfs_at_trth_cntrs = pval.interpolate_dist(stacked_pdf, pdf_z_center, truth_bins_centers)
-
-                #print truth_col, truth_bins_edges, truth_bins_centers, truth_dist, truth_pdf
-                #print stacked_pdf, pdf_z_center
+                #stack the pdfs (and re-normalise)
+                stacked_pdf = pval.stackpdfs(pdf, weights=weights)
+                stacked_pdf = pval.normalisepdfs(stacked_pdf, pdf_z_center)
 
                 for metric in tst['metrics']:
                     func_ = get_function(metric)
                     res[ptype][f][test_name][metric] = {}
-                    res[ptype][f][test_name][metric]['VALUE'] = np.asscalar(func_(truth_dist, stckd_pdfs_at_trth_cntrs))
+                    res[ptype][f][test_name][metric]['VALUE'] = np.asscalar(func_(truth_dist, stacked_pdf))
 
                     if pval.key_not_none(tst, 'bins'):
 

@@ -114,6 +114,7 @@ def bootstrap_mean_error_pdf_point(_pdf, _bins, _point, _weights, func, Nsamples
     val = np.zeros(Nsamples)
     #what weight do each data have
     prob = _weights * 1.0 / np.sum(_weights)
+    prob = prob / np.sum(prob)
     print 'p.sum(prob)', np.sum(prob)
 
     ind = np.arange(len(_pdf))
@@ -381,9 +382,18 @@ def eval_pdf_point(pdf, bins, point):
     return val
 
 
-def stackpdfs(pdfs):
+def stackpdfs(pdfs, weights=None):
     """ numpy shape np.array( (galaxy, pdfbins)) """
-    stk_pdf = np.sum(pdfs, axis=0)
+
+    if weights is not None:
+        pdfs_ = np.zeros_like(pdfs)
+        weights_ = weights / np.sum(weights)
+        for i in np.arange(len(weights)):
+            pdfs_[i] = pdfs[i]*weights_[i]
+
+        stk_pdf = np.sum(pdfs_, axis=0)
+    else:
+        stk_pdf = np.sum(pdfs, axis=0)
     return stk_pdf
 
 

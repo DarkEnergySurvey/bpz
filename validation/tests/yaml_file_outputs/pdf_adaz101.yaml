@@ -1,0 +1,8 @@
+? /Users/hoyleb/Documents/science/DES/PHOTOZ/data/validPredictions/Y1A1_GOLD101_Y1A1trainValid_14.12.2015.validsY1A1.25215.out.DES.pdf.hdf5
+: test_OQ9DD:
+    bh_photo_z_validation.ks_test:
+      VALUE: 0.156
+    bh_photo_z_validation.log_loss:
+      VALUE: 1.4690291764753707
+    bh_photo_z_validation.npoisson:
+      VALUE: 4416809.393064146

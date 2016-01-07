@@ -8,7 +8,6 @@ import bh_photo_z_validation as pval
 from scipy import stats
 import glob
 import textwrap
-import inspect
 import cPickle as pickle
 
 
@@ -46,7 +45,6 @@ def get_function(function_string):
     module = importlib.import_module(module)
     function = getattr(module, function)
     return function
-
 
 
 #write a config file, if called without a .fits of .hdf5 file
@@ -165,9 +163,9 @@ def get_weights(_dict, _ky, _d):
     if pval.key_not_none(_dict, _ky) is False:
         print "you have not set any weights for this test"
         print "continuing with weights=1"
-        weights = np.ones(len(d))
+        weights = np.ones(len(_d))
     else:
-        weights = d[tst['weights']]
+        weights = _d[tst['weights']]
 
     return weights / np.sum(weights)
 
@@ -460,15 +458,11 @@ if len(files[ptype]) > 0:
             if pval.key_not_none(tsts, 'stacks'):
                 #perform stacks tests
                 tst = tsts['stacks']
+                truth_col = tst['truths']
+                truths = np.array(d[truth_col]).ravel()
+                weights = get_weights(tst, 'weights', d).ravel()
 
-                #set standard bins, or use those in the test file
-                if pval.key_not_none(tst, 'truth_bins'):
-                    truth_col = tst['truth_bins'][0].keys()[0]
-
-                truths = np.array(d[truth_col])
-                weights = get_weights(tst, 'weights', d)
-
-                truth_dist = pval.dist_pdf(np.random.choice(truths, size=3e5, p=weights, replace=True), pdf_z_center)
+                truth_dist = pval.dist_pdf_weights(truths, pdf_z_center, weights=weights)
 
                 if np.any(truth_dist == 0):
                     print 'KDE have some 0 values. This is dangerous!'

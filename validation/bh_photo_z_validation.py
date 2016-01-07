@@ -9,6 +9,7 @@ import scipy as sp
 from scipy.stats import ks_2samp, binned_statistic
 from scipy import interpolate
 from scipy.stats import gaussian_kde
+from weighted_kde import gaussian_kde as gss_kde
 import sys
 #from weighted_kde import gaussian_kde
 import collections
@@ -107,15 +108,14 @@ def bootstrap_mean_error_binned(x, arr, weight, bins, func, Nsamples=None):
 def bootstrap_mean_error_pdf_point(_pdf, _bins, _point, _weights, func, Nsamples=None):
     """boot strap error, _pdf is shape (ngals, zbins), _bins = zbins beginings, _weights = galaxy weights
     func = metric function, must accept (pdf[ngals,zbins], zbins, points(ngals)"""
- 
+
     if Nsamples is None:
         Nsamples = 200
 
     val = np.zeros(Nsamples)
     #what weight do each data have
-    prob = _weights * 1.0 / np.sum(_weights)
+    prob = _weights * 1.0 / np.sum(_weights, dtype=float)
     prob = prob / np.sum(prob)
-    print 'p.sum(prob)', np.sum(prob)
 
     ind = np.arange(len(_pdf))
 
@@ -335,6 +335,15 @@ def dist_pdf(arr, binCenters):
     return pdfs
 
 
+def dist_pdf_weights(arr, binCenters, weights=None):
+    if len(np.shape(arr)) > 1:
+        pdfs = np.array([gss_kde(arr[i], weights=weights).evaluate(binCenters) for i in np.arange(len(arr))])
+        return pdfs
+    else:
+        pdfs = gss_kde(arr, weights=weights).evaluate(binCenters)
+    return pdfs
+
+
 def normalize_pdf(pdf, z):
     """
     returns normalized pdf
@@ -387,7 +396,7 @@ def stackpdfs(pdfs, weights=None):
 
     if weights is not None:
         pdfs_ = np.zeros_like(pdfs)
-        weights_ = weights / np.sum(weights)
+        weights_ = weights / np.sum(weights, dtype=float)
         for i in np.arange(len(weights)):
             pdfs_[i] = pdfs[i]*weights_[i]
 

@@ -837,6 +837,8 @@ def weighted_nz_distributions(df, binning, weights=None, tomo_bins=np.array([0, 
             phot_iter[j + 1] = {}
             spec_iter[j + 1] = {}
 
+            phot_sum_array = np.zeros_like(binning)
+            spec_sum_array = np.zeros_like(binning)
             for i in xrange(n_resample):
                 df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=df_sel[weights])
                 kde_w_spec_pdf = gaussian_kde(df_sample['Z_SPEC'].values, bw_method='silverman')
@@ -844,10 +846,13 @@ def weighted_nz_distributions(df, binning, weights=None, tomo_bins=np.array([0, 
 
                 phot_iter[j + 1][i + 1] = _normalize_pdf(df_sample[pdf_names].sum(), binning[1] - binning[0]).values
                 spec_iter[j + 1][i + 1] = kde_w_spec_pdf
-
-            phot_iter[j + 1][0] = _normalize_pdf(df_sel[pdf_names].sum(), binning[1] - binning[0]).values
-            kde_w_spec_pdf = gaussian_kde(df_sel['Z_SPEC'].values, bw_method='silverman')
-            spec_iter[j + 1][0] = kde_w_spec_pdf(binning)
+                phot_sum_array = phot_sum_array + phot_iter[j + 1][i + 1]
+                spec_sum_array = spec_sum_array + spec_iter[j + 1][i + 1]
+            
+            phot_iter[j + 1][0] = phot_sum_array/ n_resample
+            spec_iter[j + 1][0] = spec_sum_array/ n_resample
+            #kde_w_spec_pdf = gss_kde(df_sel['Z_SPEC'].values, bw_method='silverman', weights=df_sel[weights].values)
+            #spec_iter[j + 1][0] = kde_w_spec_pdf(binning)
 
     # In the following section the full n(z) is treated i.e not in tomographic bins
 
@@ -856,6 +861,8 @@ def weighted_nz_distributions(df, binning, weights=None, tomo_bins=np.array([0, 
     phot_iter[0] = {}
     spec_iter[0] = {}
 
+    phot_sum_array = np.zeros_like(binning)
+    spec_sum_array = np.zeros_like(binning)
     for i in xrange(n_resample):
         df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=df_sel[weights])
         kde_w_spec_pdf = gaussian_kde(df_sample['Z_SPEC'].values, bw_method='silverman')
@@ -864,9 +871,11 @@ def weighted_nz_distributions(df, binning, weights=None, tomo_bins=np.array([0, 
         phot_iter[0][i + 1] = _normalize_pdf(df_sample[pdf_names].sum(), binning[1] - binning[0]).values
         spec_iter[0][i + 1] = kde_w_spec_pdf
 
-    phot_iter[0][0] = _normalize_pdf(df_sel[pdf_names].sum(), binning[1] - binning[0]).values
-    kde_w_spec_pdf = gaussian_kde(df_sel['Z_SPEC'].values, bw_method='silverman')
-    spec_iter[0][0] = kde_w_spec_pdf(binning)
+    phot_iter[0][0] = phot_sum_array/ n_resample
+    spec_iter[0][0] = spec_sum_array/ n_resample
+    #phot_iter[0][0] = _normalize_pdf(df_sel[pdf_names].sum(), binning[1] - binning[0]).values
+    #kde_w_spec_pdf = gss_kde(df_sel['Z_SPEC'].values, bw_method='silverman', weights=df_sel[weights].values)
+    #spec_iter[0][0] = kde_w_spec_pdf(binning)
 
     data_for_wl = {'binning': binning, 'phot': phot_iter, 'spec': spec_iter}
 

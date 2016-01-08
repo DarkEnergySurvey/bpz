@@ -13,7 +13,7 @@ from weighted_kde import gaussian_kde as gss_kde
 import sys
 #from weighted_kde import gaussian_kde
 import collections
-
+from cPickle import dumps, load
 """
 Authors: Ben Hoyle, Christopher Bonnet
 

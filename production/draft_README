@@ -2,7 +2,9 @@ DRAFT README for any photo-z file that wants to hosted at COSMOHUB
 
 # Who produced file and contact information
 
-# filename with a version ! 
+# Which gold version of gold is this
+
+# Filename with a version ! has to be of format PHOTOZ_{METHOD_name}_Y1_v{X.X} starting with V0.1
 
 # code used or name of the photo-z (think ANNZ2, TPZ, BPZ, ...)
 

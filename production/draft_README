@@ -8,7 +8,11 @@ DRAFT README for any photo-z file that wants to hosted at COSMOHUB
 
 # code used or name of the photo-z (think ANNZ2, TPZ, BPZ, ...)
 
-# features trained on 
+# Which objects was in trained on in case of ML method
+
+# Link to validation file 
+
+# Features trained on 
 
 # if an HDF5 file, note the pandas and pytables version compression used to write the HDF5 file
 # should be 
@@ -16,11 +20,11 @@ DRAFT README for any photo-z file that wants to hosted at COSMOHUB
 # pytables 3.2.2
 # compression blosc:snappy
 
-# the redshift binning 
+# The redshift binning 
 
-# link to DES-wiki page on which the release is documented
+# Link to DES-wiki page on which the release is documented
 
-# any additional information you want to share 
+# Any additional information you want to share 
 
 # the content of the file
 coadd_ojects_id

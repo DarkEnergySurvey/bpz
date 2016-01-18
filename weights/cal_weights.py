@@ -1,14 +1,13 @@
 """
 Python script to calualate relative weighting
-
-"""                                           
-
-### TODO, should we add error space in the weights space ? ###
+"""
+### TODO :  should we add error space in the weights space ? ### 
+### TODO  : Do we want to subsample the WL and LSS catalogue to ##
+### Speed things up, probably yes ###
 
 import pandas as pd
 import os
 import fitsio
-from fitsio import FITS,FITSHDR
 
 
 def read_spectra():
@@ -56,11 +55,11 @@ def get_weights_c(df1,df2):
     
     weights = np.loadtxt('weights_for_spec.prw')
     weights = weights[:,1:3]
-    weights[:,0] = weights[:,0].astype(int)
+    weights[:, 0] = weights[:, 0].astype(int)
         
     weights = pd.DataFrame(weights,columns=['coadd_objects_id','weight'])
     weights.weight = weights.weight.astype('float32')
-        
+    
     assert weights.duplicated('coadd_objects_id').sum() == 0, 'Duplicates in coadd_objects_ids, suggest you run get_weights_c again' 
     
     return  weights

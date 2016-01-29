@@ -75,7 +75,13 @@ It must also have any extra columns that you use in the test file, in the correc
 3.2 pdf file
 The pdf file must be a hdf5 file format, and it should have the extension /pdf/ for all the pdfs.
 Other useful extensions are /bins/ and also /point_predictions/ which can also store point predictions
+We column names should start with the lower bin edge , for exmaple PDF_0, PDF0.05, PDF_0.10, ...
+Please also include the following in the DataFrame 
+MODE_Z
+MEAN_Z
+Z_SPEC
 
+And MEDIAN_Z if you want (better if included)
 
 You can also check out /validation/tests/create_testingdata.py to see how the unit test data has been made.
 

@@ -498,7 +498,7 @@ if len(files[ptype]) > 0:
                             #this uses the binned_stats function
                             """http://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.stats.binned_statistic.html
                             """
-                            binned_stats = pval.binned_statistic_dist1_dist2(np.array(d[bnCol]), bin_vals, truths, truth_bins_edges, pdf, pdf_z_center, func_)
+                            binned_stats = pval.binned_statistic_dist1_dist2(np.array(d[bnCol]), bin_vals, truths, pdf, pdf_z_center, func_, weights=weights)
 
                             res[ptype][f][test_name][metric]['binned_result'][bnCol]['BIN_CENTERS'] = [np.asscalar(binned_stats[vv]['weighted_bin_center']) for vv in binned_stats]
 

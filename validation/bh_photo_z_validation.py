@@ -19,8 +19,9 @@ Authors: Ben Hoyle, Christopher Bonnet
 
 To do:
 
- add weights to binned_statistic_dist1_dist2
-
+ add weights to binned_statistic_dist1_dist2 --done
+ add unit tests to binned_statistic_dist1_dist2
+ add unit tests for pdfs
 """
 
 """ ==========================
@@ -575,7 +576,7 @@ def interpolate_dist(_df1, _bins1, _bins2, kind=None):
     return I(_bins2)
 
 
-def binned_statistic_dist1_dist2(arr_, bin_vals_, truths_, truth_bins_, pdf_, pdf_z_center_, func_, weights=None):
+def binned_statistic_dist1_dist2(arr_, bin_vals_, truths_, pdf_, pdf_z_center_, func_, weights=None):
     """ bins the stacked pdf and truths in bins of arr, then calculates the metric on these distributions"""
     """ metric doesn't work so well with weights at the mo"""
 
@@ -589,21 +590,16 @@ def binned_statistic_dist1_dist2(arr_, bin_vals_, truths_, truth_bins_, pdf_, pd
         ind_ = (arr_ >= bin_vals_[i]) * (arr_ < bin_vals_[i + 1])
         if np.sum(ind_) > 0:
             res[i] = {}
-            truth_dist_ = np.histogram(truths_[ind_], bins=truth_bins_)[0]
 
-            if np.any(truth_dist_ == 0):
-                print "You have zero objects in your `truth` bin, inside bh_photo_z_validation.binned_statistic_dist1_dist2"
-                print "this is unstable. Aborting"
-                sys.exit()
+            truth_dist_ = dist_pdf_weights(truths_[ind_], pdf_z_center_, weights=p[ind_])
 
-            truth_bins_centers_ = binned_statistic(truths_[ind_], truths_[ind_], bins=truth_bins_, statistic=np.mean).statistic
-            stacked_pdf_ = stackpdfs(pdf_[ind_])
-            stckd_pdfs_at_trth_cntrs_ = interpolate_dist(stacked_pdf_, pdf_z_center_, truth_bins_centers_)
+            stacked_pdf_ = stackpdfs(pdf_[ind_], weights=p[ind_])
+            stacked_pdf_ = normalisepdfs(stacked_pdf_, pdf_z_center_)
 
             res[i]['weighted_bin_center'] = np.average(arr_[ind_], weights=p[ind_])
 
             """ Add weights in here  """
-            res[i]['weighted_value'] = func_(truth_dist_, stckd_pdfs_at_trth_cntrs_)
+            res[i]['weighted_value'] = func_(truth_dist_, stacked_pdf_)
 
     return res
 

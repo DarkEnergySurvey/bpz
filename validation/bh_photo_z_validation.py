@@ -14,15 +14,15 @@ import sys
 #from weighted_kde import gaussian_kde
 import collections
 from cPickle import dumps, load
+
 """
 Authors: Ben Hoyle, Christopher Bonnet
 
 To do:
-
- add weights to binned_statistic_dist1_dist2 --done
- add unit tests to binned_statistic_dist1_dist2
- add unit tests for pdfs
+ Enable mad() functions to accept axis= keyword for 
+ Nd arrays
 """
+
 
 """ ==========================
 Cool tools ===================
@@ -346,6 +346,10 @@ def dist_pdf(arr, binCenters):
 
 
 def dist_pdf_weights(arr, binCenters, weights=None):
+    """ arr is an array of data e.g. [0,1,2,3,4,4,4,,3,2,1,2] to turn into a [weighted] KDE distribution.
+    The values of the distribution at binCenters are returned
+    """
+
     if len(np.shape(arr)) > 1:
         pdfs = np.array([gss_kde(arr[i], weights=weights).evaluate(binCenters) for i in np.arange(len(arr))])
         return pdfs
@@ -361,6 +365,7 @@ def normalize_pdf(pdf, z):
     area = np.trapz(pdf, x=z)
     return pdf / area
 
+
 def log_loss(act, pred):
     epsilon = 1e-15
     pred = sp.maximum(epsilon, pred)
@@ -370,8 +375,18 @@ def log_loss(act, pred):
     return -1 * ll
 
 
-def kulbachLeiber_bins(arr1, arr2):
-    return -1.0 / len(arr1) * np.sum(arr1 * np.log(arr2 + 1e-6))
+def kulbachLeiber_bins(P, Q):
+    """Kullbach- Leibler test for binned [strictly >0] distributions
+    See en.wikipedia.org/wiki/Kullback-Leibler_divergence
+    For P=measured Q=True distribtions"""
+
+    #if P ==0 then it adds nothing to the sum. If Q ==0 the KL is undefined
+    non0 = (P > np.finfo('float').eps) * (Q > np.finfo('float').eps)
+
+    if np.any((Q < np.finfo('float').eps) * (P > 0)):
+        return np.nan
+
+    return np.sum(P[non0] * np.log(P[non0] / Q[non0]))
 
 
 # what is this test?
@@ -444,62 +459,74 @@ def integrate_dist_bin(dfs, x, minval, maxval):
     return smm
 
 
-def cumaltive_to_point(dfs, x, points):
-    """ This assumes bin widths are small enough to ignore.
+def cumaltive_to_point(dfs, bincenter, points, k=None):
+    """
     Expected shape: numpy dfs shape (galaxy, bins), x begins at 0, ends at just before 2 """
-    """Note: all points < x[0] are set to x[0]"""
-    """Note: all points > x[-1] are set to x[-1]"""
+    """Note: all points < bincenter[0] are set to bincenter[0] - dx"""
+    """Note: all points > bincenter[-1] are set to bincenter[-1] + dx"""
+
+    dx = (bincenter[1] - bincenter[0]) / 2.0
+
+    if k is None:
+        k = 3
 
     if isinstance(points, collections.Iterable):
-        points[points > x[-1]] = x[-1]
-        points[points < x[0]] = x[0]
+        points[points > bincenter[-1] + dx] = bincenter[-1] + dx
+        points[points < bincenter[0] - dx] = bincenter[0] - dx
     else:
-        if points > x[-1]:
-            points = x[-1]
-        if points < x[0]:
-            points = x[0]
+        if points > bincenter[-1] + dx:
+            points = bincenter[-1] + dx
+        if points < bincenter[0] - dx:
+            points = bincenter[0] - dx
 
     #calcaulte the cumaltive distribution
     if len(np.shape(dfs)) > 1:
         cum = np.cumsum(dfs, axis=1)
         cum = (cum.T / cum[:, -1]).T
+        p_ = points[:]
+        if len(points) == 1:
+            p_ = np.array([points] * len(dfs))
+        #interpolat to get exact cdf value at point]
+        xarr = np.array([interpolate.InterpolatedUnivariateSpline(bincenter, cum[i], k=k)(p_[i]) for i in range(len(cum[:, 0]))])
+        return xarr
 
-        #determine which index is just <= each point value]
-        indx = np.arange(len(x))
-        ind_max = np.array([np.amax(indx[x <= p]) for p in points])
-
-        #return these cfd values at the points of interst
-        return cum[np.arange(len(dfs)), ind_max]
     else:
         cum = np.cumsum(dfs)
         cum = cum / float(cum[-1])
-        return cum[x <= points][-1]
+        return interpolate.InterpolatedUnivariateSpline(bincenter, cum, k=k)(points)
 
 
-def xval_cumaltive_at_ypoint(dfs, x, point, k=None):
+#### FIX swap x/y
+def xval_cumaltive_at_ypoint(dfs, bincenter, point, k=None):
     """returns the xvals of dfs(ngal, nxbins), x(bins in xdir) point(1), for a point
     which sits on the y-axis of the cdf. We interpolate the cdf for precision"""
 
-    """Note: all points < x[0] are set to x[0]"""
-    """Note: all points > x[-1] are set to x[-1]"""
+    """Note: all points < x[0]-dx are set to x[0] - dx"""
+    """Note: all points > x[-1]+dx are set to x[-1] + dx"""
 
-    if point > x[-1]:
-        point = x[-1]
-    if point < x[0]:
-        point = x[0]
+    dx = (bincenter[1] - bincenter[0])/2.0
+    if point > bincenter[-1] + dx:
+        point = bincenter[-1] + dx
+    if point < bincenter[0] - dx:
+        point = bincenter[0] - dx
     if k is None:
         k = 3
     if len(np.shape(dfs)) > 1:
         cum = np.cumsum(dfs, axis=1)
         cum = (cum.T / cum[:, -1]).T
 
+        #include this line (c < 1 - np.finfo('float').eps) * (c > np.finfo('float').eps)
+        #to ensure that there is a 1-1 mapping between the CDF c, and the x-axis
         #return these x values  corresponding to the y-axis = point interst cdf
-        xarr = np.array([interpolate.InterpolatedUnivariateSpline(c, x, k=k)(point) for c in cum])
+        xarr = np.array([interpolate.InterpolatedUnivariateSpline(c[(c < 1 - np.finfo('float').eps) * (c > np.finfo('float').eps)], bincenter[(c < 1 - np.finfo('float').eps) * (c > np.finfo('float').eps)], k=k)(point) for c in cum])
         return xarr
     else:
         cum = np.cumsum(dfs)
         cum = cum / float(cum[-1])
-        return interpolate.InterpolatedUnivariateSpline(cum, x, k=k)(point)
+        ind = (cum < 1 - np.finfo('float').eps) * (cum > np.finfo('float').eps)
+
+        return interpolate.InterpolatedUnivariateSpline(cum[ind], bincenter[ind], k=k)(point)
+
 
 def gini(sorted_list):
     """ from https://planspacedotorg.wordpress.com/2013/06/21/how-to-calculate-gini-coefficient-from-raw-data-in-python/
@@ -516,6 +543,7 @@ def Bordoloi_pdf_test(dfs, x, points, n_yaxis_bins=None):
     """determine a test described here:
     http://arxiv.org/pdf/1201.0995.pdf
     Is the pdf flat, in bins of Pval?
+    The x is bin centers of dfs
     """
 
     #calculate the cum pdf values up to each point (or spec-z)
@@ -541,7 +569,7 @@ def dfs_mode(dfs, x):
 
 
 def binned_pdf_point_stats(_data_to_bin, _bin_vals, _pdf, _zbins, _truths, _weights, func, Nsamples=None):
-    """ take a binning vector, and bins edges, and calculate the pdf-point statistic. Use Boot strap resampling to use weights keyword. If weights are given, we use bootstrap to estimate the weighted average value of the metric
+    """ take a binning vector, and bins values, and calculate the pdf-point statistic. Use Boot strap resampling to use weights keyword. If weights are given, we use bootstrap to estimate the weighted average value of the metric
 
     _data_to_bin[size ngals], _bin_vals = bins to bin _data_to_bin, _pdf[ngals, nzbins], _zbins the zbins of the pdf
     _truths[ngals] point predictions, _weights[ngals] galaxy weights, func = metric of choice"""

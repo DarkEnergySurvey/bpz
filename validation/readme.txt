@@ -6,7 +6,7 @@ PhotoZ validation code
 
 3. data formats
 
-4. tests
+4. tests + test data
 
 5. More information
 
@@ -60,7 +60,7 @@ Point predictions file must be a fits file, and it must have the columns:
 
 [upper-case]
 COADD_OBJECTS_ID  
-Z_MC
+Z_MC    <-- this is sampled point from the pdf, used to construct dn/dz quickly
 MEDIAN_Z
 MODE_Z
 MEAN_Z
@@ -81,6 +81,7 @@ MODE_Z
 MEAN_Z
 Z_SPEC
 MEDIAN_Z
+Z_MC
 
 You can also check out /validation/tests/create_testingdata.py to see how the unit test data has been made.
 
@@ -91,7 +92,9 @@ We perform a battery of unit tests on the metrics. Navigate to /validation/tests
 
 To perform all the unit tests. They should all (except 1) pass.
 
-
+Test data.
+Currently test data is randomised numbers, just so the codes check for the correct column names.
+We could insert a known signal, and do an end to end test of the validation pipeline.
 
 5. === More information ===
 For an interactive demo open the ipython notebook

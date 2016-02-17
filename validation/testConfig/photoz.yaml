@@ -34,7 +34,7 @@ pdf:
         truths: Z_SPEC
 
         #which additional bins shall we use to calculate metrics?
-        bins:
+        bins: [Z_SPEC: '[0.0, 1.0, 2.0]']
         metrics: [bh_photo_z_validation.ks_test, bh_photo_z_validation.npoisson, bh_photo_z_validation.log_loss]
 
         #shall we use weights when calculating metrics, if so specify here.

@@ -184,7 +184,11 @@ def extract_cols(_dict):
 
 
 def keytst(_tst):
-
+    """This function attemps to turn a bin string into executed code
+    e.g. 'bins': {'Z_SPEC': 'numpy.arange(5)'}
+    should turn 'numpy.arange(5)' into numpy.arange(5) array
+    It returns False if it cannot compile the string code
+    """
     for bn in ['bins', 'truth_bins']:
         if key_not_none(_tst, bn):
             for binkyv in _tst[bn]:
@@ -214,6 +218,7 @@ def valid_hdf(filename, cols):
     #is args set?
     if cols is None:
         return False, 'you must have at least some defined cols'
+    
     #does the file exist
     if os.path.exists(filename) is False:
         return False, 'file does not exist'
@@ -290,6 +295,10 @@ def delta_z_1pz(z_spec, z_phot):
 
 
 def sigma_68(arr, axis=None):
+    """Input: an (multi-dimensional) array
+    Optional input: the axis along which to calculate the metric
+    Outputs: the 68% spread of data about the median value of the array
+    """
     upper, lower = np.percentile(arr, [84.075, 15.825], axis=axis)
     return (upper - lower) / 2.0
 

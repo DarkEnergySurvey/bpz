@@ -1000,7 +1000,7 @@ def nz_test(file_name, write_pickle=False, save_plot=False, pickle_folder='', pl
                         bin_info1 = code + '_' + str(len(binning)-1) + '_bins'
                         bin_info2 = '_' + selection + '_weights_' + str(weights)
                         pickle_file = pickle_folder +   bin_info1 + bin_info2 + '.pickle'
-                        pval.ld_writedicts(pickle_file, result)
+                        ld_writedicts(pickle_file, result)
                         print  pickle_file
                     figures.append(nz_plot(result, file_name, weights, selection, binning, 
                                                save_plot, plot_folder, code))

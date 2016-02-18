@@ -990,11 +990,11 @@ def nz_test(file_name, write_pickle=False, save_plot=False, pickle_folder='', pl
             if selection in df.columns:
                 for weights in weight_list:
                     print 'Processing :', selection, 'weights = ' +  str(weights), 'In ' + str(len(binning)-1) + ' bins'
-                    result = pval.weighted_nz_distributions(df, binning=centers, 
+                    result = weighted_nz_distributions(df, binning=centers, 
                                                                       weights=weights, 
                                                                       tomo_bins=binning, 
                                                                       z_phot= df[selection].values, 
-                                                                      n_resample=1)
+                                                                      n_resample=20)
                     to_pickle.append(result)
                     if write_pickle:
                         bin_info1 = code + '_' + str(len(binning)-1) + '_bins'

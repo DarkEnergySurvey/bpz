@@ -23,12 +23,10 @@ To do:
  Nd arrays
 """
 
-
 """ ==========================
 Cool tools ===================
 ==============================
 """
-
 
 def get_function(function_string):
     import importlib

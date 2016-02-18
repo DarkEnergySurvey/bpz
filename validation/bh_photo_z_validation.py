@@ -14,7 +14,7 @@ import sys
 #from weighted_kde import gaussian_kde
 import collections
 from cPickle import dumps, load
-
+import matplotlib.pyplot as plt
 """
 Authors: Ben Hoyle, Christopher Bonnet
 

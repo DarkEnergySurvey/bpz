@@ -57,9 +57,6 @@ connection = ea.connect()
 cursor = connection.cursor()
 
 inArgs = {}
-inArgs['redshift-table'] = 'hoyleb.PHOTOZ_Y1_RF_V01'
-inArgs['sample-table'] = 'hoyleb.LSS_COADD_OBJECTS_ID_1M'
-inArgs['data-table'] = 'hoyleb.IM3SHAPE_Y1V1'
 
 #should we only select some data?
 maxRows = ''

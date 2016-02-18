@@ -3,8 +3,8 @@ import sys
 import os
 
 #some example data products that exist in DESDM
-availableZtables = ['hoyleb.PHOTOZ_Y1_RF_V01', 'hoyleb.PHOTOZ_HWE_Y1_V0_1', 'hoyleb.PHOTOZ_ADA_Z_Y1_V0_3', 'hoyeb.PHOT0Z_Y1_BPZ_V01']
-availableSamples = ['hoyleb.LSS_COADD_OBJECTS_ID_1M', 'hoyleb.WL_COADD_OBJECTS_ID_1M', 'hoyleb.REDMAG6411HIGHLUM1004_1M', 'hoyleb.REDMAG6411HIGHDENS_1M']
+availableZtables = ['hoyleb.PHOTOZ_Y1_RF_V01', 'hoyleb.PHOTOZ_HWE_Y1_V0_1', 'hoyleb.PHOTOZ_ADA_Z_Y1_V0_3', 'hoyeb.PHOT0Z_Y1_BPZ_V01', 'hoyleb.PHOTOZ_DNF_Y1_V01']
+availableSamples = ['hoyleb.LSS_COADD_OBJECTS_ID_1M', 'hoyleb.WL_COADD_OBJECTS_ID_1M', 'hoyleb.REDMAG6411HIGHLUM1004_1M', 'hoyleb.REDMAG6411HIGHDENS_1M', 'hoyleb.MAIN_LSS_Y1V01', 'hoyleb.RED_LSS_Y1V01']
 avaiableData = ['hoyleb.IM3SHAPE_Y1V1', 'NSEVILLA.Y1A1_GOLD_1_0_2']
 
 
@@ -64,7 +64,7 @@ inArgs['data-table'] = 'hoyleb.IM3SHAPE_Y1V1'
 #should we only select some data?
 maxRows = ''
 if 'max-rows' in inArgs:
-    maxRows = ' where ROWNUM<' + inArgs['max-rows']
+    maxRows = ' where ROWNUM<' + inArgs['max-rows'] + 1
 
 #construct the select query from the input tables.
 prt1 = 'SELECT '

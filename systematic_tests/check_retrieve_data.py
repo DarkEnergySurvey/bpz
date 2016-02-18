@@ -27,6 +27,8 @@ for i in args:
     if '='in i:
         k, v = i.split('=')
         inArgs[k] = v
+print args
+print inArgs
 
 if (inArgs == {}):
     show_help()
@@ -56,11 +58,6 @@ connection = ea.connect()
 ##create a cursor object to handle the DB
 cursor = connection.cursor()
 
-inArgs = {}
-inArgs['redshift-table'] = 'hoyleb.PHOTOZ_Y1_RF_V01'
-inArgs['sample-table'] = 'hoyleb.LSS_COADD_OBJECTS_ID_1M'
-inArgs['data-table'] = 'hoyleb.IM3SHAPE_Y1V1'
-
 #should we only select some data?
 maxRows = ''
 if 'max-rows' in inArgs:
@@ -74,7 +71,7 @@ tnum = 0
 
 #play some encoding tricks because we are using crappy oracle
 for i in inArgs:
-    if 'table' in i:
+    if '-table' in i:
         prt1 += tbl[tnum] + '.*,'
         prt2 += ' JOIN ' + inArgs[i] + ' ' + tbl[tnum]
         if tnum > 0:

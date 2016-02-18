@@ -914,4 +914,4 @@ def weighted_nz_distributions(df, binning, weights=None, tomo_bins=np.array([0, 
 
     data_for_wl = {'binning': binning, 'phot': phot_iter, 'spec': spec_iter, 'tomo_bins' : tomo_bins}
 
-    return phot_iter, spec_iter, data_for_wl
+    return data_for_wl

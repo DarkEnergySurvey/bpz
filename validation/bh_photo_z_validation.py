@@ -848,8 +848,6 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
     elif weights:
         assert weights in df.columns, str(weights) + ' not in df.columns'
         df[weights] = (df[weights] / df[weights].sum()).values  # normalize weights
-    elif:
-        df[weights] = 1.0 / float(len(df))  # set uniform weights if none given
 
     assert isinstance(z_phot, np.ndarray), 'z_phot must be a numpy array'
     assert len(z_phot) == len(df), 'Length of z_phot must be equal to that of df'

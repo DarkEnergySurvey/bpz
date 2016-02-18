@@ -833,7 +833,7 @@ def mean(df, binning, z_phot, metric='mean', weights=None, tomo_bins=np.array([0
     return return_df
 
 
-def weighted_nz_distributions(df, binning, weights=None, tomo_bins=np.array([0, 5.0]), z_phot=None, n_resample=50):
+def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0, 5.0]), z_phot=None, n_resample=50):
     """
     :param df: pandas data-frame
     :param binning: center of redshift bins
@@ -845,10 +845,12 @@ def weighted_nz_distributions(df, binning, weights=None, tomo_bins=np.array([0, 
 
     assert isinstance(df, pd.DataFrame), 'df must be a pandas DataFrame'
     assert isinstance(binning, np.ndarray), 'binning must be a numpy array'
-    if weights:
+    if not weights:
+        df[weights] = 1.0 / float(len(df))  # set uniform weights if none given
+    elif weights:
         assert weights in df.columns, str(weights) + ' not in df.columns'
         df[weights] = (df[weights] / df[weights].sum()).values  # normalize weights
-    else:
+    elif:
         df[weights] = 1.0 / float(len(df))  # set uniform weights if none given
 
     assert isinstance(z_phot, np.ndarray), 'z_phot must be a numpy array'
@@ -912,3 +914,55 @@ def weighted_nz_distributions(df, binning, weights=None, tomo_bins=np.array([0, 
     data_for_wl = {'binning': binning, 'phot': phot_iter, 'spec': spec_iter, 'tomo_bins' : tomo_bins}
 
     return data_for_wl
+    
+    
+    def nz_plot(res, file_name, weights, selection, binning):
+        C = ["#C6B242",
+        (0.81490196660161029, 0.18117647245526303, 0.1874509818851941),
+        (0.90031372549487099, 0.50504421386064258, 0.10282352945383844),
+        "#3cb371"]
+    
+        x = res['binning']
+        spec = res['spec']
+        phot = res['phot']
+    
+        fig, axes = plt.subplots(nrows=len(phot) + 1, ncols=1, figsize=(14, 2 * len(phot)))
+        for i in range(len(phot)):
+            mean_spec = np.average(x, weights=spec[i][0])
+            mean_phot = np.average(x, weights=phot[i][0])
+            dz = mean_phot - mean_spec
+    
+            axes[i].plot(x, phot[i][0], label='Phot', c=C[2])
+            axes[i].axvline(mean_phot, c=C[2])
+            axes[i].plot(x, spec[i][0], label='Spec', c=C[3])
+            axes[i].axvline(mean_spec, c=C[3])
+    
+            axes[i].tick_params(axis='y', left='off', labelleft='off') 
+            axes[i].tick_params(axis='x', bottom='off',labelbottom='off')
+            axes[i].text(0.8, 0.75, '$\Delta(z)$ = ' + str(dz)[:6], ha='center', va='center',
+                             fontsize=18, transform=axes[i].transAxes)
+            axes[i].set_xlim((x.min(),x.max()))
+    
+        axes[-2].tick_params(axis='x', bottom='on',labelbottom='on') 
+        axes[-2].set_xlabel('Redshift $(z)$')
+        axes[-1].tick_params(axis='y', left='off', labelleft='off') 
+        axes[-1].tick_params(axis='x', bottom='off',labelbottom='off')
+        axes[-1].text(0.01, 0.85, 'Filename: ' + file_name, ha='left', va='center',
+                      fontsize=11, transform=axes[-1].transAxes)
+        axes[-1].text(0.01, 0.65, 'Selection: ' + selection, ha='left', va='center',
+                      fontsize=11, transform=axes[-1].transAxes)
+        axes[-1].text(0.01, 0.45, 'Weights: ' + weights, ha='left', va='center',
+                      fontsize=11, transform=axes[-1].transAxes)
+        axes[-1].text(0.01, 0.1, 'Bins: ' + str(binning), ha='left', va='center',
+                      fontsize=11, transform=axes[-1].transAxes)
+    
+        fig.text(0.1, 0.5, '$n(z)$', ha='center', va='center', rotation='vertical',
+                 fontsize=20)
+
+        fig.subplots_adjust(hspace=0.3)
+        fig.subplots_adjust(wspace=0)
+        axes[0].legend()    
+    
+    return fig
+    
+    

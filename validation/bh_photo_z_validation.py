@@ -844,11 +844,12 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
     assert isinstance(df, pd.DataFrame), 'df must be a pandas DataFrame'
     assert isinstance(binning, np.ndarray), 'binning must be a numpy array'
     if not weights:
+        weights = 'weights'
         df[weights] = 1.0 / float(len(df))  # set uniform weights if none given
     elif weights:
         assert weights in df.columns, str(weights) + ' not in df.columns'
         df[weights] = (df[weights] / df[weights].sum()).values  # normalize weights
-
+    
     assert isinstance(z_phot, np.ndarray), 'z_phot must be a numpy array'
     assert len(z_phot) == len(df), 'Length of z_phot must be equal to that of df'
     df['phot_sel'] = z_phot  # Make the selection photo-z a part of the DataFrame
@@ -863,6 +864,7 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
     for j in xrange(0, len(tomo_bins) - 1):
         sel = (df.phot_sel > tomo_bins[j]) & (df.phot_sel <= tomo_bins[j + 1])
         if sel.sum() > 0:
+
             df_sel = df[sel]
 
             phot_iter[j + 1] = {}
@@ -888,24 +890,25 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
     # In the following section the full n(z) is treated i.e not in tomographic bins
 
     sel = (df.phot_sel > tomo_bins[0]) & (df.phot_sel <= tomo_bins[len(tomo_bins) - 1])
-    df_sel = df[sel]
-    phot_iter[0] = {}
-    spec_iter[0] = {}
+    if sel.sum() > 0:
+        df_sel = df[sel]
+        phot_iter[0] = {}
+        spec_iter[0] = {}
 
-    phot_sum_array = np.zeros_like(binning)
-    spec_sum_array = np.zeros_like(binning)
-    for i in xrange(n_resample):
-        df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=df_sel[weights])
-        kde_w_spec_pdf = gss_kde(df_sample['Z_SPEC'].values, bw_method='silverman')
-        kde_w_spec_pdf = kde_w_spec_pdf(binning)
+        phot_sum_array = np.zeros_like(binning)
+        spec_sum_array = np.zeros_like(binning)
+        for i in xrange(n_resample):
+            df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=df_sel[weights])
+            kde_w_spec_pdf = gss_kde(df_sample['Z_SPEC'].values, bw_method='silverman')
+            kde_w_spec_pdf = kde_w_spec_pdf(binning)
 
-        phot_iter[0][i + 1] = _normalize_pdf(df_sample[pdf_names].sum(), binning[1] - binning[0]).values
-        spec_iter[0][i + 1] = kde_w_spec_pdf
-        phot_sum_array = phot_sum_array + phot_iter[0][i + 1]
-        spec_sum_array = spec_sum_array + spec_iter[0][i + 1]
+            phot_iter[0][i + 1] = _normalize_pdf(df_sample[pdf_names].sum(), binning[1] - binning[0]).values
+            spec_iter[0][i + 1] = kde_w_spec_pdf
+            phot_sum_array = phot_sum_array + phot_iter[0][i + 1]
+            spec_sum_array = spec_sum_array + spec_iter[0][i + 1]
 
-    phot_iter[0][0] = phot_sum_array/ float(n_resample)
-    spec_iter[0][0] = spec_sum_array/ float(n_resample)
+        phot_iter[0][0] = phot_sum_array/ float(n_resample)
+        spec_iter[0][0] = spec_sum_array/ float(n_resample)
 
     data_for_wl = {'binning': binning, 'phot': phot_iter, 'spec': spec_iter, 'tomo_bins' : tomo_bins}
 
@@ -971,16 +974,15 @@ def nz_plot(res, file_name, weights, selection, binning, save_plot, plot_folder,
     return fig
     
     
-def nz_test(file_name, write_pickle=False, save_plot=False, pickle_folder='', plot_folder=''):
+def nz_test(file_name, code, 
+            write_pickle=False, save_plot=False, pickle_folder='', plot_folder='', 
+            weight_list = [False, 'WL_valid_weights','LSS_valid_weights'],
+            point_list =  ['MODE_Z','MEAN_Z', 'MEDIAN_Z'],
+            bin_list = [np.linspace(0.0, 1.3, 4), np.linspace(0.0, 1.3, 7)],
+            resample = 20 ):
     figures = []
     to_pickle = []
-    
-    code = file_name[:file_name.index('_V')]
-    point_list  = ['MODE_Z','MEAN_Z', 'MEDIAN_Z'] 
-    weight_list = [False, 'WL_valid_weights','LSS_valid_weights']
-    bin_list = [np.linspace(0.2, 1.3, 4), 
-                np.linspace(0.2, 1.3, 7)]
-    
+        
     store = pd.HDFStore(file_name)
     df = store['pdf']
     store.close()
@@ -991,17 +993,18 @@ def nz_test(file_name, write_pickle=False, save_plot=False, pickle_folder='', pl
                 for weights in weight_list:
                     print 'Processing :', selection, 'weights = ' +  str(weights), 'In ' + str(len(binning)-1) + ' bins'
                     result = weighted_nz_distributions(df, binning=centers, 
-                                                                      weights=weights, 
-                                                                      tomo_bins=binning, 
-                                                                      z_phot= df[selection].values, 
-                                                                      n_resample=20)
+                                                       weights=weights, 
+                                                       tomo_bins=binning, 
+                                                       z_phot= df[selection].values, 
+                                                       n_resample=resample)
                     to_pickle.append(result)
                     if write_pickle:
                         bin_info1 = code + '_' + str(len(binning)-1) + '_bins'
                         bin_info2 = '_' + selection + '_weights_' + str(weights)
                         pickle_file = pickle_folder +   bin_info1 + bin_info2 + '.pickle'
-                        ld_writedicts(pickle_file, result)
                         print  pickle_file
+                        ld_writedicts(pickle_file, result)
+                        
                     figures.append(nz_plot(result, file_name, weights, selection, binning, 
                                                save_plot, plot_folder, code))
                                     

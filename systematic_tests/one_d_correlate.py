@@ -82,18 +82,24 @@ for dataFile in files:
 
         #generate a random number of the interval [scaling doens't matter to MI] [ignore nans/infs]
         ind1 = np.isfinite(arr1)
-        rand = np.random.uniform(size=len(arr1[ind1])) * (np.amax(arr1[ind1]) - np.amin(arr1[ind1])) + np.amin(arr1[ind1])
+        rand1 = np.random.uniform(size=len(arr1)) * (np.amax(arr1[ind1]) - np.amin(arr1[ind1])) + np.amin(arr1[ind1])
 
-        test_results[c1]['random'] = correlation_tests(arr1[ind1], rand)
-        del rand, ind1
+        test_results[c1]['random'] = correlation_tests(arr1[ind1], rand1[ind1])
 
         for j, c2 in enumerate(cols):
-            if (i > j):
-                print c1, c2
-                arr2 = hdulist[1].data[c1]
+            if (j > i):
+                arr2 = hdulist[1].data[c2]
                 test_results[c1][c2] = correlation_tests(arr1, arr2)
+
+                ind2 = np.isfinite(arr2)
+                rand2 = np.random.uniform(size=len(arr2)) * (np.amax(arr2[ind2]) - np.amin(arr2[ind2])) + np.amin(arr2[ind2])
+                rand1_rand2 = correlation_tests(rand1, rand2)
+
+                if test_results[c1][c2]['MI'] > 10 * rand1_rand2['MI']:
+                    print "strong correlation >10 *random: on {} {} {:.3} {:.3} {:.3} ".format(c1, c2, test_results[c1][c2]['MI'], rand1_rand2['MI'], test_results[c1][c1]['MI'])
+
     cols.append('random')
-    res = {'correlation_results': test_results, 'columns': cols, 'number_rows': Nrows}
+    res = {'filename': dataFile, 'correlation_results': test_results, 'columns': cols, 'number_rows': Nrows}
 
     #save results as a pickle file
     pickle.dump(res, open(out_file_name + '.p', 'w'))

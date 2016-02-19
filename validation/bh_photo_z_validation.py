@@ -14,7 +14,7 @@ import sys
 #from weighted_kde import gaussian_kde
 import collections
 from cPickle import dumps, load
-
+import matplotlib.pyplot as plt
 """
 Authors: Ben Hoyle, Christopher Bonnet
 
@@ -844,13 +844,12 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
     assert isinstance(df, pd.DataFrame), 'df must be a pandas DataFrame'
     assert isinstance(binning, np.ndarray), 'binning must be a numpy array'
     if not weights:
+        weights = 'weights'
         df[weights] = 1.0 / float(len(df))  # set uniform weights if none given
     elif weights:
         assert weights in df.columns, str(weights) + ' not in df.columns'
         df[weights] = (df[weights] / df[weights].sum()).values  # normalize weights
-    elif:
-        df[weights] = 1.0 / float(len(df))  # set uniform weights if none given
-
+    
     assert isinstance(z_phot, np.ndarray), 'z_phot must be a numpy array'
     assert len(z_phot) == len(df), 'Length of z_phot must be equal to that of df'
     df['phot_sel'] = z_phot  # Make the selection photo-z a part of the DataFrame
@@ -865,6 +864,7 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
     for j in xrange(0, len(tomo_bins) - 1):
         sel = (df.phot_sel > tomo_bins[j]) & (df.phot_sel <= tomo_bins[j + 1])
         if sel.sum() > 0:
+
             df_sel = df[sel]
 
             phot_iter[j + 1] = {}
@@ -890,77 +890,125 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
     # In the following section the full n(z) is treated i.e not in tomographic bins
 
     sel = (df.phot_sel > tomo_bins[0]) & (df.phot_sel <= tomo_bins[len(tomo_bins) - 1])
-    df_sel = df[sel]
-    phot_iter[0] = {}
-    spec_iter[0] = {}
+    if sel.sum() > 0:
+        df_sel = df[sel]
+        phot_iter[0] = {}
+        spec_iter[0] = {}
 
-    phot_sum_array = np.zeros_like(binning)
-    spec_sum_array = np.zeros_like(binning)
-    for i in xrange(n_resample):
-        df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=df_sel[weights])
-        kde_w_spec_pdf = gss_kde(df_sample['Z_SPEC'].values, bw_method='silverman')
-        kde_w_spec_pdf = kde_w_spec_pdf(binning)
+        phot_sum_array = np.zeros_like(binning)
+        spec_sum_array = np.zeros_like(binning)
+        for i in xrange(n_resample):
+            df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=df_sel[weights])
+            kde_w_spec_pdf = gss_kde(df_sample['Z_SPEC'].values, bw_method='silverman')
+            kde_w_spec_pdf = kde_w_spec_pdf(binning)
 
-        phot_iter[0][i + 1] = _normalize_pdf(df_sample[pdf_names].sum(), binning[1] - binning[0]).values
-        spec_iter[0][i + 1] = kde_w_spec_pdf
-        phot_sum_array = phot_sum_array + phot_iter[0][i + 1]
-        spec_sum_array = spec_sum_array + spec_iter[0][i + 1]
+            phot_iter[0][i + 1] = _normalize_pdf(df_sample[pdf_names].sum(), binning[1] - binning[0]).values
+            spec_iter[0][i + 1] = kde_w_spec_pdf
+            phot_sum_array = phot_sum_array + phot_iter[0][i + 1]
+            spec_sum_array = spec_sum_array + spec_iter[0][i + 1]
 
-    phot_iter[0][0] = phot_sum_array/ float(n_resample)
-    spec_iter[0][0] = spec_sum_array/ float(n_resample)
+        phot_iter[0][0] = phot_sum_array/ float(n_resample)
+        spec_iter[0][0] = spec_sum_array/ float(n_resample)
 
     data_for_wl = {'binning': binning, 'phot': phot_iter, 'spec': spec_iter, 'tomo_bins' : tomo_bins}
 
     return data_for_wl
-    
-    
-    def nz_plot(res, file_name, weights, selection, binning):
-        C = ["#C6B242",
+
+
+def nz_plot(res, file_name, weights, selection, binning, save_plot, plot_folder, code):
+    C = ["#C6B242",
         (0.81490196660161029, 0.18117647245526303, 0.1874509818851941),
         (0.90031372549487099, 0.50504421386064258, 0.10282352945383844),
         "#3cb371"]
     
-        x = res['binning']
-        spec = res['spec']
-        phot = res['phot']
+    x = res['binning']
+    spec = res['spec']
+    phot = res['phot']
     
-        fig, axes = plt.subplots(nrows=len(phot) + 1, ncols=1, figsize=(14, 2 * len(phot)))
-        for i in range(len(phot)):
-            mean_spec = np.average(x, weights=spec[i][0])
-            mean_phot = np.average(x, weights=phot[i][0])
-            dz = mean_phot - mean_spec
+    fig, axes = plt.subplots(nrows=len(phot) + 1, ncols=1, figsize=(14, 2.1 * len(phot)))
+    for i in range(len(phot)):
+        mean_spec = np.average(x, weights=spec[i][0])
+        mean_phot = np.average(x, weights=phot[i][0])
+        dz = mean_phot - mean_spec
     
-            axes[i].plot(x, phot[i][0], label='Phot', c=C[2])
-            axes[i].axvline(mean_phot, c=C[2])
-            axes[i].plot(x, spec[i][0], label='Spec', c=C[3])
-            axes[i].axvline(mean_spec, c=C[3])
+        axes[i].plot(x, phot[i][0], label='Phot', c=C[2])
+        axes[i].axvline(mean_phot, c=C[2])
+        axes[i].plot(x, spec[i][0], label='Spec', c=C[3])
+        axes[i].axvline(mean_spec, c=C[3])
     
-            axes[i].tick_params(axis='y', left='off', labelleft='off') 
-            axes[i].tick_params(axis='x', bottom='off',labelbottom='off')
-            axes[i].text(0.8, 0.75, '$\Delta(z)$ = ' + str(dz)[:6], ha='center', va='center',
-                             fontsize=18, transform=axes[i].transAxes)
-            axes[i].set_xlim((x.min(),x.max()))
+        axes[i].tick_params(axis='y', left='off', labelleft='off') 
+        axes[i].tick_params(axis='x', bottom='off',labelbottom='off')
+        axes[i].text(0.8, 0.75, '$\Delta(z)$ = ' + str(dz)[:6], ha='center', va='center',
+                         fontsize=18, transform=axes[i].transAxes)
+        axes[i].set_xlim((x.min(),x.max()))
     
-        axes[-2].tick_params(axis='x', bottom='on',labelbottom='on') 
-        axes[-2].set_xlabel('Redshift $(z)$')
-        axes[-1].tick_params(axis='y', left='off', labelleft='off') 
-        axes[-1].tick_params(axis='x', bottom='off',labelbottom='off')
-        axes[-1].text(0.01, 0.85, 'Filename: ' + file_name, ha='left', va='center',
-                      fontsize=11, transform=axes[-1].transAxes)
-        axes[-1].text(0.01, 0.65, 'Selection: ' + selection, ha='left', va='center',
-                      fontsize=11, transform=axes[-1].transAxes)
-        axes[-1].text(0.01, 0.45, 'Weights: ' + weights, ha='left', va='center',
-                      fontsize=11, transform=axes[-1].transAxes)
-        axes[-1].text(0.01, 0.1, 'Bins: ' + str(binning), ha='left', va='center',
-                      fontsize=11, transform=axes[-1].transAxes)
+    axes[-2].tick_params(axis='x', bottom='on',labelbottom='on') 
+    axes[-2].set_xlabel('Redshift $(z)$')
+    axes[-1].tick_params(axis='y', left='off', labelleft='off') 
+    axes[-1].tick_params(axis='x', bottom='off',labelbottom='off')
+    axes[-1].text(0.01, 0.85, 'Filename: ' + file_name, ha='left', va='center',
+                  fontsize=11, transform=axes[-1].transAxes)
+    axes[-1].text(0.01, 0.65, 'Selection: ' + selection, ha='left', va='center',
+                  fontsize=11, transform=axes[-1].transAxes)
+    axes[-1].text(0.01, 0.45, 'Weights: ' + str(weights), ha='left', va='center',
+                  fontsize=11, transform=axes[-1].transAxes)
+    axes[-1].text(0.01, 0.1, 'Bins: ' + str(binning), ha='left', va='center',
+                  fontsize=11, transform=axes[-1].transAxes)
+    axes[0].text(0.8, 0.45, 'Non-tomo', ha='center', va='center',
+                  fontsize=18, transform=axes[0].transAxes)
     
-        fig.text(0.1, 0.5, '$n(z)$', ha='center', va='center', rotation='vertical',
-                 fontsize=20)
+    fig.text(0.1, 0.5, '$n(z)$', ha='center', va='center', rotation='vertical',
+             fontsize=20)
 
-        fig.subplots_adjust(hspace=0.3)
-        fig.subplots_adjust(wspace=0)
-        axes[0].legend()    
+    fig.subplots_adjust(hspace=0.3)
+    fig.subplots_adjust(wspace=0)
+    axes[0].legend()    
     
+    if save_plot:
+        file_name1 = plot_folder +  code + '_' + str(len(binning)-1) 
+        file_name2 = file_name1  +  '_bins_' + selection + '_weights_'
+        file_name3 = file_name2 + str(weights) + '.png'
+        print file_name3 
+        plt.savefig(file_name3)
+        
     return fig
     
+    
+def nz_test(file_name, code, 
+            write_pickle=False, save_plot=False, pickle_folder='', plot_folder='', 
+            weight_list = [False, 'WL_valid_weights','LSS_valid_weights'],
+            point_list =  ['MODE_Z','MEAN_Z', 'MEDIAN_Z'],
+            bin_list = [np.linspace(0.0, 1.3, 4), np.linspace(0.0, 1.3, 7)],
+            resample = 20 ):
+    figures = []
+    to_pickle = []
+        
+    store = pd.HDFStore(file_name)
+    df = store['pdf']
+    store.close()
+    centers = np.array([float(name[4:]) for name in df.columns if 'pdf' in name])
+    for binning in bin_list:
+        for selection in point_list:
+            if selection in df.columns:
+                for weights in weight_list:
+                    print 'Processing :', selection, 'weights = ' +  str(weights), 'In ' + str(len(binning)-1) + ' bins'
+                    result = weighted_nz_distributions(df, binning=centers, 
+                                                       weights=weights, 
+                                                       tomo_bins=binning, 
+                                                       z_phot= df[selection].values, 
+                                                       n_resample=resample)
+                    to_pickle.append(result)
+                    if write_pickle:
+                        bin_info1 = code + '_' + str(len(binning)-1) + '_bins'
+                        bin_info2 = '_' + selection + '_weights_' + str(weights)
+                        pickle_file = pickle_folder +   bin_info1 + bin_info2 + '.pickle'
+                        print  pickle_file
+                        ld_writedicts(pickle_file, result)
+                        
+                    figures.append(nz_plot(result, file_name, weights, selection, binning, 
+                                               save_plot, plot_folder, code))
+                                    
+            else:
+                print selection + ' not found in DataFrame columns'
+    return figures, to_pickle    
     

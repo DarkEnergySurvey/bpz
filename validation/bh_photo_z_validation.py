@@ -915,7 +915,7 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
     return data_for_wl
 
 
-def nz_plot(res, file_name, weights, selection, binning, save_plot, plot_folder, code):
+def nz_plot(res, file_name, plot_label, weights, selection, binning, save_plot, plot_folder, code):
     C = ["#C6B242",
         (0.81490196660161029, 0.18117647245526303, 0.1874509818851941),
         (0.90031372549487099, 0.50504421386064258, 0.10282352945383844),
@@ -965,7 +965,7 @@ def nz_plot(res, file_name, weights, selection, binning, save_plot, plot_folder,
     axes[0].legend()    
     
     if save_plot:
-        file_name1 = plot_folder +  code + '_' + str(len(binning)-1) 
+        file_name1 = plot_folder +  plot_label + '_' +  code + '_' + str(len(binning)-1) 
         file_name2 = file_name1  +  '_bins_' + selection + '_weights_'
         file_name3 = file_name2 + str(weights) + '.png'
         print file_name3 
@@ -974,7 +974,7 @@ def nz_plot(res, file_name, weights, selection, binning, save_plot, plot_folder,
     return fig
     
     
-def nz_test(file_name, code, 
+def nz_test(file_name, code, plot_label,
             write_pickle=False, save_plot=False, pickle_folder='', plot_folder='', 
             weight_list = [False, 'WL_valid_weights','LSS_valid_weights'],
             point_list =  ['MODE_Z','MEAN_Z', 'MEDIAN_Z'],
@@ -1005,8 +1005,8 @@ def nz_test(file_name, code,
                         print  pickle_file
                         ld_writedicts(pickle_file, result)
                         
-                    figures.append(nz_plot(result, file_name, weights, selection, binning, 
-                                               save_plot, plot_folder, code))
+                    figures.append(nz_plot(result, file_name, plot_label, weights, selection, binning, 
+                                           save_plot, plot_folder, code))
                                     
             else:
                 print selection + ' not found in DataFrame columns'

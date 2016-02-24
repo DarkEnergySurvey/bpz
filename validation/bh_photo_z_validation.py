@@ -494,7 +494,6 @@ def cumaltive_to_point(dfs, bincenter, points, k=None):
         return interpolate.InterpolatedUnivariateSpline(bincenter, cum, k=k)(points)
 
 
-#### FIX swap x/y
 def xval_cumaltive_at_ypoint(dfs, bincenter, point, k=None):
     """returns the xvals of dfs(ngal, nxbins), x(bins in xdir) point(1), for a point
     which sits on the y-axis of the cdf. We interpolate the cdf for precision"""

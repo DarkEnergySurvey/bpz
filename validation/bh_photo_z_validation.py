@@ -871,20 +871,24 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
 
             phot_sum_array = np.zeros_like(binning)
             spec_sum_array = np.zeros_like(binning)
-            for i in xrange(n_resample):
-                df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=df_sel[weights])
-                kde_w_spec_pdf = gss_kde(df_sample['Z_SPEC'].values, bw_method='silverman')
-                kde_w_spec_pdf = kde_w_spec_pdf(binning)
+            if n_resample > 1:
+                for i in xrange(n_resample):
+                    df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=df_sel[weights])
+                    kde_w_spec_pdf = gss_kde(df_sample['Z_SPEC'].values, bw_method='silverman')
+                    kde_w_spec_pdf = kde_w_spec_pdf(binning)
 
-                phot_iter[j + 1][i + 1] = _normalize_pdf(df_sample[pdf_names].sum(), binning[1] - binning[0]).values
-                spec_iter[j + 1][i + 1] = kde_w_spec_pdf
-                phot_sum_array = phot_sum_array + phot_iter[j + 1][i + 1]
-                spec_sum_array = spec_sum_array + spec_iter[j + 1][i + 1]
+                    phot_iter[j + 1][i + 1] = _normalize_pdf(df_sample[pdf_names].sum(), binning[1] - binning[0]).values
+                    spec_iter[j + 1][i + 1] = kde_w_spec_pdf
+                    phot_sum_array = phot_sum_array + phot_iter[j + 1][i + 1]
+                    spec_sum_array = spec_sum_array + spec_iter[j + 1][i + 1]
             
-            phot_iter[j + 1][0] = phot_sum_array/ float(n_resample)
-            spec_iter[j + 1][0] = spec_sum_array/ float(n_resample)
-            #kde_w_spec_pdf = gss_kde(df_sel['Z_SPEC'].values, bw_method='silverman', weights=df_sel[weights].values)
-            #spec_iter[j + 1][0] = kde_w_spec_pdf(binning)
+                phot_iter[j + 1][0] = phot_sum_array/ float(n_resample)
+                spec_iter[j + 1][0] = spec_sum_array/ float(n_resample)
+            else:
+                kde_w_spec_pdf = gss_kde(df_sel['Z_SPEC'].values, bw_method='silverman')
+                kde_w_spec_pdf = kde_w_spec_pdf(binning)
+                phot_iter[0][0] = _normalize_pdf(df_sel[pdf_names].sum(), binning[1] - binning[0]).values
+                spec_iter[0][0] = kde_w_spec_pdf
 
     # In the following section the full n(z) is treated i.e not in tomographic bins
 
@@ -896,25 +900,31 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
 
         phot_sum_array = np.zeros_like(binning)
         spec_sum_array = np.zeros_like(binning)
-        for i in xrange(n_resample):
-            df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=df_sel[weights])
-            kde_w_spec_pdf = gss_kde(df_sample['Z_SPEC'].values, bw_method='silverman')
+        if n_resample > 1:
+            for i in xrange(n_resample):
+                df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=df_sel[weights])
+                kde_w_spec_pdf = gss_kde(df_sample['Z_SPEC'].values, bw_method='silverman')
+                kde_w_spec_pdf = kde_w_spec_pdf(binning)
+
+                phot_iter[0][i + 1] = _normalize_pdf(df_sample[pdf_names].sum(), binning[1] - binning[0]).values
+                spec_iter[0][i + 1] = kde_w_spec_pdf
+                phot_sum_array = phot_sum_array + phot_iter[0][i + 1]
+                spec_sum_array = spec_sum_array + spec_iter[0][i + 1]
+
+            phot_iter[0][0] = phot_sum_array/ float(n_resample)
+            spec_iter[0][0] = spec_sum_array/ float(n_resample)
+        else:
+            kde_w_spec_pdf = gss_kde(df_sel['Z_SPEC'].values, bw_method='silverman')
             kde_w_spec_pdf = kde_w_spec_pdf(binning)
-
-            phot_iter[0][i + 1] = _normalize_pdf(df_sample[pdf_names].sum(), binning[1] - binning[0]).values
-            spec_iter[0][i + 1] = kde_w_spec_pdf
-            phot_sum_array = phot_sum_array + phot_iter[0][i + 1]
-            spec_sum_array = spec_sum_array + spec_iter[0][i + 1]
-
-        phot_iter[0][0] = phot_sum_array/ float(n_resample)
-        spec_iter[0][0] = spec_sum_array/ float(n_resample)
+            phot_iter[0][0] = _normalize_pdf(df_sel[pdf_names].sum(), binning[1] - binning[0]).values
+            spec_iter[0][0] = kde_w_spec_pdf
 
     data_for_wl = {'binning': binning, 'phot': phot_iter, 'spec': spec_iter, 'tomo_bins' : tomo_bins}
 
     return data_for_wl
 
 
-def nz_plot(res, file_name, weights, selection, binning, save_plot, plot_folder, code):
+def nz_plot(res, file_name, plot_label, weights, selection, binning, save_plot, plot_folder, code):
     C = ["#C6B242",
         (0.81490196660161029, 0.18117647245526303, 0.1874509818851941),
         (0.90031372549487099, 0.50504421386064258, 0.10282352945383844),
@@ -964,7 +974,7 @@ def nz_plot(res, file_name, weights, selection, binning, save_plot, plot_folder,
     axes[0].legend()    
     
     if save_plot:
-        file_name1 = plot_folder +  code + '_' + str(len(binning)-1) 
+        file_name1 = plot_folder +  plot_label + '_' +  code + '_' + str(len(binning)-1) 
         file_name2 = file_name1  +  '_bins_' + selection + '_weights_'
         file_name3 = file_name2 + str(weights) + '.png'
         print file_name3 
@@ -973,7 +983,7 @@ def nz_plot(res, file_name, weights, selection, binning, save_plot, plot_folder,
     return fig
     
     
-def nz_test(file_name, code, 
+def nz_test(file_name, code, plot_label,
             write_pickle=False, save_plot=False, pickle_folder='', plot_folder='', 
             weight_list = [False, 'WL_valid_weights','LSS_valid_weights'],
             point_list =  ['MODE_Z','MEAN_Z', 'MEDIAN_Z'],
@@ -1004,8 +1014,8 @@ def nz_test(file_name, code,
                         print  pickle_file
                         ld_writedicts(pickle_file, result)
                         
-                    figures.append(nz_plot(result, file_name, weights, selection, binning, 
-                                               save_plot, plot_folder, code))
+                    figures.append(nz_plot(result, file_name, plot_label, weights, selection, binning, 
+                                           save_plot, plot_folder, code))
                                     
             else:
                 print selection + ' not found in DataFrame columns'

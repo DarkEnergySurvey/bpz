@@ -855,72 +855,63 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
     df['phot_sel'] = z_phot  # Make the selection photo-z a part of the DataFrame
     assert 'Z_SPEC' in df.columns, 'The df needs a "Z_SPEC" in df.columns'
     pdf_names = [c for c in df.keys() if 'pdf_' in str(c)]
+    tomo_bins = [(tomo_bins[0],tomo_bins[-1])] + [(tomo_bins[i], tomo_bins[i+1]) for i in range(len(tomo_bins) -1)]
 
     phot_iter = {}
     spec_iter = {}
-
+    phot_means = {}
+    spec_means = {}
+    div_means = {} 
+    counts = {}
     # In the following section the tomographic bins are treated
 
-    for j in xrange(0, len(tomo_bins) - 1):
-        sel = (df.phot_sel > tomo_bins[j]) & (df.phot_sel <= tomo_bins[j + 1])
+    for j,bin in enumerate(tomo_bins):
+        sel = (df.phot_sel > bin[0]) & (df.phot_sel <= bin[1])
         if sel.sum() > 0:
-
+            counts[j] =sel.sum()
             df_sel = df[sel]
 
-            phot_iter[j + 1] = {}
-            spec_iter[j + 1] = {}
+            phot_iter[j] = {}
+            spec_iter[j] = {}
+
+            phot_means[j] = {}
+            spec_means[j] = {}
+            div_means[j] = {}
 
             phot_sum_array = np.zeros_like(binning)
             spec_sum_array = np.zeros_like(binning)
+            temp_phot_means = np.zeros(n_resample)
+            temp_spec_means = np.zeros(n_resample)
+            temp_diff_means = np.zeros(n_resample)
             if n_resample > 1:
                 for i in xrange(n_resample):
                     df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=df_sel[weights])
                     kde_w_spec_pdf = gss_kde(df_sample['Z_SPEC'].values, bw_method='silverman')
                     kde_w_spec_pdf = kde_w_spec_pdf(binning)
+                    temp_spec_means[i] = df_sample['Z_SPEC'].mean()
+                    temp_phot_means[i] = np.average(binning, weights=df_sample[pdf_names].sum().values)
+                    temp_diff_means[i] = temp_phot_means[i] - temp_spec_means[i]
 
-                    phot_iter[j + 1][i + 1] = _normalize_pdf(df_sample[pdf_names].sum(), binning[1] - binning[0]).values
-                    spec_iter[j + 1][i + 1] = kde_w_spec_pdf
-                    phot_sum_array = phot_sum_array + phot_iter[j + 1][i + 1]
-                    spec_sum_array = spec_sum_array + spec_iter[j + 1][i + 1]
-            
-                phot_iter[j + 1][0] = phot_sum_array/ float(n_resample)
-                spec_iter[j + 1][0] = spec_sum_array/ float(n_resample)
+                    phot_iter[j][i+1] = _normalize_pdf(df_sample[pdf_names].sum(), binning[1] - binning[0]).values
+                    spec_iter[j][i+1] = kde_w_spec_pdf
+                    phot_sum_array = phot_sum_array + phot_iter[j][i + 1]
+                    spec_sum_array = spec_sum_array + spec_iter[j][i + 1]
+                    
+                phot_iter[j][0] = phot_sum_array/ float(n_resample)
+                spec_iter[j][0] = spec_sum_array/ float(n_resample)
+
+                phot_means[j] =  (temp_phot_means.mean(), np.std(temp_phot_means))
+                spec_means[j] =  (temp_spec_means.mean(), np.std(temp_spec_means))
+                div_means[j] =   (temp_diff_means.mean(), np.std(temp_diff_means))
+                
             else:
-                kde_w_spec_pdf = gss_kde(df_sel['Z_SPEC'].values, bw_method='silverman')
+                kde_w_spec_pdf = gss_kde(df_sel['Z_SPEC'].values, bw_method='silverman', weights=df_sel[weights].values)
                 kde_w_spec_pdf = kde_w_spec_pdf(binning)
-                phot_iter[0][0] = _normalize_pdf(df_sel[pdf_names].sum(), binning[1] - binning[0]).values
-                spec_iter[0][0] = kde_w_spec_pdf
+                phot_iter[j][0] = _normalize_pdf(((df_sel[pdf_names].T * df_sel[weights]).T).sum(), binning[1] - binning[0]).values
+                spec_iter[j][0] = kde_w_spec_pdf
 
-    # In the following section the full n(z) is treated i.e not in tomographic bins
-
-    sel = (df.phot_sel > tomo_bins[0]) & (df.phot_sel <= tomo_bins[len(tomo_bins) - 1])
-    if sel.sum() > 0:
-        df_sel = df[sel]
-        phot_iter[0] = {}
-        spec_iter[0] = {}
-
-        phot_sum_array = np.zeros_like(binning)
-        spec_sum_array = np.zeros_like(binning)
-        if n_resample > 1:
-            for i in xrange(n_resample):
-                df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=df_sel[weights])
-                kde_w_spec_pdf = gss_kde(df_sample['Z_SPEC'].values, bw_method='silverman')
-                kde_w_spec_pdf = kde_w_spec_pdf(binning)
-
-                phot_iter[0][i + 1] = _normalize_pdf(df_sample[pdf_names].sum(), binning[1] - binning[0]).values
-                spec_iter[0][i + 1] = kde_w_spec_pdf
-                phot_sum_array = phot_sum_array + phot_iter[0][i + 1]
-                spec_sum_array = spec_sum_array + spec_iter[0][i + 1]
-
-            phot_iter[0][0] = phot_sum_array/ float(n_resample)
-            spec_iter[0][0] = spec_sum_array/ float(n_resample)
-        else:
-            kde_w_spec_pdf = gss_kde(df_sel['Z_SPEC'].values, bw_method='silverman')
-            kde_w_spec_pdf = kde_w_spec_pdf(binning)
-            phot_iter[0][0] = _normalize_pdf(df_sel[pdf_names].sum(), binning[1] - binning[0]).values
-            spec_iter[0][0] = kde_w_spec_pdf
-
-    data_for_wl = {'binning': binning, 'phot': phot_iter, 'spec': spec_iter, 'tomo_bins' : tomo_bins}
+    data_for_wl = {'binning': binning, 'phot': phot_iter, 'spec': spec_iter, 'tomo_bins' : tomo_bins, 'counts': counts, 
+                   'phot_means': phot_means, 'spec_means' : spec_means, 'div_means' : div_means}
 
     return data_for_wl
 
@@ -934,22 +925,30 @@ def nz_plot(res, file_name, plot_label, weights, selection, binning, save_plot, 
     x = res['binning']
     spec = res['spec']
     phot = res['phot']
+    counts = res['counts']
+    phot_means = res['phot_means']
+    spec_means = res['spec_means']
+    div_means = res['div_means']
     
     fig, axes = plt.subplots(nrows=len(phot) + 1, ncols=1, figsize=(14, 2.1 * len(phot)))
     for i in range(len(phot)):
         mean_spec = np.average(x, weights=spec[i][0])
         mean_phot = np.average(x, weights=phot[i][0])
-        dz = mean_phot - mean_spec
-    
+        dz = phot_means[i][0] - spec_means[i][0] 
+        
         axes[i].plot(x, phot[i][0], label='Phot', c=C[2])
         axes[i].axvline(mean_phot, c=C[2])
         axes[i].plot(x, spec[i][0], label='Spec', c=C[3])
         axes[i].axvline(mean_spec, c=C[3])
+        axes[i].axvspan(phot_means[i][0] - 3*phot_means[i][1], phot_means[i][0] + 3*phot_means[i][1], alpha=0.4, color=C[2])
+        axes[i].axvspan(spec_means[i][0] - 3*spec_means[i][1], spec_means[i][0] + 3*spec_means[i][1], alpha=0.4, color=C[3])
     
         axes[i].tick_params(axis='y', left='off', labelleft='off') 
         axes[i].tick_params(axis='x', bottom='off',labelbottom='off')
-        axes[i].text(0.8, 0.75, '$\Delta(z)$ = ' + str(dz)[:6], ha='center', va='center',
-                         fontsize=18, transform=axes[i].transAxes)
+        axes[i].text(0.73, 0.75, '$\Delta(z)$ = ' + str(dz)[:6] + ' $\pm$ ' + str(div_means[i][1])[:6],
+                     ha='left', va='center',fontsize=18, transform=axes[i].transAxes)
+        axes[i].text(0.73, 0.51, '$N$ = ' + str(counts[i]), 
+                     ha='left', va='center', fontsize=18, transform=axes[i].transAxes)
         axes[i].set_xlim((x.min(),x.max()))
     
     axes[-2].tick_params(axis='x', bottom='on',labelbottom='on') 
@@ -964,7 +963,7 @@ def nz_plot(res, file_name, plot_label, weights, selection, binning, save_plot, 
                   fontsize=11, transform=axes[-1].transAxes)
     axes[-1].text(0.01, 0.1, 'Bins: ' + str(binning), ha='left', va='center',
                   fontsize=11, transform=axes[-1].transAxes)
-    axes[0].text(0.8, 0.45, 'Non-tomo', ha='center', va='center',
+    axes[0].text(0.65, 0.75, 'Non-tomo', ha='center', va='center',
                   fontsize=18, transform=axes[0].transAxes)
     
     fig.text(0.1, 0.5, '$n(z)$', ha='center', va='center', rotation='vertical',
@@ -972,13 +971,12 @@ def nz_plot(res, file_name, plot_label, weights, selection, binning, save_plot, 
 
     fig.subplots_adjust(hspace=0.3)
     fig.subplots_adjust(wspace=0)
-    axes[0].legend()    
+    axes[0].legend(loc=2, fontsize=12)
     
     if save_plot:
         file_name1 = plot_folder +  plot_label + '_' +  code + '_' + str(len(binning)-1) 
         file_name2 = file_name1  +  '_bins_' + selection + '_weights_'
         file_name3 = file_name2 + str(weights) + '.png'
-        print file_name3 
         plt.savefig(file_name3)
         
     return fig
@@ -988,7 +986,7 @@ def nz_test(file_name, code, plot_label,
             write_pickle=False, save_plot=False, pickle_folder='', plot_folder='', 
             weight_list = [False, 'WL_valid_weights','LSS_valid_weights'],
             point_list =  ['MODE_Z','MEAN_Z', 'MEDIAN_Z'],
-            bin_list = [np.linspace(0.0, 1.3, 4), np.linspace(0.0, 1.3, 7)],
+            bin_list = [np.linspace(0.2, 1.3, 12), np.linspace(0.2, 1.3, 7)],
             resample = 20 ):
     figures = []
     to_pickle = []
@@ -1012,7 +1010,6 @@ def nz_test(file_name, code, plot_label,
                         bin_info1 = code + '_' + str(len(binning)-1) + '_bins'
                         bin_info2 = '_' + selection + '_weights_' + str(weights)
                         pickle_file = pickle_folder +   bin_info1 + bin_info2 + '.pickle'
-                        print  pickle_file
                         ld_writedicts(pickle_file, result)
                         
                     figures.append(nz_plot(result, file_name, plot_label, weights, selection, binning, 

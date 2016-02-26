@@ -1,8 +1,7 @@
 import pandas as pd 
 import numpy as np
 from weighted_kde import gaussian_kde
-from cPickle import dumps, load
-
+from cPickle import dumps, load=
 
 def ld_writedicts(filepath, dictionary):
     f = open(filepath, 'w')

@@ -1,26 +1,32 @@
 import pandas as pd
 from astropy.table import Table
 import numpy as np
+
+#don't remove double numpy please :D
+import numpy as numpy
 import os
 import scipy as sp
 from scipy.stats import ks_2samp, binned_statistic
 from scipy import interpolate
-
+from scipy.stats import gaussian_kde
+from weighted_kde import gaussian_kde as gss_kde
+import sys
+#from weighted_kde import gaussian_kde
+import collections
+from cPickle import dumps, load
+import matplotlib.pyplot as plt
 """
 Authors: Ben Hoyle, Christopher Bonnet
 
 To do:
-
- define npoisson function
-
+ Enable mad() functions to accept axis= keyword for 
+ Nd arrays
 """
-
 
 """ ==========================
 Cool tools ===================
 ==============================
 """
-
 
 def get_function(function_string):
     import importlib
@@ -40,9 +46,9 @@ def random_choice(arr, axis=None):
         return arr[np.arange(rc[0]), indr]
 
 
-#a wrapper around numpy mode
+#a wrapper around scipy mode
 def mode(arr, axis=None):
-    return np.mode(arr, axis=axis)[0]
+    return sp.stats.mode(arr, axis=axis)[0]
 
 
 #extracts the output of a pdf from a decision tree, in this the first column has the highest weight
@@ -65,11 +71,11 @@ def bootstrap_mean_error(arr, weight, func, Nsamples=None):
 
     val = np.zeros(Nsamples)
     #what weight do each data have
-    p = weight*1.0 / np.sum(weight)
+    prob = weight * 1.0 / np.sum(weight)
 
     for i in np.arange(Nsamples):
         #call the function and pass in a bootstrapped sample
-        val[i] = func(np.random.choice(arr, size=len(arr), replace=True, p=p))
+        val[i] = func(np.random.choice(arr, size=len(arr), replace=True, p=prob))
 
     #Error is the std of all samples
     return {'mean': np.mean(val), 'sigma': np.std(val)}
@@ -98,6 +104,30 @@ def bootstrap_mean_error_binned(x, arr, weight, bins, func, Nsamples=None):
     return {'mean': np.mean(val, axis=0), 'sigma': np.std(val, axis=0)}
 
 
+def bootstrap_mean_error_pdf_point(_pdf, _bins, _point, _weights, func, Nsamples=None):
+    """boot strap error, _pdf is shape (ngals, zbins), _bins = zbins beginings, _weights = galaxy weights
+    func = metric function, must accept (pdf[ngals,zbins], zbins, points(ngals)"""
+
+    if Nsamples is None:
+        Nsamples = 200
+
+    val = np.zeros(Nsamples)
+    #what weight do each data have
+    prob = _weights * 1.0 / np.sum(_weights, dtype=float)
+    prob = prob / np.sum(prob)
+
+    ind = np.arange(len(_pdf))
+
+    for i in np.arange(Nsamples):
+        indrs = np.random.choice(ind, size=len(ind), replace=True, p=prob)
+
+        #call the function and pass in a bootstrapped sample
+        val[i] = func(_pdf[indrs], _bins, _point[indrs])
+
+    #Error is the std of all samples
+    return {'mean': np.mean(val), 'sigma': np.std(val)}
+
+
 """ ========================
 Data format checking tools =
 ============================
@@ -116,18 +146,12 @@ def key_not_none(_dict, ky):
 def required_cols(_dict, pointOrPdf):
     cols = []
     for dd in _dict:
-        if pointOrPdf == 'point':
-            if key_not_none(dd, 'point'):
-                cols += extract_cols(dd['point'])
+        cols += extract_cols(dd)
 
-        if pointOrPdf == 'pdf':
-            if key_not_none(dd, 'pdf'):
+        for ttype in ['individual', 'stacks']:
+            if key_not_none(dd, ttype):
+                cols += extract_cols(dd[ttype])
 
-                    if key_not_none(dd['pdf'], 'individual'):
-                        cols += extract_cols(dd['pdf']['individual'])
-
-                    if key_not_none(dd['pdf'], 'stacks'):
-                        cols += extract_cols(dd['pdf']['stacks'])
     return [i for i in np.unique(cols)]
 
 
@@ -157,12 +181,42 @@ def extract_cols(_dict):
     return cols
 
 
+def keytst(_tst):
+    """This function attemps to turn a bin string into executed code
+    e.g. 'bins': {'Z_SPEC': 'numpy.arange(5)'}
+    should turn 'numpy.arange(5)' into numpy.arange(5) array
+    It returns False if it cannot compile the string code
+    """
+    for bn in ['bins', 'truth_bins']:
+        if key_not_none(_tst, bn):
+            for binkyv in _tst[bn]:
+                try:
+                    bins = eval(binkyv[binkyv.keys()[0]])
+                except:
+                    print "unable to generate bins in this test"
+                    print ' ' + bn + ' ' + binkyv.keys()[0]
+                    print binkyv[binkyv.keys()[0]]
+                    sys.exit()
+
+
+def valid_tests(tsts):
+    """ check the tests are all valid. """
+    for tst in tsts:
+        keytst(tst)
+        for pdftype in ['individual', 'stacks']:
+            if key_not_none(tst, pdftype):
+                keytst(tst[pdftype])
+
+    return True
+
+
 def valid_hdf(filename, cols):
     """ Checks that the hdf file is a valid file for our purposes"
     """
     #is args set?
     if cols is None:
         return False, 'you must have at least some defined cols'
+    
     #does the file exist
     if os.path.exists(filename) is False:
         return False, 'file does not exist'
@@ -217,9 +271,9 @@ def valid_fits(filename, cols):
 
 def valid_file(filename, cols):
 
-    if ('.fit' in filename) or ('.csv' in filename):
+    if ('.fit' in filename[-7:]) or ('.csv' in filename[-7:]):
         return valid_fits(filename, cols)
-    if '.hdf5' in filename:
+    if '.hdf5' in filename[-5:]:
         return valid_hdf(filename, cols)
     return False, 'currently unable to read file'
 
@@ -239,8 +293,22 @@ def delta_z_1pz(z_spec, z_phot):
 
 
 def sigma_68(arr, axis=None):
+    """Input: an (multi-dimensional) array
+    Optional input: the axis along which to calculate the metric
+    Outputs: the 68% spread of data about the median value of the array
+    """
     upper, lower = np.percentile(arr, [84.075, 15.825], axis=axis)
     return (upper - lower) / 2.0
+
+
+def mad(arr, axis=None):
+    mad_ = np.median(np.abs(arr - np.median(arr)))
+    return mad_
+
+
+def mean_mad(arr, axis=None):
+    mad_ = np.mean(np.abs(arr - np.mean(arr)))
+    return mad_
 
 
 def sigma_95(arr, axis=None):
@@ -248,10 +316,12 @@ def sigma_95(arr, axis=None):
     return (upper - lower) / 2.0
 
 
-def outlier_rate(arr):
+def outlier_rate(arr, outR=None):
     """assumes frac outliers >0.15
     """
-    return np.sum(np.abs(arr) > 0.15)*1.0/len(arr)
+    if outR is None:
+        outR = 0.15
+    return np.sum(np.abs(arr) > outR)*1.0/len(arr)
 
 
 def outlier_fraction(arr):
@@ -262,6 +332,28 @@ def outlier_fraction(arr):
 pdf metrics and tools =
 =======================
 """
+
+
+def dist_pdf(arr, binCenters):
+    if len(np.shape(arr)) > 1:
+        pdfs = np.array([gaussian_kde(arr[i]).evaluate(binCenters) for i in np.arange(len(arr))])
+        return pdfs
+    else:
+        pdfs = gaussian_kde(arr).evaluate(binCenters)
+    return pdfs
+
+
+def dist_pdf_weights(arr, binCenters, weights=None):
+    """ arr is an array of data e.g. [0,1,2,3,4,4,4,,3,2,1,2] to turn into a [weighted] KDE distribution.
+    The values of the distribution at binCenters are returned
+    """
+
+    if len(np.shape(arr)) > 1:
+        pdfs = np.array([gss_kde(arr[i], weights=weights).evaluate(binCenters) for i in np.arange(len(arr))])
+        return pdfs
+    else:
+        pdfs = gss_kde(arr, weights=weights).evaluate(binCenters)
+    return pdfs
 
 
 def normalize_pdf(pdf, z):
@@ -281,13 +373,27 @@ def log_loss(act, pred):
     return -1 * ll
 
 
-def kulbachLeiber_bins(arr1, arr2):
-    return -1.0 / len(arr1) * np.sum(arr1 * np.log(arr2 + 1e-6))
+def kulbachLeiber_bins(P, Q):
+    """Kullbach- Leibler test for binned [strictly >0] distributions
+    See en.wikipedia.org/wiki/Kullback-Leibler_divergence
+    For P=measured Q=True distribtions"""
+
+    #if P ==0 then it adds nothing to the sum. If Q ==0 the KL is undefined
+    non0 = (P > np.finfo('float').eps) * (Q > np.finfo('float').eps)
+
+    if np.any((Q < np.finfo('float').eps) * (P > 0)):
+        return np.nan
+
+    return np.sum(P[non0] * np.log(P[non0] / Q[non0]))
 
 
 # what is this test?
-def npoisson(arr1, arr2):
-    return 0
+def npoisson(dndspecz, dndphotz):
+    """ according to https://cdcvs.fnal.gov/redmine/projects/des-photoz/wiki/DC6_Photo-z_Challenge"""
+    #unnormalised dn/dz (true number in bins)
+    nznorm = (dndphotz - dndspecz) / np.sqrt(dndspecz)
+    nzrms = np.sqrt(np.mean(nznorm * nznorm))
+    return nzrms
 
 
 def ks_test(arr1, arr2):
@@ -308,9 +414,18 @@ def eval_pdf_point(pdf, bins, point):
     return val
 
 
-def stackpdfs(pdfs):
+def stackpdfs(pdfs, weights=None):
     """ numpy shape np.array( (galaxy, pdfbins)) """
-    stk_pdf = np.sum(pdfs, axis=0)
+
+    if weights is not None:
+        pdfs_ = np.zeros_like(pdfs)
+        weights_ = weights / np.sum(weights, dtype=float)
+        for i in np.arange(len(weights)):
+            pdfs_[i] = pdfs[i]*weights_[i]
+
+        stk_pdf = np.sum(pdfs_, axis=0)
+    else:
+        stk_pdf = np.sum(pdfs, axis=0)
     return stk_pdf
 
 
@@ -340,6 +455,188 @@ def integrate_dist_bin(dfs, x, minval, maxval):
         smm = np.trapz(dfs[ind], x[ind])
 
     return smm
+
+
+def cumaltive_to_point(dfs, bincenter, points, k=None):
+    """
+    Expected shape: numpy dfs shape (galaxy, bins), x begins at 0, ends at just before 2 """
+    """Note: all points < bincenter[0] are set to bincenter[0] - dx"""
+    """Note: all points > bincenter[-1] are set to bincenter[-1] + dx"""
+
+    dx = (bincenter[1] - bincenter[0]) / 2.0
+
+    if k is None:
+        k = 3
+
+    if isinstance(points, collections.Iterable):
+        points[points > bincenter[-1] + dx] = bincenter[-1] + dx
+        points[points < bincenter[0] - dx] = bincenter[0] - dx
+    else:
+        if points > bincenter[-1] + dx:
+            points = bincenter[-1] + dx
+        if points < bincenter[0] - dx:
+            points = bincenter[0] - dx
+
+    #calcaulte the cumaltive distribution
+    if len(np.shape(dfs)) > 1:
+        cum = np.cumsum(dfs, axis=1)
+        cum = (cum.T / cum[:, -1]).T
+        p_ = points[:]
+        if len(points) == 1:
+            p_ = np.array([points] * len(dfs))
+        #interpolat to get exact cdf value at point]
+        xarr = np.array([interpolate.InterpolatedUnivariateSpline(bincenter, cum[i], k=k)(p_[i]) for i in range(len(cum[:, 0]))])
+        return xarr
+
+    else:
+        cum = np.cumsum(dfs)
+        cum = cum / float(cum[-1])
+        return interpolate.InterpolatedUnivariateSpline(bincenter, cum, k=k)(points)
+
+
+def xval_cumaltive_at_ypoint(dfs, bincenter, point, k=None):
+    """returns the xvals of dfs(ngal, nxbins), x(bins in xdir) point(1), for a point
+    which sits on the y-axis of the cdf. We interpolate the cdf for precision"""
+
+    """Note: all points < x[0]-dx are set to x[0] - dx"""
+    """Note: all points > x[-1]+dx are set to x[-1] + dx"""
+
+    dx = (bincenter[1] - bincenter[0])/2.0
+    if point > bincenter[-1] + dx:
+        point = bincenter[-1] + dx
+    if point < bincenter[0] - dx:
+        point = bincenter[0] - dx
+    if k is None:
+        k = 3
+    if len(np.shape(dfs)) > 1:
+        cum = np.cumsum(dfs, axis=1)
+        cum = (cum.T / cum[:, -1]).T
+
+        #include this line (c < 1 - np.finfo('float').eps) * (c > np.finfo('float').eps)
+        #to ensure that there is a 1-1 mapping between the CDF c, and the x-axis
+        #return these x values  corresponding to the y-axis = point interst cdf
+        xarr = np.array([interpolate.InterpolatedUnivariateSpline(c[(c < 1 - np.finfo('float').eps) * (c > np.finfo('float').eps)], bincenter[(c < 1 - np.finfo('float').eps) * (c > np.finfo('float').eps)], k=k)(point) for c in cum])
+        return xarr
+    else:
+        cum = np.cumsum(dfs)
+        cum = cum / float(cum[-1])
+        ind = (cum < 1 - np.finfo('float').eps) * (cum > np.finfo('float').eps)
+
+        return interpolate.InterpolatedUnivariateSpline(cum[ind], bincenter[ind], k=k)(point)
+
+
+def gini(sorted_list):
+    """ from https://planspacedotorg.wordpress.com/2013/06/21/how-to-calculate-gini-coefficient-from-raw-data-in-python/
+    """
+    cum = np.cumsum(sorted_list)
+    cum = cum * 1.0 / cum[-1]
+    cumx = np.cumsum([1] * len(cum))
+    cumx = cumx * 1.0 / cumx[-1]
+    gini_v = np.mean(np.abs(cumx - cum)) * 2.0
+    return gini_v
+
+
+def Bordoloi_pdf_test(dfs, x, points, n_yaxis_bins=None):
+    """determine a test described here:
+    http://arxiv.org/pdf/1201.0995.pdf
+    Is the pdf flat, in bins of Pval?
+    The x is bin centers of dfs
+    """
+
+    #calculate the cum pdf values up to each point (or spec-z)
+    pvals = cumaltive_to_point(dfs, x, points)
+
+    if n_yaxis_bins is None:
+        n_yaxis_bins = 100
+
+    #make a histogram of this in steps of 0.01. Must be smaller than 0.03 otherwise
+    hp = np.histogram(pvals, bins=np.arange(n_yaxis_bins + 1) / float(n_yaxis_bins))[0]
+
+    #return the giniCoefficient of this distribution. Flat = 0 = great!
+    return gini(hp)
+
+
+def dfs_mode(dfs, x):
+    """calcaulte the location of the mode of a heap of dfs"""
+    if len(np.shape(dfs)) > 1:
+        mx = np.argmax(dfs, axis=1)
+        return x[mx]
+    else:
+        return x[np.argmax(dfs)]
+
+
+def binned_pdf_point_stats(_data_to_bin, _bin_vals, _pdf, _zbins, _truths, _weights, func, Nsamples=None):
+    """ take a binning vector, and bins values, and calculate the pdf-point statistic. Use Boot strap resampling to use weights keyword. If weights are given, we use bootstrap to estimate the weighted average value of the metric
+
+    _data_to_bin[size ngals], _bin_vals = bins to bin _data_to_bin, _pdf[ngals, nzbins], _zbins the zbins of the pdf
+    _truths[ngals] point predictions, _weights[ngals] galaxy weights, func = metric of choice"""
+
+    if Nsamples is None:
+        Nsamples = 150
+    res = {}
+    p = _weights / np.sum(_weights)
+    for i in np.arange(len(_bin_vals)-1):
+        res[i] = {}
+
+        if i == len(_bin_vals)-1:
+            #catch edge case
+            ind = (_data_to_bin >= _bin_vals[i]) * (_data_to_bin <= _bin_vals[i+1])
+        else:
+            ind = (_data_to_bin >= _bin_vals[i]) * (_data_to_bin < _bin_vals[i+1])
+
+        res[i]['weighted_bin_center'] = np.average(_data_to_bin[ind], weights=p[ind])
+
+        #do we need to bother reweighting?
+        if np.sum(_weights[ind]) != np.sum(ind):
+
+            val = np.zeros(Nsamples)
+            indx = np.arange(len(_data_to_bin))[ind]
+            for j in np.arange(Nsamples):
+                indr = np.random.choice(indx, size=len(indx), replace=True, p=p[ind])
+                val[i] = func(_pdf[indr], _zbins, _truths[indr])
+            res[i]['weighted_value'] = np.mean(val)
+        else:
+            res[i]['weighted_value'] = func(_pdf[ind], _zbins, _truths[ind])
+
+    return res
+
+
+def interpolate_dist(_df1, _bins1, _bins2, kind=None):
+    """interpolate df1 at locations _bins2 """
+    if kind is None:
+        kind = 'linear'
+    I = interpolate.interp1d(_bins1, _df1, kind=kind)
+
+    return I(_bins2)
+
+
+def binned_statistic_dist1_dist2(arr_, bin_vals_, truths_, pdf_, pdf_z_center_, func_, weights=None):
+    """ bins the stacked pdf and truths in bins of arr, then calculates the metric on these distributions"""
+    """ metric doesn't work so well with weights at the mo"""
+
+    if weights is None:
+        weights = np.ones(len(arr_))
+
+    p = weights / np.sum(weights)
+
+    res = {}
+    for i in np.arange(len(bin_vals_)-1):
+        ind_ = (arr_ >= bin_vals_[i]) * (arr_ < bin_vals_[i + 1])
+        if np.sum(ind_) > 0:
+            res[i] = {}
+
+            truth_dist_ = dist_pdf_weights(truths_[ind_], pdf_z_center_, weights=p[ind_])
+
+            stacked_pdf_ = stackpdfs(pdf_[ind_], weights=p[ind_])
+            stacked_pdf_ = normalisepdfs(stacked_pdf_, pdf_z_center_)
+
+            res[i]['weighted_bin_center'] = np.average(arr_[ind_], weights=p[ind_])
+
+            """ Add weights in here  """
+            res[i]['weighted_value'] = func_(truth_dist_, stacked_pdf_)
+
+    return res
+
 
 """ ==========================
 validation metrics and tools =
@@ -436,12 +733,11 @@ def mean(df, binning, z_phot, metric='mean', weights=None, tomo_bins=np.array([0
     assert isinstance(z_phot, np.ndarray), 'z_phot must be a numpy array'
     assert len(z_phot) == len(df), 'Length of z_phot must be equal to that of df'
     df['phot_sel'] = z_phot  # Make the selection photo-z a part of the DataFrame
-    assert 'z_spec' in df.columns, 'The df needs a "z_spec" columns'
-    assert 'pdf_0' in df.columns, 'The pdf values must have pdf_i column name'
-    pdf_names = ['pdf_' + str(i) for i in range(500) if 'pdf_' + str(i) in df.columns]
+    assert 'Z_SPEC' in df.columns, 'The df needs a "z_spec" columns'
+    pdf_names = [c for c in df.keys() if 'pdf_' in str(c)]
 
     if metric == 'mode':
-        df['z_phot'] = binning[np.argmax([df[pdf_names].values], axis=1)][0]
+        df['z_phot'] = binning[np.argmax(df[pdf_names].values, axis=1)]
     elif metric == 'mean':
         df['z_phot'] = np.inner(binning, df[pdf_names].values)
     else:
@@ -482,11 +778,11 @@ def mean(df, binning, z_phot, metric='mean', weights=None, tomo_bins=np.array([0
 
             for i in xrange(n_resample):
                 df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=None)
-                mean_spec_array.append(df_sample.z_spec.mean())
+                mean_spec_array.append(df_sample.Z_SPEC.mean())
                 mean_phot_array.append(df_sample.z_phot.mean())
 
                 df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=df_sel[weights])
-                w_mean_spec_array.append(np.average(df_sample.z_spec))
+                w_mean_spec_array.append(np.average(df_sample.Z_SPEC))
                 w_mean_phot_array.append(np.average(df_sample.z_phot))
 
             mean_spec = np.mean(mean_spec_array)
@@ -534,7 +830,7 @@ def mean(df, binning, z_phot, metric='mean', weights=None, tomo_bins=np.array([0
     return return_df
 
 
-def weighted_nz_distributions(df, binning, weights=None, tomo_bins=np.array([0, 5.0]), z_phot=None, n_resample=50):
+def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0, 5.0]), z_phot=None, n_resample=50):
     """
     :param df: pandas data-frame
     :param binning: center of redshift bins
@@ -546,62 +842,179 @@ def weighted_nz_distributions(df, binning, weights=None, tomo_bins=np.array([0, 
 
     assert isinstance(df, pd.DataFrame), 'df must be a pandas DataFrame'
     assert isinstance(binning, np.ndarray), 'binning must be a numpy array'
-    if weights:
+    if not weights:
+        weights = 'weights'
+        df[weights] = 1.0 / float(len(df))  # set uniform weights if none given
+    elif weights:
         assert weights in df.columns, str(weights) + ' not in df.columns'
         df[weights] = (df[weights] / df[weights].sum()).values  # normalize weights
-    else:
-        df[weights] = 1.0 / float(len(df))  # set uniform weights if none given
-
+    
     assert isinstance(z_phot, np.ndarray), 'z_phot must be a numpy array'
     assert len(z_phot) == len(df), 'Length of z_phot must be equal to that of df'
     df['phot_sel'] = z_phot  # Make the selection photo-z a part of the DataFrame
-    assert 'z_spec' in df.columns, 'The df needs a "z_spec" in df.columns'
-    pdf_names = ['pdf_' + str(i) for i in range(500) if 'pdf_' + str(i) in df.columns]
+    assert 'Z_SPEC' in df.columns, 'The df needs a "Z_SPEC" in df.columns'
+    pdf_names = [c for c in df.keys() if 'pdf_' in str(c)]
+    tomo_bins = [(tomo_bins[0],tomo_bins[-1])] + [(tomo_bins[i], tomo_bins[i+1]) for i in range(len(tomo_bins) -1)]
 
     phot_iter = {}
     spec_iter = {}
-
+    phot_means = {}
+    spec_means = {}
+    div_means = {} 
+    counts = {}
     # In the following section the tomographic bins are treated
 
-    for j in xrange(0, len(tomo_bins) - 1):
-        sel = (df.phot_sel > tomo_bins[j]) & (df.phot_sel <= tomo_bins[j + 1])
+    for j,bin in enumerate(tomo_bins):
+        sel = (df.phot_sel > bin[0]) & (df.phot_sel <= bin[1])
         if sel.sum() > 0:
+            counts[j] =sel.sum()
             df_sel = df[sel]
 
-            phot_iter[j + 1] = {}
-            spec_iter[j + 1] = {}
+            phot_iter[j] = {}
+            spec_iter[j] = {}
 
-            for i in xrange(n_resample):
-                df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=df_sel[weights])
-                kde_w_spec_pdf = gaussian_kde(df_sample.z_spec.values, bw_method='silverman')
+            phot_means[j] = {}
+            spec_means[j] = {}
+            div_means[j] = {}
+
+            phot_sum_array = np.zeros_like(binning)
+            spec_sum_array = np.zeros_like(binning)
+            temp_phot_means = np.zeros(n_resample)
+            temp_spec_means = np.zeros(n_resample)
+            temp_diff_means = np.zeros(n_resample)
+            if n_resample > 1:
+                for i in xrange(n_resample):
+                    df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=df_sel[weights])
+                    kde_w_spec_pdf = gss_kde(df_sample['Z_SPEC'].values, bw_method='silverman')
+                    kde_w_spec_pdf = kde_w_spec_pdf(binning)
+                    temp_spec_means[i] = df_sample['Z_SPEC'].mean()
+                    temp_phot_means[i] = np.average(binning, weights=df_sample[pdf_names].sum().values)
+                    temp_diff_means[i] = temp_phot_means[i] - temp_spec_means[i]
+
+                    phot_iter[j][i+1] = _normalize_pdf(df_sample[pdf_names].sum(), binning[1] - binning[0]).values
+                    spec_iter[j][i+1] = kde_w_spec_pdf
+                    phot_sum_array = phot_sum_array + phot_iter[j][i + 1]
+                    spec_sum_array = spec_sum_array + spec_iter[j][i + 1]
+                    
+                phot_iter[j][0] = phot_sum_array/ float(n_resample)
+                spec_iter[j][0] = spec_sum_array/ float(n_resample)
+
+                phot_means[j] =  (temp_phot_means.mean(), np.std(temp_phot_means))
+                spec_means[j] =  (temp_spec_means.mean(), np.std(temp_spec_means))
+                div_means[j] =   (temp_diff_means.mean(), np.std(temp_diff_means))
+                
+            else:
+                kde_w_spec_pdf = gss_kde(df_sel['Z_SPEC'].values, bw_method='silverman', weights=df_sel[weights].values)
                 kde_w_spec_pdf = kde_w_spec_pdf(binning)
+                phot_iter[j][0] = _normalize_pdf(((df_sel[pdf_names].T * df_sel[weights]).T).sum(), binning[1] - binning[0]).values
+                spec_iter[j][0] = kde_w_spec_pdf
 
-                phot_iter[j + 1][i + 1] = _normalize_pdf(df_sample[pdf_names].sum(), binning[1] - binning[0]).values
-                spec_iter[j + 1][i + 1] = kde_w_spec_pdf
+    data_for_wl = {'binning': binning, 'phot': phot_iter, 'spec': spec_iter, 'tomo_bins' : tomo_bins, 'counts': counts, 
+                   'phot_means': phot_means, 'spec_means' : spec_means, 'div_means' : div_means}
 
-            phot_iter[j + 1][0] = _normalize_pdf(df_sel[pdf_names].sum(), binning[1] - binning[0]).values
-            kde_w_spec_pdf = gaussian_kde(df_sel.z_spec.values, bw_method='silverman')
-            spec_iter[j + 1][0] = kde_w_spec_pdf(binning)
+    return data_for_wl
 
-    # In the following section the full n(z) is treated i.e not in tomographic bins
 
-    sel = (df.phot_sel > tomo_bins[0]) & (df.phot_sel <= tomo_bins[len(tomo_bins) - 1])
-    df_sel = df[sel]
-    phot_iter[0] = {}
-    spec_iter[0] = {}
+def nz_plot(res, file_name, plot_label, weights, selection, binning, save_plot, plot_folder, code):
+    C = ["#C6B242",
+        (0.81490196660161029, 0.18117647245526303, 0.1874509818851941),
+        (0.90031372549487099, 0.50504421386064258, 0.10282352945383844),
+        "#3cb371"]
+    
+    x = res['binning']
+    spec = res['spec']
+    phot = res['phot']
+    counts = res['counts']
+    phot_means = res['phot_means']
+    spec_means = res['spec_means']
+    div_means = res['div_means']
+    
+    fig, axes = plt.subplots(nrows=len(phot) + 1, ncols=1, figsize=(14, 2.1 * len(phot)))
+    for i in range(len(phot)):
+        mean_spec = np.average(x, weights=spec[i][0])
+        mean_phot = np.average(x, weights=phot[i][0])
+        dz = phot_means[i][0] - spec_means[i][0] 
+        
+        axes[i].plot(x, phot[i][0], label='Phot', c=C[2])
+        axes[i].axvline(mean_phot, c=C[2])
+        axes[i].plot(x, spec[i][0], label='Spec', c=C[3])
+        axes[i].axvline(mean_spec, c=C[3])
+        axes[i].axvspan(phot_means[i][0] - 3*phot_means[i][1], phot_means[i][0] + 3*phot_means[i][1], alpha=0.4, color=C[2])
+        axes[i].axvspan(spec_means[i][0] - 3*spec_means[i][1], spec_means[i][0] + 3*spec_means[i][1], alpha=0.4, color=C[3])
+    
+        axes[i].tick_params(axis='y', left='off', labelleft='off') 
+        axes[i].tick_params(axis='x', bottom='off',labelbottom='off')
+        axes[i].text(0.73, 0.75, '$\Delta(z)$ = ' + str(dz)[:6] + ' $\pm$ ' + str(div_means[i][1])[:6],
+                     ha='left', va='center',fontsize=18, transform=axes[i].transAxes)
+        axes[i].text(0.73, 0.51, '$N$ = ' + str(counts[i]), 
+                     ha='left', va='center', fontsize=18, transform=axes[i].transAxes)
+        axes[i].set_xlim((x.min(),x.max()))
+    
+    axes[-2].tick_params(axis='x', bottom='on',labelbottom='on') 
+    axes[-2].set_xlabel('Redshift $(z)$')
+    axes[-1].tick_params(axis='y', left='off', labelleft='off') 
+    axes[-1].tick_params(axis='x', bottom='off',labelbottom='off')
+    axes[-1].text(0.01, 0.85, 'Filename: ' + file_name, ha='left', va='center',
+                  fontsize=11, transform=axes[-1].transAxes)
+    axes[-1].text(0.01, 0.65, 'Selection: ' + selection, ha='left', va='center',
+                  fontsize=11, transform=axes[-1].transAxes)
+    axes[-1].text(0.01, 0.45, 'Weights: ' + str(weights), ha='left', va='center',
+                  fontsize=11, transform=axes[-1].transAxes)
+    axes[-1].text(0.01, 0.1, 'Bins: ' + str(binning), ha='left', va='center',
+                  fontsize=11, transform=axes[-1].transAxes)
+    axes[0].text(0.65, 0.75, 'Non-tomo', ha='center', va='center',
+                  fontsize=18, transform=axes[0].transAxes)
+    
+    fig.text(0.1, 0.5, '$n(z)$', ha='center', va='center', rotation='vertical',
+             fontsize=20)
 
-    for i in xrange(n_resample):
-        df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=df_sel[weights])
-        kde_w_spec_pdf = gaussian_kde(df_sample.z_spec.values, bw_method='silverman')
-        kde_w_spec_pdf = kde_w_spec_pdf(binning)
-
-        phot_iter[0][i + 1] = _normalize_pdf(df_sample[pdf_names].sum(), binning[1] - binning[0]).values
-        spec_iter[0][i + 1] = kde_w_spec_pdf
-
-    phot_iter[0][0] = _normalize_pdf(df_sel[pdf_names].sum(), binning[1] - binning[0]).values
-    kde_w_spec_pdf = gaussian_kde(df_sel.z_spec.values, bw_method='silverman')
-    spec_iter[0][0] = kde_w_spec_pdf(binning)
-
-    data_for_wl = {'binning': binning, 'phot': phot_iter, 'spec': spec_iter}
-
-    return phot_iter, spec_iter, data_for_wl
+    fig.subplots_adjust(hspace=0.3)
+    fig.subplots_adjust(wspace=0)
+    axes[0].legend(loc=2, fontsize=12)
+    
+    if save_plot:
+        file_name1 = plot_folder +  plot_label + '_' +  code + '_' + str(len(binning)-1) 
+        file_name2 = file_name1  +  '_bins_' + selection + '_weights_'
+        file_name3 = file_name2 + str(weights) + '.png'
+        plt.savefig(file_name3)
+        
+    return fig
+    
+    
+def nz_test(file_name, code, plot_label,
+            write_pickle=False, save_plot=False, pickle_folder='', plot_folder='', 
+            weight_list = [False, 'WL_valid_weights','LSS_valid_weights'],
+            point_list =  ['MODE_Z','MEAN_Z', 'MEDIAN_Z'],
+            bin_list = [np.linspace(0.2, 1.3, 12), np.linspace(0.2, 1.3, 7)],
+            resample = 20 ):
+    figures = []
+    to_pickle = []
+        
+    store = pd.HDFStore(file_name)
+    df = store['pdf']
+    store.close()
+    centers = np.array([float(name[4:]) for name in df.columns if 'pdf' in name])
+    for binning in bin_list:
+        for selection in point_list:
+            if selection in df.columns:
+                for weights in weight_list:
+                    print 'Processing :', selection, 'weights = ' +  str(weights), 'In ' + str(len(binning)-1) + ' bins'
+                    result = weighted_nz_distributions(df, binning=centers, 
+                                                       weights=weights, 
+                                                       tomo_bins=binning, 
+                                                       z_phot= df[selection].values, 
+                                                       n_resample=resample)
+                    to_pickle.append(result)
+                    if write_pickle:
+                        bin_info1 = code + '_' + str(len(binning)-1) + '_bins'
+                        bin_info2 = '_' + selection + '_weights_' + str(weights)
+                        pickle_file = pickle_folder +   bin_info1 + bin_info2 + '.pickle'
+                        ld_writedicts(pickle_file, result)
+                        
+                    figures.append(nz_plot(result, file_name, plot_label, weights, selection, binning, 
+                                           save_plot, plot_folder, code))
+                                    
+            else:
+                print selection + ' not found in DataFrame columns'
+    return figures, to_pickle    
+    

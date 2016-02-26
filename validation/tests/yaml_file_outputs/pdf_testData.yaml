@@ -1,0 +1,8 @@
+tests/data/TestData_validHDF.hdf5:
+  test_GP2SM:
+    bh_photo_z_validation.ks_test:
+      VALUE: 0.06999999999999999
+    bh_photo_z_validation.log_loss:
+      VALUE: 2.496279369352751
+    bh_photo_z_validation.npoisson:
+      VALUE: 0.09126413940152653

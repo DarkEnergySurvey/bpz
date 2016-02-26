@@ -1,0 +1,40 @@
+Template README for any photo-z file that wants to hosted at COSMOHUB 
+Please include all relevant information
+
+# Who produced file and contact information
+
+# Which gold version of gold is this ?!
+
+# Filename with a version ! has to be of format PHOTOZ_{METHOD_name}_Y1_v{X.X} starting with V0.1 increment in 0.1
+# Please give this file README the same verion as the photo-z files.
+
+# Code used or name of the photo-z (think ANNZ2, TPZ, BPZ, ...)
+
+# Which objects was in trained on in case of ML method
+
+# Link to validation file 
+
+# Link to YAML results 
+
+# Features trained on in case of ML
+
+# if an HDF5 file, note the pandas and pytables version compression used to write the HDF5 file
+# should be 
+# pandas 0.17.0
+# pytables 3.2.2
+# compression blosc:snappy
+
+# The redshift binning 
+
+# Link to DES-wiki page on which the release is documented
+
+# Any additional information you want to share 
+
+# the content of the file
+coadd_ojects_id
+z_mode
+...
+
+
+
+ 

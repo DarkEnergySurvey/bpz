@@ -6,11 +6,11 @@ version: 0.1.0
 
 Author: Aurelio Carnero aurelio.crosell@gmail.com
 
-dependencies: numpy, astropy, easyaccess [And you can login from command line]
+dependencies: easyaccess 
 
 call like:
 
-./gethpixDataDES.py table=tableName output=tableName.hpix.csv [,nside=4096, supress_warning=1, verbose=1]
+./gethpixDataDES.py table=tableName [output=tableName.hpix.csv ,nside=4096, verbose=1]
 
 -h | help show the help message
 
@@ -23,7 +23,7 @@ nside: nside hpix to return back
 output: csv file to export hpix
 
 E.g:
-./gethpixDataDES.py table=brportal.WL_REDUC_V2 output=wl_reduc_v2.hpix.csv nside=4096 supress_warning=1 verbose=1
+./gethpixDataDES.py table=brportal.WL_REDUC_V2 output=wl_reduc_v2.hpix.csv nside=4096 verbose=1
 """
 import sys
 import os
@@ -36,20 +36,43 @@ for i in args:
         k, v = i.split('=')
         inArgs[k] = v
 
+print args
 #protect the user, from themselves and us!
-if '-h' or 'help' in args or 'supress_warning' not in inArgs:
-    print "./gethpixDataDES.py table=brportal.WL_REDUC_V2 output=out.csv [,nside=4096 ,supress_warning=0 ,verbose=1]"
-    print "BE WARNED! output table will be written to disk here!"
-    print "I will not do anything until you add supress_warning=1"
-    print "to input. You have been warned!"
-    
+if 'help' in args:
+    print "./gethpixDataDES.py table=brportal.WL_REDUC_V2 [output=out.csv ,nside=4096 ,verbose=1]"
+    print "BE WARNED! output table out.csv will be written to disk here!"
+    print "You have been warned!"
+    sys.exit(0)
+if '-h' in args:
+    print "./gethpixDataDES.py table=brportal.WL_REDUC_V2 [output=out.csv ,nside=4096 ,verbose=1]"
+    print "BE WARNED! output table out.csv will be written to disk here!"
+    print "You have been warned!"
+    sys.exit(0)
+
+if 'table' not in inArgs.keys():
+	print 'missing table'
+	print './gethpixDataDES.py table=brportal.WL_REDUC_V2 output=out.csv [,nside=4096 ,supress_warning=0 ,verbose=1]'
+	sys.exit('ERROR: table name missing')
+if 'nside' not in inArgs.keys():
+	print 'nside default set to 4096'
+	inArgs['nside'] = '4096'
+if 'verbose' not in inArgs.keys():
+	print 'verbose default to 1'
+	inArgs['verbose'] = '1'
+
+if 'output' not in inArgs.keys():
+	print 'no output table name selected'
+	print 'Output name will be %s.csv' % inArgs['table']
+	inArgs['output'] = inArgs['table'] + '.csv'
 
 if os.path.isfile(inArgs['output']):
-    print "FYI: this file will be destroyed!: " + inArgs['table'] 
+    print "FYI: this file will be destroyed!: " + inArgs['output'] 
 
-if inArgs['supress_warning'] == 0:
-    print "Nothing happens until supress_warning=1"
-    1/0
+if inArgs['output'].endswith('.csv'):
+	pass
+else:
+	print 'output table must end in csv'
+	sys.exit('ERROR: output table must end in csv')
 
 #print stuff to screen?
 verbose = 'verbose' in inArgs
@@ -59,77 +82,39 @@ if verbose:
     print inArgs
 
 #load other stuff
-from astropy.table import Table
 import easyaccess as ea
-import numpy as np
 
 
 #read table using astropy
-d = Table.read(inArgs['file'])
-
-
-#decide, or be told, how many upload trips to make
-if 'rows_per_chunk' not in inArgs:
-    rows_per_chunk = int(4e7)
-else:
-    rows_per_chunk = int(inArgs['rows_per_chunk'])
-
-
-#if the file is smaller than number rows
-if rows_per_chunk > len(d):
-    rows_per_chunk = len(d)
-
-
-#determine number of chunks to split file into
-n_chunks = int(len(d) / rows_per_chunk)
-if verbose:
-    print "file size", len(d)
-    print "splitting file into", n_chunks," chunks"
-    print "rows_per_chunk: ", rows_per_chunk
-
-
+table_name = inArgs['table']
+nside = inArgs['nside'] 
 #conenct to "easy-access"
 connection = ea.connect()
 
 ##create a cursor object to handle the DB
 cursor = connection.cursor() 
 
-#To do. this is a pain in ORACLE!
+query = ("SELECT mcarras2.degrade(gold.HPIX, %s) as HPIX_%s, gold.coadd_objects_id "
+	"FROM NSEVILLA.Y1A1_GOLD_1_0_2 gold, %s your where "
+	"gold.coadd_objects_id = your.coadd_id" 
+	% (nside, nside, table_name)
+	) 
+if verbose:
+	print 'the query to save into %s' % inArgs['output']
+	print query
 
-#check to see if table already exists:
-#q = "select * from " + inArgs['table'] + " where rownum<2"
-#res = cursor.execute(q).descrption
-
-
-
-for i in range(n_chunks):
-    #remove file if exists
-    if os.path.isfile(inArgs['table']+'.fits'):
-        os.remove(inArgs['table']+'.fits')
-
-    #load each batch
-    ind = np.arange(rows_per_chunk, dtype=int) + i * rows_per_chunk
-
-    #finally get all remaining rows
-    if i == n_chunks-1:
-        ind = np.arange(len(d) - i* rows_per_chunk, dtype=int) + i * rows_per_chunk
-    
-    if verbose:
-        print "this chunk", i, " total chunks", n_chunks
-        print "n_rows this time", len(ind)
-        print "min max index:", np.amin(ind), np.amax(ind)
-
-    indr = np.array([False] * len(d))
-    indr[ind] = True
-    #write this chunk to disk
-    d[indr].write(inArgs['table']+'.fits')
-
-    #upload this chunk
-    if i ==0:
-        connection.load_table(inArgs['table']+'.fits', name=inArgs['table'])
-    else:
-        connection.append_table(inArgs['table']+'.fits', name=inArgs['table'])
+if os.path.isfile(inArgs['output']):
+	if verbose:
+		print 'output exist, removing it...'
+	os.remove(inArgs['output'])
 
 if verbose:
-    print "Action completed. Please check in DESDM. report bugs to Ben Hoyle!"
+	print "get hpix matching to gold table for ", table_name, "creating csv output called ", inArgs['output']
+
+connection.query_and_save(query,inArgs['output'])
+
+connection.close()
+
+if verbose:
+    print "Action completed. Please check in your directory. report bugs to Aurelio Carnero!"
 

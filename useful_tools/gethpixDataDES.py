@@ -94,7 +94,7 @@ connection = ea.connect()
 ##create a cursor object to handle the DB
 cursor = connection.cursor() 
 
-query = ("SELECT mcarras2.degrade(gold.HPIX, %s) as HPIX_%s, gold.coadd_objects_id "
+query = ("SELECT cast(mcarras2.degrade(gold.HPIX, %s) as integer) as HPIX_%s, gold.coadd_objects_id "
 	"FROM NSEVILLA.Y1A1_GOLD_1_0_2 gold, %s your where "
 	"gold.coadd_objects_id = your.coadd_id" 
 	% (nside, nside, table_name)

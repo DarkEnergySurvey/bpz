@@ -108,6 +108,9 @@ for res in results:
 #                'nc_'+str(filter)+'.png', mylog=True, step = False, showavg = True, lines=[mean_nc_maglim[filter]])
 plot(bincenters,mean( array(llist), axis=0 ),'k--',lw=3,label='AVG')
 legend()
+plt.ylabel('Density')
+plt.xlabel('Redshift')
+
 savefig(path+'nz_sim.png')
 cla()
 clf()
@@ -116,10 +119,16 @@ err = std( array(llist), axis=0 )
 me = mean( array(llist), axis=0 )
 plt.plot(bincenters,me,'k--')
 plt.fill_between(bincenters, me-err, me+err)
+plt.ylabel('Density')
+plt.xlabel('Redshift')
+
 savefig(path+'nz_sim_average.png')
 cla()
 clf()
 plot(bincenters,err)
+plt.ylabel('RMS')
+plt.xlabel('Redshift')
+
 savefig(path+'error_nz_sim.png')
 cla()
 clf()
@@ -127,7 +136,7 @@ clf()
 
 p = load_yaml('./testConfig/photoz.yaml')
 
-bin_edge = p['point']['bins'][0]['MEDIAN_Z'].split('[')[1].split(']')[0].split(',')
+bin_edge = p['point']['bins'][0]['MEAN_Z'].split('[')[1].split(']')[0].split(',')
 bin_edge = map(str.strip,bin_edge)
 bin_edge = map(float,bin_edge)
 print bin_edge
@@ -148,6 +157,10 @@ for ii in range(len(bin_edge)-1):
     plot(bincenters,mean( array(llist), axis=0 ),'k--',lw=3,label='AVG')
 
     legend()
+    plt.ylabel('Density')
+    plt.xlabel('Redshift')
+    plt.axvline(x=zmin, linewidth=2,color='k',linestyle='--')
+    plt.axvline(x=zmax, linewidth=2,color='k',linestyle='--')
     savefig(path+'z_nz_bins_%s_%s.png' % (str(zmin),str(zmax)))
     cla()
     clf()
@@ -156,6 +169,11 @@ for ii in range(len(bin_edge)-1):
     me = mean( array(llist), axis=0 )
     plt.plot(bincenters,me,'k--')
     plt.fill_between(bincenters, me-err, me+err)
+    plt.ylabel('Density')
+    plt.xlabel('Redshift')
+    plt.axvline(x=zmin, linewidth=2, color='k',linestyle='--')
+    plt.axvline(x=zmax, linewidth=2, color='k',linestyle='--')
+
     savefig(path+'z_nz_avg_%s_%s.png' % (str(zmin),str(zmax)))
     cla()
     clf()

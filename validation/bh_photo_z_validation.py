@@ -71,7 +71,8 @@ def bootstrap_mean_error(arr, weight, func, Nsamples=None):
 
     val = np.zeros(Nsamples)
     #what weight do each data have
-    prob = weight * 1.0 / np.sum(weight)
+    prob =  np.array(weight, dtype=float)
+    prob *= 1.0 / np.sum(prob, dtype=float)
 
     for i in np.arange(Nsamples):
         #call the function and pass in a bootstrapped sample

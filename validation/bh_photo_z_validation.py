@@ -985,6 +985,19 @@ def nz_test(file_name, code, plot_label,
             point_list =  ['MODE_Z','MEAN_Z', 'MEDIAN_Z'],
             bin_list = [np.linspace(0.2, 1.3, 12), np.linspace(0.2, 1.3, 7)],
             resample = 20 ):
+    """
+    file_name = file name of the HDF5 validation file
+    code = name of the code, to be chosen by the user
+    plot_label = This label will appear in the plot name
+    write_pickle = Do you want to write a pcikep output [default no]
+    write_plot = Do you want to write plot to file [default no]
+    pickle_folder = where to write pickle file 
+    plot_folder = where to write plot
+    weight_list = list of weight to be used, must in DataFrame columns
+    point_list = list of point estimates to be used in the binning
+    bin_list = list of redshift binnings to use
+    resample = amount of resamples to use [default 20]
+    """
     figures = []
     to_pickle = []
         

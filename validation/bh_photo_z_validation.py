@@ -71,7 +71,8 @@ def bootstrap_mean_error(arr, weight, func, Nsamples=None):
 
     val = np.zeros(Nsamples)
     #what weight do each data have
-    prob = weight * 1.0 / np.sum(weight)
+    prob =  np.array(weight, dtype=float)
+    prob *= 1.0 / np.sum(prob, dtype=float)
 
     for i in np.arange(Nsamples):
         #call the function and pass in a bootstrapped sample
@@ -365,26 +366,23 @@ def normalize_pdf(pdf, z):
 
 
 def log_loss(act, pred):
+    """https://www.kaggle.com/wiki/LogarithmicLoss"""
     epsilon = 1e-15
+    import scipy as sp
     pred = sp.maximum(epsilon, pred)
     pred = sp.minimum(1 - epsilon, pred)
     ll = sum(act * sp.log(pred) + sp.subtract(1, act) * sp.log(sp.subtract(1, pred)))
-    ll = ll * -1.0 / len(act)
-    return -1 * ll
+    ll = ll * -1.0/len(act)
+    return ll
 
 
-def kulbachLeiber_bins(P, Q):
+def kulbachLeiber_bins(Q, P):
+    from scipy.stats import entropy
     """Kullbach- Leibler test for binned [strictly >0] distributions
     See en.wikipedia.org/wiki/Kullback-Leibler_divergence
     For P=measured Q=True distribtions"""
 
-    #if P ==0 then it adds nothing to the sum. If Q ==0 the KL is undefined
-    non0 = (P > np.finfo('float').eps) * (Q > np.finfo('float').eps)
-
-    if np.any((Q < np.finfo('float').eps) * (P > 0)):
-        return np.nan
-
-    return np.sum(P[non0] * np.log(P[non0] / Q[non0]))
+    return entropy(P, Q)
 
 
 # what is this test?
@@ -625,7 +623,7 @@ def binned_statistic_dist1_dist2(arr_, bin_vals_, truths_, pdf_, pdf_z_center_, 
         if np.sum(ind_) > 0:
             res[i] = {}
 
-            truth_dist_ = dist_pdf_weights(truths_[ind_], pdf_z_center_, weights=p[ind_])
+            truth_dist_ = gss_kde(truths_[ind_], weights=p[ind_]).evaluate(pdf_z_center_)
 
             stacked_pdf_ = stackpdfs(pdf_[ind_], weights=p[ind_])
             stacked_pdf_ = normalisepdfs(stacked_pdf_, pdf_z_center_)

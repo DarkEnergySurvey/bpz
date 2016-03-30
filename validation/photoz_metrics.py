@@ -248,7 +248,7 @@ else:
                 testProperties[ptype].append(p[ptype])
 
 #results file prefix
-resultsFilePrefix = ''
+resultsFilePrefix = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(5))
 if pval.key_not_none(config, 'resultsFilePrefix'):
     resultsFilePrefix = config['resultsFilePrefix']
 
@@ -400,8 +400,8 @@ if len(files[ptype]) > 0:
         res[ptype][f] = {}
 
         zcols = [c for c in d.keys() if 'pdf_' in c]
-        pdf_z_edge = np.array([float(c.split('f_')[-1]) for c in zcols])
-        pdf_z_center = pdf_z_edge + np.append((pdf_z_edge[1:] - pdf_z_edge[0: -1]) / 2.0, (pdf_z_edge[-1] - pdf_z_edge[-2]) / 2.0)
+        #pdfs are quoted as bin centers.
+        pdf_z_center = np.array([float(c.split('f_')[-1]) for c in zcols])
 
         pdf = np.array(d[zcols])
 

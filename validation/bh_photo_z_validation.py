@@ -832,7 +832,7 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
     """
     :param df: pandas data-frame
     :param binning: center of redshift bins
-    :param weights: optional weighting scheme with same len as df
+    :param weights: optional weighting scheme with same length as df
     :param tomo_bins: in which z-bins array exp [0.0, 0.2, 0.6, 1.8]
     :param n_resample : Amount of resamples to estimate mean and variance on the mean.
     :return: dictionaries with estimates of weighted n(z) and bootstrap estimates
@@ -998,7 +998,7 @@ def nz_plot(res, file_name, plot_label, weights, selection, binning, save_plot, 
 
     fig.suptitle('Code = ' + plot_label + ','  
                 ' selected on ' + selection + 
-                ' in ' + str(len(binning)) + ' tomo bins,'  + 
+                ' in ' + str(len(binning) -1) + ' tomo bins,'  + 
                 ' weights = ' + str(weights)
                 ,fontsize=18)
     
@@ -1043,7 +1043,7 @@ def nz_test(file_name, code, plot_label,
         for selection in point_list:
             if selection in df.columns:
                 for weights in weight_list:
-                    print 'Processing :', selection, ', weights = ' +  str(weights), ', in ' + str(len(binning)-1) + ' bins'
+                    print 'Processing :' +  code  + ' ' + selection, ', weights = ' +  str(weights), ', in ' + str(len(binning)-1) + ' bins'
                     result = weighted_nz_distributions(df, binning=centers, 
                                                        weights=weights, 
                                                        tomo_bins=binning, 

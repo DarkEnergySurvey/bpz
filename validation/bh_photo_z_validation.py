@@ -71,7 +71,8 @@ def bootstrap_mean_error(arr, weight, func, Nsamples=None):
 
     val = np.zeros(Nsamples)
     #what weight do each data have
-    prob = weight * 1.0 / np.sum(weight)
+    prob =  np.array(weight, dtype=float)
+    prob *= 1.0 / np.sum(prob, dtype=float)
 
     for i in np.arange(Nsamples):
         #call the function and pass in a bootstrapped sample
@@ -365,26 +366,23 @@ def normalize_pdf(pdf, z):
 
 
 def log_loss(act, pred):
+    """https://www.kaggle.com/wiki/LogarithmicLoss"""
     epsilon = 1e-15
+    import scipy as sp
     pred = sp.maximum(epsilon, pred)
     pred = sp.minimum(1 - epsilon, pred)
     ll = sum(act * sp.log(pred) + sp.subtract(1, act) * sp.log(sp.subtract(1, pred)))
-    ll = ll * -1.0 / len(act)
-    return -1 * ll
+    ll = ll * -1.0/len(act)
+    return ll
 
 
-def kulbachLeiber_bins(P, Q):
+def kulbachLeiber_bins(Q, P):
+    from scipy.stats import entropy
     """Kullbach- Leibler test for binned [strictly >0] distributions
     See en.wikipedia.org/wiki/Kullback-Leibler_divergence
     For P=measured Q=True distribtions"""
 
-    #if P ==0 then it adds nothing to the sum. If Q ==0 the KL is undefined
-    non0 = (P > np.finfo('float').eps) * (Q > np.finfo('float').eps)
-
-    if np.any((Q < np.finfo('float').eps) * (P > 0)):
-        return np.nan
-
-    return np.sum(P[non0] * np.log(P[non0] / Q[non0]))
+    return entropy(P, Q)
 
 
 # what is this test?
@@ -625,7 +623,7 @@ def binned_statistic_dist1_dist2(arr_, bin_vals_, truths_, pdf_, pdf_z_center_, 
         if np.sum(ind_) > 0:
             res[i] = {}
 
-            truth_dist_ = dist_pdf_weights(truths_[ind_], pdf_z_center_, weights=p[ind_])
+            truth_dist_ = gss_kde(truths_[ind_], weights=p[ind_]).evaluate(pdf_z_center_)
 
             stacked_pdf_ = stackpdfs(pdf_[ind_], weights=p[ind_])
             stacked_pdf_ = normalisepdfs(stacked_pdf_, pdf_z_center_)
@@ -834,7 +832,7 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
     """
     :param df: pandas data-frame
     :param binning: center of redshift bins
-    :param weights: optional weighting scheme with same len as df
+    :param weights: optional weighting scheme with same length as df
     :param tomo_bins: in which z-bins array exp [0.0, 0.2, 0.6, 1.8]
     :param n_resample : Amount of resamples to estimate mean and variance on the mean.
     :return: dictionaries with estimates of weighted n(z) and bootstrap estimates
@@ -852,8 +850,10 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
     assert isinstance(z_phot, np.ndarray), 'z_phot must be a numpy array'
     assert len(z_phot) == len(df), 'Length of z_phot must be equal to that of df'
     df['phot_sel'] = z_phot  # Make the selection photo-z a part of the DataFrame
-    assert 'Z_SPEC' in df.columns, 'The df needs a "Z_SPEC" in df.columns'
+    assert 'Z' in df.columns, 'The df needs a "Z_SPEC" in df.columns'
     pdf_names = [c for c in df.keys() if 'pdf_' in str(c)]
+    if len(pdf_names) == 0:
+        pdf_names = [c for c in df.keys() if 'PDF_' in str(c)]
     tomo_bins = [(tomo_bins[0],tomo_bins[-1])] + [(tomo_bins[i], tomo_bins[i+1]) for i in range(len(tomo_bins) -1)]
 
     phot_iter = {}
@@ -864,8 +864,9 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
     counts = {}
     # In the following section the tomographic bins are treated
 
-    for j,bin in enumerate(tomo_bins):
+    for j, bin in enumerate(tomo_bins):
         sel = (df.phot_sel > bin[0]) & (df.phot_sel <= bin[1])
+
         if sel.sum() > 0:
             counts[j] =sel.sum()
             df_sel = df[sel]
@@ -885,9 +886,10 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
             if n_resample > 1:
                 for i in xrange(n_resample):
                     df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=df_sel[weights])
-                    kde_w_spec_pdf = gss_kde(df_sample['Z_SPEC'].values, bw_method='silverman')
+                    kde_w_spec_pdf = gss_kde(df_sample['Z'].values, bw_method='silverman')
                     kde_w_spec_pdf = kde_w_spec_pdf(binning)
-                    temp_spec_means[i] = df_sample['Z_SPEC'].mean()
+                    
+                    temp_spec_means[i] = df_sample['Z'].mean()
                     temp_phot_means[i] = np.average(binning, weights=df_sample[pdf_names].sum().values)
                     temp_diff_means[i] = temp_phot_means[i] - temp_spec_means[i]
 
@@ -904,11 +906,28 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
                 div_means[j] =   (temp_diff_means.mean(), np.std(temp_diff_means))
                 
             else:
-                kde_w_spec_pdf = gss_kde(df_sel['Z_SPEC'].values, bw_method='silverman', weights=df_sel[weights].values)
+                kde_w_spec_pdf = gss_kde(df_sel['Z'].values, bw_method='silverman', weights=df_sel[weights].values)
                 kde_w_spec_pdf = kde_w_spec_pdf(binning)
                 phot_iter[j][0] = _normalize_pdf(((df_sel[pdf_names].T * df_sel[weights]).T).sum(), binning[1] - binning[0]).values
                 spec_iter[j][0] = kde_w_spec_pdf
+        else:
+            phot_iter[j] = {}
+            spec_iter[j] = {}
 
+            phot_means[j] = {}
+            spec_means[j] = {}
+            div_means[j] = {}
+            if n_resample > 1:
+                for i in xrange(n_resample):
+                    phot_iter[j][i+1] = np.zeros_like(binning) + 0.00001
+                    spec_iter[j][i+1] = np.zeros_like(binning) + 0.00001
+            phot_iter[j][0] = np.zeros_like(binning) + 0.00001
+            spec_iter[j][0] = np.zeros_like(binning) + 0.00001
+            spec_means[j] = (0.0, 0.0)
+            phot_means[j] = (0.0, 0.0)
+            div_means[j]= (0.0, 0.0)
+            counts[j] = 0
+    
     data_for_wl = {'binning': binning, 'phot': phot_iter, 'spec': spec_iter, 'tomo_bins' : tomo_bins, 'counts': counts, 
                    'phot_means': phot_means, 'spec_means' : spec_means, 'div_means' : div_means}
 
@@ -934,6 +953,7 @@ def nz_plot(res, file_name, plot_label, weights, selection, binning, save_plot, 
         mean_spec = np.average(x, weights=spec[i][0])
         mean_phot = np.average(x, weights=phot[i][0])
         dz = phot_means[i][0] - spec_means[i][0] 
+        
         
         axes[i].plot(x, phot[i][0], label='Phot', c=C[2])
         axes[i].axvline(mean_phot, c=C[2])
@@ -962,6 +982,10 @@ def nz_plot(res, file_name, plot_label, weights, selection, binning, save_plot, 
                   fontsize=11, transform=axes[-1].transAxes)
     axes[-1].text(0.01, 0.1, 'Bins: ' + str(binning), ha='left', va='center',
                   fontsize=11, transform=axes[-1].transAxes)
+    axes[-1].text(0.51, 0.35, 'Error bar quoted on mean is 1 sigma', ha='left', va='center',
+                  fontsize=11, transform=axes[-1].transAxes)
+    axes[-1].text(0.51, 0.1, 'Error regions around means in plot are 3 sigma', ha='left', va='center',
+                  fontsize=11, transform=axes[-1].transAxes)
     axes[0].text(0.65, 0.75, 'Non-tomo', ha='center', va='center',
                   fontsize=18, transform=axes[0].transAxes)
     
@@ -971,6 +995,12 @@ def nz_plot(res, file_name, plot_label, weights, selection, binning, save_plot, 
     fig.subplots_adjust(hspace=0.3)
     fig.subplots_adjust(wspace=0)
     axes[0].legend(loc=2, fontsize=12)
+
+    fig.suptitle('Code = ' + plot_label + ','  
+                ' selected on ' + selection + 
+                ' in ' + str(len(binning) -1) + ' tomo bins,'  + 
+                ' weights = ' + str(weights)
+                ,fontsize=18)
     
     if save_plot:
         file_name1 = plot_folder +  plot_label + '_' +  code + '_' + str(len(binning)-1) 
@@ -983,22 +1013,37 @@ def nz_plot(res, file_name, plot_label, weights, selection, binning, save_plot, 
     
 def nz_test(file_name, code, plot_label,
             write_pickle=False, save_plot=False, pickle_folder='', plot_folder='', 
-            weight_list = [False, 'WL_valid_weights','LSS_valid_weights'],
+            weight_list = [False, 'WL_VALID_WEIGHTS','LSS_VALID_WEIGHTS'],
             point_list =  ['MODE_Z','MEAN_Z', 'MEDIAN_Z'],
-            bin_list = [np.linspace(0.2, 1.3, 12), np.linspace(0.2, 1.3, 7)],
-            resample = 20 ):
+            bin_list = [np.linspace(0.2, 1.3, 4), np.linspace(0.2, 1.3, 7)],
+            resample = 10):
+    """
+    file_name = file name of the HDF5 validation file
+    code = name of the code, to be chosen by the user
+    plot_label = This label will appear in the plot name
+    write_pickle = Do you want to write a pcikep output [default no]
+    write_plot = Do you want to write plot to file [default no]
+    pickle_folder = where to write pickle file 
+    plot_folder = where to write plot
+    weight_list = list of weight to be used, must in DataFrame columns
+    point_list = list of point estimates to be used in the binning
+    bin_list = list of redshift binnings to use
+    resample = amount of resamples to use [default 20]
+    """
     figures = []
     to_pickle = []
         
     store = pd.HDFStore(file_name)
-    df = store['pdf']
+    df = store['PDF']
     store.close()
-    centers = np.array([float(name[4:]) for name in df.columns if 'pdf' in name])
+    centers = np.array([float(name[4:]) for name in df.columns if 'PDF' in name])
+    if len(centers) == 0:
+        centers = np.array([float(name[4:]) for name in df.columns if 'pdf' in name])
     for binning in bin_list:
         for selection in point_list:
             if selection in df.columns:
                 for weights in weight_list:
-                    print 'Processing :', selection, 'weights = ' +  str(weights), 'In ' + str(len(binning)-1) + ' bins'
+                    print 'Processing :' +  code  + ' ' + selection, ', weights = ' +  str(weights), ', in ' + str(len(binning)-1) + ' bins'
                     result = weighted_nz_distributions(df, binning=centers, 
                                                        weights=weights, 
                                                        tomo_bins=binning, 

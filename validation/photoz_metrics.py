@@ -9,8 +9,8 @@ from scipy import stats
 import glob
 import textwrap
 import cPickle as pickle
-
-
+import random
+import string
 """
 Photo-z validation codes
 

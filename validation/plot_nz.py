@@ -2,11 +2,15 @@
 from pylab import *
 import numpy as np
 import matplotlib.pyplot as plt
+
+plt.style.use('seaborn-darkgrid')
+
 import pyfits as pf
 import glob
 import yaml 
-
-
+import pandas as pd
+import bh_photo_z_validation_au as bh
+from scipy.stats import gaussian_kde
 """
 Plot many different n(z) together reading from a directory, where files are given in fits format following the DES photo-z wg standard in fits file
 
@@ -46,7 +50,7 @@ if 'path' not in inArgs.keys():
 
 if 'path_true' not in inArgs.keys():
     print 'missing path for true fits file point statistics'
-    print 'python plot_nz.py z_pht=MEAN_Z path=/home/carnero/Dropbox/DES_photoz_wg/project38/nz_codes/train_1_noweight/valid_1_noweight/ path_true=sims_spectra_representative_valid.WL_LSS_FLAGS.fits [z_true=Z_TRUTH]'
+    print 'python plot_nz.py z_pht=MEAN_Z path=/home/carnero/Dropbox/DES_photoz_wg/project38/nz_codes/train_1_noweight/valid_1_noweight/ path_true=sims_spectra_representative_valid.WL_LSS_FLAGS.fits [z_true=Z_TRUTH weight_s=WL_WEIGHTS]'
     sys.exit('ERROR: path for reference catalog missing')
 
 
@@ -62,15 +66,21 @@ if 'z_true' in inArgs.keys():
 else:
     z_true = 'Z_TRUTH'
 
+if 'weight_s' in inArgs.keys():
+    weight_s = inArgs['weight_s']
+    print weight_s
+else:
+    weight_s = False
+    print 'WARNING no weights'
+
 path = inArgs['path']#'/home/carnero/Dropbox/DES_photoz_wg/project38/nz_codes/train_1_noweight/valid_1_noweight/'
 truefile = inArgs['path_true']
-results = []
-for i in glob.glob(path + '*.fits'):
-	results.append(i)
+point_results = []
+for i in glob.glob(path + '*_result_des.fits'):
+	point_results.append(i)
 
 
 #truefile = 'sims_spectra_representative_valid.WL_LSS_FLAGS.fits'
-
 truedata = pf.open(truefile)[1]
 z = truedata.data.field(z_true)
 
@@ -78,51 +88,64 @@ llist = []
 truey,binEdges=histogram(z,bins=50,range=(0,2),normed=True)
 
 bincenters = 0.5*(binEdges[1:]+binEdges[:-1])
-#plt.plot(bincenters,truey,'-')
 
-nor = max(truey)
-#truey,binEdges=histogram(z,bins=50,range=(0,2),normed=nor)
+
 
 plt.fill_between(bincenters, 0, truey, facecolor='gray')
 labe = []
 data_estimations = []
-for res in results:
+
+print np.sum(truey)
+
+
+for res in point_results:
 
     data_1 = pf.open(res)[1].data
     phz = data_1[z_pht]
     tz = data_1['Z_SPEC']
-    data_estimations.append(phz)
-#    phz,tz = loadtxt(res,usecols=(0,2),unpack=True)
-#    photoz.append(phz)
-    y,binEdges=histogram(phz,bins=50,range=(0,2),normed=nor)
-#    bincenters = 0.5*(binEdges[1:]+binEdges[:-1])
-    llist.append(y)
-    lab = res.split('_')[-1].split('.fits')[0]
+    
+    density = gaussian_kde(phz)
+    density.covariance_factor = lambda : .25
+    density._compute_covariance()
+    ys = density(bincenters)
+
+   
+
+    llist.append(ys)
+    lab = res.split('/')[-1].split('_')[0]
+    print lab
     labe.append(lab)
     
-    plot(bincenters,y,'-',label=lab)
-#    semilogy(bincenters,y,'-')
-    
 
+    temp = plt.plot(bincenters, ys, antialiased=True, linewidth=2,label=lab)
+    
+    cc = temp[0].get_color()
+
+    data_estimations.append({'code':lab,'x':bincenters,'y':ys,'color':cc})
 #plotLib.plothistside(histo, hids, str(filter), '#',
 #                'nc_'+str(filter)+'.png', mylog=True, step = False, showavg = True, lines=[mean_nc_maglim[filter]])
-plot(bincenters,mean( array(llist), axis=0 ),'k--',lw=3,label='AVG')
+
+'''
+plt.plot(bincenters,mean( array(llist), axis=0 ),'k--',lw=3,label='AVG',antialiased=True)
 legend()
 plt.ylabel('Density')
 plt.xlabel('Redshift')
-
-savefig(path+'nz_sim.png')
+axes = plt.gca()
+ylim = axes.get_ylim()
+xlim = axes.get_xlim()
+savefig('nz_sim.png')
 cla()
 clf()
-plt.fill_between(bincenters, 0, truey, facecolor='gray')
+plt.fill_between(bincenters, 0, truey, facecolor='gray',antialiased=True)
 err = std( array(llist), axis=0 )
 me = mean( array(llist), axis=0 )
-plt.plot(bincenters,me,'k--')
-plt.fill_between(bincenters, me-err, me+err)
+plt.plot(bincenters,me,'k--',antialiased=True)
+plt.fill_between(bincenters, me-err, me+err,antialiased=True)
 plt.ylabel('Density')
 plt.xlabel('Redshift')
-
-savefig(path+'nz_sim_average.png')
+axes = plt.gca()
+axes.set_ylim(ylim)
+savefig('nz_sim_average.png')
 cla()
 clf()
 plot(bincenters,err)
@@ -132,50 +155,252 @@ plt.xlabel('Redshift')
 savefig(path+'error_nz_sim.png')
 cla()
 clf()
+'''
 
+dim_lin = 6
 
-p = load_yaml('./testConfig/photoz.yaml')
-
-bin_edge = p['point']['bins'][0]['MEAN_Z'].split('[')[1].split(']')[0].split(',')
-bin_edge = map(str.strip,bin_edge)
-bin_edge = map(float,bin_edge)
+bin_edge = np.linspace(0.4, 1., dim_lin+1)
+bin_center = []
 print bin_edge
+for i in range(dim_lin):
+	bin_center.append(bin_edge[i] + (bin_edge[1]-bin_edge[0])/2.)
+print bin_center
 
-for ii in range(len(bin_edge)-1):
-    zmin=bin_edge[ii]
-    zmax=bin_edge[ii+1]
-    mak = (tz> zmin)*(tz<=zmax)
-    llist = []
-    for jj,de in enumerate(data_estimations):
-	temp_de=de[mak]
-	y,binEdges=histogram(temp_de,bins=50,range=(0,2),normed=nor)
+pdf_results = []
+results_stats = []
 
-	llist.append(y)
-	plot(bincenters,y,'-',label=labe[jj])
-   
-    
-    plot(bincenters,mean( array(llist), axis=0 ),'k--',lw=3,label='AVG')
+cla()
+clf()
 
-    legend()
-    plt.ylabel('Density')
-    plt.xlabel('Redshift')
-    plt.axvline(x=zmin, linewidth=2,color='k',linestyle='--')
-    plt.axvline(x=zmax, linewidth=2,color='k',linestyle='--')
-    savefig(path+'z_nz_bins_%s_%s.png' % (str(zmin),str(zmax)))
-    cla()
-    clf()
+dim_algorithm = len(glob.glob(path + '*.hdf5'))
+for i in glob.glob(path + '*.hdf5'):
+	lab = i.split('/')[-1].split('_')[0]
 
-    err = std( array(llist), axis=0 )
-    me = mean( array(llist), axis=0 )
-    plt.plot(bincenters,me,'k--')
-    plt.fill_between(bincenters, me-err, me+err)
-    plt.ylabel('Density')
-    plt.xlabel('Redshift')
-    plt.axvline(x=zmin, linewidth=2, color='k',linestyle='--')
-    plt.axvline(x=zmax, linewidth=2, color='k',linestyle='--')
+	store = pd.HDFStore(i)
+	df_orig = store['pdf']
+	df = store['pdf']
 
-    savefig(path+'z_nz_avg_%s_%s.png' % (str(zmin),str(zmax)))
-    cla()
-    clf()
+	weight = df_orig[weight_s]
+	store.close()
+	centers = np.array([float(name[4:]) for name in df.columns if 'pdf' in name])
+
+	y_pdf = np.array([name[:] for name in df.columns if 'pdf' in name])
+	df = df[y_pdf]
+
+	y_pdf = bh.normalisepdfs(df,centers)
+
+	y_pdf = bh.stackpdfs(y_pdf)
+	
+	sums = np.sum(y_pdf)*(centers[1]-centers[0])
+
+	y_pdf = y_pdf/sums
+
+	
+	cc = [d["color"] for d in data_estimations if d['code'] == lab][0]
+	
+#	plt.plot(centers, y_pdf, antialiased=True, linewidth=2,label=lab,color=cc)
+
+
+	pdf_results.append({'name':lab,'df':y_pdf,'centers':centers})
+
+	res = bh.weighted_nz_distributions(df_orig, centers,
+		weights=weight_s, 
+		tomo_bins = bin_edge, 
+		z_phot = np.array(df_orig[z_pht]), 
+		n_resample=20)
+	x = res['binning']
+	spec = res['spec']
+ 	phot = res['phot']
+    	counts = res['counts']
+    	phot_means = res['phot_means']
+    	spec_means = res['spec_means']
+    	div_means = res['div_means']
+	'''
+	print 'counts'
+	print counts
+	print
+	print 'phot_means'
+	print phot_means
+	print
+	print 'spec_means'
+	print spec_means
+	print
+	print 'div_means'
+	print div_means
+	print 
+	'''
+		
+
+	results_stats.append({'code':lab,'counts':counts,'phot_means':phot_means,'spec_means':spec_means,'div_means':div_means,'zbins':bin_center})
+'''
+legend()
+plt.ylabel('Density')
+plt.xlabel('Redshift')
+axes = plt.gca()
+#ylim = axes.get_ylim()
+axes = plt.gca()
+axes.set_xlim(xlim)
+axes.set_ylim(ylim)
+
+plt.fill_between(bincenters, 0, truey, facecolor='gray',antialiased=True)
+savefig('pdf_test_weight.png')
+
+cla()
+clf()
+'''
+print results_stats
+phot_means = {}
+spec_means = {}
+div_means = {}
+for i in range(dim_lin):
+	phot_means[i] = []
+	spec_means[i] = []
+	div_means[i] = []
+
+for res in results_stats:
+	for i in range(dim_lin):
+		print res['phot_means'][i]
+		phot_means[i].append(res['phot_means'][i])
+#		print res['spec_means'][i]
+		spec_means[i].append(res['spec_means'][i])
+#		print res['div_means'][i]
+		div_means[i].append(res['div_means'][i])
+		print
+
+x = []
+y = []
+for bc in bin_center:
+	x = x + [bc]*len(div_means[0])
+for pm in div_means:
+	for mp in div_means[pm]:
+		print mp
+		y.append(mp[0])
+
+print y
+y_mean, y_err = [], []
+for i in range(dim_lin):
+#	xx = []
+	yy = []
+	for j in range(dim_algorithm):
+#		xx.append(x[j+i*5])
+		yy.append(y[j+i*dim_algorithm])
+
+	y_mean.append(np.mean(yy))
+	y_err.append(np.std(yy))
+plt.figure()
+print bin_center, y_mean
+plt.errorbar(bin_center, y_mean, yerr=y_err,fmt='-o')
+plt.title("Difference between spec and photz using Y1 %s" % weight_s)
+plt.ylabel(r'$\Delta_{photoz,spec}$')
+plt.xlabel('Photo-z')
+plt.savefig('div_mean_%s_%s.png' % (weight_s,str(dim_lin)))
+
+plt.clf()
+x = []
+y = []
+for bc in bin_center:
+	x = x + [bc]*len(phot_means[0])
+for pm in phot_means:
+	for mp in phot_means[pm]:
+		print mp
+		y.append(mp[1])
+
+print y
+y_mean, y_err = [], []
+for i in range(dim_lin):
+#	xx = []
+	yy = []
+	for j in range(dim_algorithm):
+#		xx.append(x[j+i*5])
+		yy.append(y[j+i*dim_algorithm])
+
+	y_mean.append(np.mean(yy))
+	y_err.append(np.std(yy))
+plt.figure()
+print bin_center, y_mean
+plt.errorbar(bin_center, y_mean, yerr=y_err,fmt='-o')
+plt.title("Error in the mean using Y1 %s" % weight_s)
+plt.ylabel(r'$\sigma_{mean}$')
+plt.xlabel('Photo-z')
+plt.savefig('err_mean_%s_%s.png' % (weight_s,str(dim_lin)))
+
+plt.clf()
+x = []
+y = []
+for bc in bin_center:
+	x = x + [bc]*len(phot_means[0])
+for pm in phot_means:
+	for mp in phot_means[pm]:
+		print mp
+		y.append(mp[0])
+
+
+print y
+y_mean, y_err = [], []
+for i in range(dim_lin):
+#	xx = []
+	yy = []
+	for j in range(dim_algorithm):
+#		xx.append(x[j+i*5])
+		yy.append(y[j+i*dim_algorithm])
+
+	y_mean.append(np.mean(yy))
+	y_err.append(np.std(yy))
+plt.figure()
+print bin_center, y_mean
+plt.errorbar(bin_center, y_mean, yerr=y_err,fmt='-o')
+plt.title("Photoz mean using Y1 %s" % weight_s)
+plt.ylabel(r'$photoz_{mean}$')
+plt.xlabel('Photo-z')
+plt.savefig('photoz_mean_%s_%s.png' % (weight_s,str(dim_lin)))
+
+plt.clf()
+
+fwhm = []
+
+for i in glob.glob(path + '*.hdf5'):
+	lab = i.split('/')[-1].split('_')[0]
+	ff,topick, fff = bh.nz_test(i, lab, lab, save_plot=True, 
+		weight_list = ['Y1_WEIGHTS'], 
+		point_list =  [z_pht], 
+		bin_list = [bin_edge],resample = 20 
+		) 
+	print 'FWHM'
+	print '-----------'
+	print fff
+	print '----------'
+	print
+	fwhm.append(fff)
+
+y = []
+for ff in fwhm:
+	yy = ff[0]	
+        for rr in range(dim_lin):
+                y.append(yy[rr+1])
+
+
+y_mean, y_err = [], []
+
+for i in range(dim_lin):
+        yy = []
+        for j in range(dim_algorithm):
+
+                yy.append(y[j+i*dim_algorithm])
+
+        y_mean.append(np.mean(yy))
+        y_err.append(np.std(yy))
+plt.figure()
+print bin_center, y_mean
+plt.errorbar(bin_center, y_mean, yerr=y_err,fmt='-o')
+plt.title("pdf FWHM using Y1 %s" % weight_s)
+plt.ylabel(r'fwhm')
+plt.xlabel('Photo-z')
+plt.savefig('fwhm_%s_%s.png' % (weight_s,str(dim_lin)))
+
+plt.clf()
+
+#print results_stats
+print '----------------------------'
+#print results_pdf
 
 

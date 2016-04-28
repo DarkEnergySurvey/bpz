@@ -832,7 +832,7 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
     """
     :param df: pandas data-frame
     :param binning: center of redshift bins
-    :param weights: optional weighting scheme with same len as df
+    :param weights: optional weighting scheme with same length as df
     :param tomo_bins: in which z-bins array exp [0.0, 0.2, 0.6, 1.8]
     :param n_resample : Amount of resamples to estimate mean and variance on the mean.
     :return: dictionaries with estimates of weighted n(z) and bootstrap estimates
@@ -850,8 +850,10 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
     assert isinstance(z_phot, np.ndarray), 'z_phot must be a numpy array'
     assert len(z_phot) == len(df), 'Length of z_phot must be equal to that of df'
     df['phot_sel'] = z_phot  # Make the selection photo-z a part of the DataFrame
-    assert 'Z_SPEC' in df.columns, 'The df needs a "Z_SPEC" in df.columns'
+    assert 'Z' in df.columns, 'The df needs a "Z_SPEC" in df.columns'
     pdf_names = [c for c in df.keys() if 'pdf_' in str(c)]
+    if len(pdf_names) == 0:
+        pdf_names = [c for c in df.keys() if 'PDF_' in str(c)]
     tomo_bins = [(tomo_bins[0],tomo_bins[-1])] + [(tomo_bins[i], tomo_bins[i+1]) for i in range(len(tomo_bins) -1)]
 
     phot_iter = {}
@@ -862,8 +864,9 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
     counts = {}
     # In the following section the tomographic bins are treated
 
-    for j,bin in enumerate(tomo_bins):
+    for j, bin in enumerate(tomo_bins):
         sel = (df.phot_sel > bin[0]) & (df.phot_sel <= bin[1])
+
         if sel.sum() > 0:
             counts[j] =sel.sum()
             df_sel = df[sel]
@@ -883,9 +886,10 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
             if n_resample > 1:
                 for i in xrange(n_resample):
                     df_sample = df_sel.sample(n=len(df_sel), replace=True, weights=df_sel[weights])
-                    kde_w_spec_pdf = gss_kde(df_sample['Z_SPEC'].values, bw_method='silverman')
+                    kde_w_spec_pdf = gss_kde(df_sample['Z'].values, bw_method='silverman')
                     kde_w_spec_pdf = kde_w_spec_pdf(binning)
-                    temp_spec_means[i] = df_sample['Z_SPEC'].mean()
+                    
+                    temp_spec_means[i] = df_sample['Z'].mean()
                     temp_phot_means[i] = np.average(binning, weights=df_sample[pdf_names].sum().values)
                     temp_diff_means[i] = temp_phot_means[i] - temp_spec_means[i]
 
@@ -902,11 +906,28 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
                 div_means[j] =   (temp_diff_means.mean(), np.std(temp_diff_means))
                 
             else:
-                kde_w_spec_pdf = gss_kde(df_sel['Z_SPEC'].values, bw_method='silverman', weights=df_sel[weights].values)
+                kde_w_spec_pdf = gss_kde(df_sel['Z'].values, bw_method='silverman', weights=df_sel[weights].values)
                 kde_w_spec_pdf = kde_w_spec_pdf(binning)
                 phot_iter[j][0] = _normalize_pdf(((df_sel[pdf_names].T * df_sel[weights]).T).sum(), binning[1] - binning[0]).values
                 spec_iter[j][0] = kde_w_spec_pdf
+        else:
+            phot_iter[j] = {}
+            spec_iter[j] = {}
 
+            phot_means[j] = {}
+            spec_means[j] = {}
+            div_means[j] = {}
+            if n_resample > 1:
+                for i in xrange(n_resample):
+                    phot_iter[j][i+1] = np.zeros_like(binning) + 0.00001
+                    spec_iter[j][i+1] = np.zeros_like(binning) + 0.00001
+            phot_iter[j][0] = np.zeros_like(binning) + 0.00001
+            spec_iter[j][0] = np.zeros_like(binning) + 0.00001
+            spec_means[j] = (0.0, 0.0)
+            phot_means[j] = (0.0, 0.0)
+            div_means[j]= (0.0, 0.0)
+            counts[j] = 0
+    
     data_for_wl = {'binning': binning, 'phot': phot_iter, 'spec': spec_iter, 'tomo_bins' : tomo_bins, 'counts': counts, 
                    'phot_means': phot_means, 'spec_means' : spec_means, 'div_means' : div_means}
 
@@ -932,6 +953,7 @@ def nz_plot(res, file_name, plot_label, weights, selection, binning, save_plot, 
         mean_spec = np.average(x, weights=spec[i][0])
         mean_phot = np.average(x, weights=phot[i][0])
         dz = phot_means[i][0] - spec_means[i][0] 
+        
         
         axes[i].plot(x, phot[i][0], label='Phot', c=C[2])
         axes[i].axvline(mean_phot, c=C[2])
@@ -960,6 +982,10 @@ def nz_plot(res, file_name, plot_label, weights, selection, binning, save_plot, 
                   fontsize=11, transform=axes[-1].transAxes)
     axes[-1].text(0.01, 0.1, 'Bins: ' + str(binning), ha='left', va='center',
                   fontsize=11, transform=axes[-1].transAxes)
+    axes[-1].text(0.51, 0.35, 'Error bar quoted on mean is 1 sigma', ha='left', va='center',
+                  fontsize=11, transform=axes[-1].transAxes)
+    axes[-1].text(0.51, 0.1, 'Error regions around means in plot are 3 sigma', ha='left', va='center',
+                  fontsize=11, transform=axes[-1].transAxes)
     axes[0].text(0.65, 0.75, 'Non-tomo', ha='center', va='center',
                   fontsize=18, transform=axes[0].transAxes)
     
@@ -969,6 +995,12 @@ def nz_plot(res, file_name, plot_label, weights, selection, binning, save_plot, 
     fig.subplots_adjust(hspace=0.3)
     fig.subplots_adjust(wspace=0)
     axes[0].legend(loc=2, fontsize=12)
+
+    fig.suptitle('Code = ' + plot_label + ','  
+                ' selected on ' + selection + 
+                ' in ' + str(len(binning) -1) + ' tomo bins,'  + 
+                ' weights = ' + str(weights)
+                ,fontsize=18)
     
     if save_plot:
         file_name1 = plot_folder +  plot_label + '_' +  code + '_' + str(len(binning)-1) 
@@ -981,10 +1013,10 @@ def nz_plot(res, file_name, plot_label, weights, selection, binning, save_plot, 
     
 def nz_test(file_name, code, plot_label,
             write_pickle=False, save_plot=False, pickle_folder='', plot_folder='', 
-            weight_list = [False, 'WL_valid_weights','LSS_valid_weights'],
+            weight_list = [False, 'WL_VALID_WEIGHTS','LSS_VALID_WEIGHTS'],
             point_list =  ['MODE_Z','MEAN_Z', 'MEDIAN_Z'],
-            bin_list = [np.linspace(0.2, 1.3, 12), np.linspace(0.2, 1.3, 7)],
-            resample = 20 ):
+            bin_list = [np.linspace(0.2, 1.3, 4), np.linspace(0.2, 1.3, 7)],
+            resample = 10):
     """
     file_name = file name of the HDF5 validation file
     code = name of the code, to be chosen by the user
@@ -1002,14 +1034,16 @@ def nz_test(file_name, code, plot_label,
     to_pickle = []
         
     store = pd.HDFStore(file_name)
-    df = store['pdf']
+    df = store['PDF']
     store.close()
-    centers = np.array([float(name[4:]) for name in df.columns if 'pdf' in name])
+    centers = np.array([float(name[4:]) for name in df.columns if 'PDF' in name])
+    if len(centers) == 0:
+        centers = np.array([float(name[4:]) for name in df.columns if 'pdf' in name])
     for binning in bin_list:
         for selection in point_list:
             if selection in df.columns:
                 for weights in weight_list:
-                    print 'Processing :', selection, 'weights = ' +  str(weights), 'In ' + str(len(binning)-1) + ' bins'
+                    print 'Processing :' +  code  + ' ' + selection, ', weights = ' +  str(weights), ', in ' + str(len(binning)-1) + ' bins'
                     result = weighted_nz_distributions(df, binning=centers, 
                                                        weights=weights, 
                                                        tomo_bins=binning, 

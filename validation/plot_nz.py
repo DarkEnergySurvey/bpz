@@ -177,6 +177,7 @@ results_stats = []
 cla()
 clf()
 
+x_plot = np.linspace(0., 2., 100.)
 dim_algorithm = len(glob.glob(path + '*.hdf5'))
 for i in glob.glob(path + '*.hdf5'):
 	lab = i.split('/')[-1].split('_')[0]
@@ -217,37 +218,37 @@ for i in glob.glob(path + '*.hdf5'):
 	Delta_pdf = []
 	pdf_photz = []
 	pdf_specz = []
+	pdf_photz_shifted = []
+	pdf_spec_plot = []
+	delta_pdf_shift = []
 	for i in range(len(phot)):
+		
 		Delta_pdf.append(phot[i][0]-spec[i][0])
+
+		phot_shift = bh.eval_pdf_point(phot[i][0], x-res['div_means'][i][0], x_plot)
+		spec_shift = bh.eval_pdf_point(spec[i][0], x, x_plot)
+
 		pdf_photz.append(phot[i][0])
 		pdf_specz.append(spec[i][0])
+		pdf_photz_shifted.append(phot_shift)
+		pdf_spec_plot.append(spec_shift)
+		delta_pdf_shift.append(phot_shift-spec_shift)
 
 		
     	phot_means = res['phot_means']
     	spec_means = res['spec_means']
     	div_means = res['div_means']
-	'''
-	print 'phot_means'
-	print phot_means
-	print
-	print 'spec_means'
-	print spec_means
-	print
-	print 'div_means'
-	print div_means
-	print 
-	'''
 		
 
-	results_stats.append({'code':lab,'phot_means':phot_means,'spec_means':spec_means,'div_means':div_means,'zbins':bin_center,'x':x,'delta_pdf':Delta_pdf,'pdf_photz':pdf_photz, 'pdf_specz':pdf_specz})
+	results_stats.append({'code':lab,'phot_means':phot_means,'spec_means':spec_means,'div_means':div_means,'zbins':bin_center,'x':x,'delta_pdf':Delta_pdf,'pdf_photz':pdf_photz, 'pdf_specz':pdf_specz,'x_plot':x_plot,'pdf_photz_shifted':pdf_photz_shifted,'pdf_spec_plot':pdf_spec_plot,'delta_pdf_shift':delta_pdf_shift})
+	#results_stats.append({'code':lab,'phot_means':phot_means,'spec_means':spec_means,'div_means':div_means,'zbins':bin_center,'x':x,'delta_pdf':Delta_pdf,'pdf_photz':pdf_photz, 'pdf_specz':pdf_specz})
 
 cla()
 clf()
 
-x_plot = np.linspace(0., 2., 100.)
 
 print len(x_plot)
-
+'''
 for i in range(dim_lin):
 	va = [[] for _ in xrange(len(x_plot))]
 
@@ -288,8 +289,54 @@ for i in range(dim_lin):
 	savefig('dif_%s.png' % str(i))
 	cla()
         clf()
+'''
+for i in range(dim_lin):
+	va = [[] for _ in xrange(len(x_plot))]
 
+	mean_phot = []
+	for res in results_stats:
+		x = res['x_plot']
+		delta_pdf = res['delta_pdf_shift']
+		print len(delta_pdf[i])
+		print len(x)
+		plt.plot(x-res['spec_means'][i][0],delta_pdf[i])
 
+		print res['spec_means'][i]
+
+		etaeta = bh.eval_pdf_point(delta_pdf[i], x-res['spec_means'][i][0], x_plot-res['spec_means'][i][0])
+
+		for j,dp in enumerate(etaeta):
+			va[j].append(dp)
+		mean_phot.append(res['spec_means'][i][0])
+
+	mean_phot = np.mean(mean_phot)
+
+	yyyy = []
+	errrrr = []
+	for yyy in va:
+	
+		yyyy.append(np.mean(yyy))
+		errrrr.append(np.std(yyy))
+
+	plt.errorbar(x_plot-mean_phot, yyyy, yerr=errrrr,fmt='-o')
+#	plt.plot(x,yyyy,'o')
+
+	plt.xlim((-1,1))
+	savefig('test_%s_.png' % str(i))
+	cla()
+	clf()
+	plt.plot(x_plot-mean_phot,errrrr,'o')
+	plt.xlim((-1,1))
+	savefig('error_%s_.png' % str(i))
+	cla()
+        clf()
+	plt.plot(x_plot-mean_phot,yyyy,'o')
+	plt.xlim((-1,1))
+	savefig('dif_%s_.png' % str(i))
+	cla()
+        clf()
+
+exit()
 
 '''
 legend()

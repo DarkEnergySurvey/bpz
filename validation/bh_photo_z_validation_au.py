@@ -406,9 +406,12 @@ def ks_test_prob(arr1, arr2):
 
 def eval_pdf_point(pdf, bins, point):
     val = np.zeros(len(point))
-    for i in np.arange(len(pdf)):
-        f = interpolate.interp1d(pdf[i], bins)
-        val[i] = f(point[i])
+    f = interpolate.interp1d(bins,pdf)
+    for i in np.arange(len(point)):
+	try:
+        	val[i] = f(point[i])
+	except:
+		val[i] = 0.
     return val
 
 

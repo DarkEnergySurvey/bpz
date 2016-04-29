@@ -11,6 +11,11 @@ import yaml
 import pandas as pd
 import bh_photo_z_validation_au as bh
 from scipy.stats import gaussian_kde
+
+'''
+python plot_nz.py z_pht=MEAN_Z path=/home/carnero/Dropbox/DES_photoz_wg/project38/nz_codes/train_1_noweight/ path_true=/home/carnero/Dropbox/DES_photoz_wg/project38/nz_codes/sims_spectra_representative_valid.WL_LSS_FLAGS.fits weight_s=WL_WEIGHTS
+'''
+
 """
 Plot many different n(z) together reading from a directory, where files are given in fits format following the DES photo-z wg standard in fits file
 
@@ -195,11 +200,9 @@ for i in glob.glob(path + '*.hdf5'):
 
 	y_pdf = y_pdf/sums
 
-	
 	cc = [d["color"] for d in data_estimations if d['code'] == lab][0]
 	
 #	plt.plot(centers, y_pdf, antialiased=True, linewidth=2,label=lab,color=cc)
-
 
 	pdf_results.append({'name':lab,'df':y_pdf,'centers':centers})
 
@@ -211,14 +214,19 @@ for i in glob.glob(path + '*.hdf5'):
 	x = res['binning']
 	spec = res['spec']
  	phot = res['phot']
-    	counts = res['counts']
+	Delta_pdf = []
+	pdf_photz = []
+	pdf_specz = []
+	for i in range(len(phot)):
+		Delta_pdf.append(phot[i][0]-spec[i][0])
+		pdf_photz.append(phot[i][0])
+		pdf_specz.append(spec[i][0])
+
+		
     	phot_means = res['phot_means']
     	spec_means = res['spec_means']
     	div_means = res['div_means']
 	'''
-	print 'counts'
-	print counts
-	print
 	print 'phot_means'
 	print phot_means
 	print
@@ -231,7 +239,58 @@ for i in glob.glob(path + '*.hdf5'):
 	'''
 		
 
-	results_stats.append({'code':lab,'counts':counts,'phot_means':phot_means,'spec_means':spec_means,'div_means':div_means,'zbins':bin_center})
+	results_stats.append({'code':lab,'phot_means':phot_means,'spec_means':spec_means,'div_means':div_means,'zbins':bin_center,'x':x,'delta_pdf':Delta_pdf,'pdf_photz':pdf_photz, 'pdf_specz':pdf_specz})
+
+cla()
+clf()
+
+x_plot = np.linspace(0., 2., 100.)
+
+print len(x_plot)
+
+for i in range(dim_lin):
+	va = [[] for _ in xrange(len(x_plot))]
+
+	mean_phot = []
+	for res in results_stats:
+		x = res['x']
+		delta_pdf = res['delta_pdf']
+		plt.plot(x-res['phot_means'][i][0],delta_pdf[i])
+		print res['phot_means'][i]
+		etaeta = bh.eval_pdf_point(delta_pdf[i], x-res['phot_means'][i][0], x_plot-res['phot_means'][i][0])
+		for j,dp in enumerate(etaeta):
+			va[j].append(dp)
+		mean_phot.append(res['phot_means'][i][0])
+
+	mean_phot = np.mean(mean_phot)
+
+	yyyy = []
+	errrrr = []
+	for yyy in va:
+	
+		yyyy.append(np.mean(yyy))
+		errrrr.append(np.std(yyy))
+
+	plt.errorbar(x_plot-mean_phot, yyyy, yerr=errrrr,fmt='-o')
+#	plt.plot(x,yyyy,'o')
+
+	plt.xlim((-1,1))
+	savefig('test_%s.png' % str(i))
+	cla()
+	clf()
+	plt.plot(x_plot-mean_phot,errrrr,'o')
+	plt.xlim((-1,1))
+	savefig('error_%s.png' % str(i))
+	cla()
+        clf()
+	plt.plot(x_plot-mean_phot,yyyy,'o')
+	plt.xlim((-1,1))
+	savefig('dif_%s.png' % str(i))
+	cla()
+        clf()
+
+
+
 '''
 legend()
 plt.ylabel('Density')

@@ -1038,6 +1038,8 @@ def nz_test(file_name, code, plot_label,
                 print selection + ' not found in DataFrame columns'
     return figures, to_pickle, fwhm
 
+# Aurelio Contribution
+
 from scipy.interpolate import splrep, sproot, splev
 
 def fwhm(x, y, k=5):
@@ -1066,4 +1068,5 @@ def fwhm(x, y, k=5):
     else:
         return abs(roots[1] - roots[0])
 
-
+def resample_pdf(gauss_kde,size=None):
+    return gauss_kde.resample(size=size)

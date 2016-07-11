@@ -46,17 +46,11 @@ if os.path.isfile(fileToUse):
     sys.exit()
 
 #load other stuff
-import easyaccess as ea
+
 import numpy as np
 from astropy.table import Table
 import string
 import random
-
-#conenct to "easy-access"
-connection = ea.connect()
-
-##create a cursor object to handle the DB
-cursor = connection.cursor()
 
 #should we only select some data?
 maxRows = ''
@@ -86,6 +80,15 @@ query = prt1 + ' FROM ' + prt2 + ' ' + maxRows
 
 print "preparing to run this query on DESDM:"
 print query
+
+
+import easyaccess as ea
+#conenct to "easy-access"
+connection = ea.connect()
+
+##create a cursor object to handle the DB
+cursor = connection.cursor()
+
 
 #get the query results [into memory? be careful!]
 d = connection.query_to_pandas(query, prefetch='')

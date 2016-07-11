@@ -7,6 +7,8 @@ Overview:
 
 2) one_d_correlate.py   - this file correlates every column of a file against every other.
 
+3) make_hp_maps.py - this file extracts each column from a fits file, and uses Ra/DEc to make healpix maps
+
 ==============
 Script Details
 ==============
@@ -66,3 +68,18 @@ Next open the ipython notebook and load
 photoz-wg/validation/Visualise_systematics_1d_correlation_output.ipynb
 
 Run the code [changing file paths!] and examine the plots!
+
+==============
+Script Details
+==============
+3.1)
+This script loads in RA/Dec + every other column "Col1" of a fits file in turn, and generates a healpix mask of Col1. You can decided how to compress the data in each pixel. the default is to take the numpy.mean vaule of all Col1 data in each pixel, but you may want to count the number of data in each pixel, so use 'len' or identify the stdev of Col1 in each pixel, so use numpy.std , or your own statistic.
+
+Example:
+
+make_hp_maps.py mapFile[s].fits  [columns=Cols,To,Extract ra=RA dec=DEC z=Z_MEAN zbins=[0,0.3,0.50.7,0.9] nside=512 statistic=numpy.mean|len|numpy.std] 
+
+You may also bin the data along Bin_Column, and make maps for all Col1 data in each bin_col bin 
+
+
+

@@ -284,6 +284,17 @@ Point prediction metrics and tools =
 ====================================
 """
 
+def wl_metric(z1, z2, weights=None):
+    """Determine the WL metric of choice
+    |<z1> - <z2>|
+    """
+    w_ = np.ones(len(z1), dtype=float)
+    if weights is not None:
+        w_ = weights
+    w_ = w_ / np.sum(w_)
+    ind = np.random.choice(np.arange(len(w_), dtype=int), size=len(w_), replace=True, p=w_)
+
+    return np.abs(np.mean(z1[ind]) - np.mean(z2[ind]))
 
 def delta_z(z_spec, z_phot):
     return z_spec - z_phot
@@ -300,7 +311,6 @@ def sigma_68(arr, axis=None):
     """
     upper, lower = np.percentile(arr, [84.075, 15.825], axis=axis)
     return (upper - lower) / 2.0
-
 
 def mad(arr, axis=None):
     mad_ = np.median(np.abs(arr - np.median(arr)))

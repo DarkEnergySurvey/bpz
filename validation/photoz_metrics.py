@@ -14,6 +14,8 @@ import string
 """
 Photo-z validation codes
 
+Update Aug 2016, to include WL metrics
+
 Authors: Ben Hoyle
 
 -input:
@@ -76,17 +78,20 @@ point:
     predictions: [MODE_Z, MEAN_Z, Z_MC]
     
     #what is the true redshift that we will compare with?
-    truths: Z_SPEC
+    truths: REDSHIFT
     
     #should we calculated weighted metrics where available?
     weights: WEIGHTS
 
     #what metrics do we want to measure. "numpy.std" is the standard deviation from numpy
     # and "bh_photo_z_validation.sigma_68" is the sigma_68 metric found in the bh_photo_z_validation.py file
-    metrics: [numpy.std, numpy.median, bh_photo_z_validation.sigma_68, bh_photo_z_validation.outlier_fraction]
+    metrics_diffz: [numpy.std, numpy.median, bh_photo_z_validation.sigma_68, bh_photo_z_validation.outlier_fraction]
     
+    #should we measure some metrics on z_truth and z_predict? e.g. bh_photo_z_validation.wl_metric=|<z1>-<z2>|
+    metrics_z1_z2: [bh_photo_z_validation.wl_metric]
+
     #do we want to assign an accetable tolerance to each of these tests?
-    tolerance: [0.4, 0.001, 0.02, 5]
+    tolerance:
     
     #Finally do we want to also measure the metrics in some "bins".
     #we define the column_name: 'string of bins / string of function that makes bins'
@@ -100,7 +105,7 @@ point:
 pdf: 
     #we can examine individual redshift pdfs. Remove this part you don't need to compare
     individual:
-        truths: Z_SPEC
+        truths: REDSHIFT
 
         #let's perform the test found in Bordoloi et al 2012
         metrics: [bh_photo_z_validation.Bordoloi_pdf_test]
@@ -117,9 +122,9 @@ pdf:
 
     #or shall we compare against stacked pdfs
     stacks:
-        truths: Z_SPEC
+        truths: REDSHIFT
         #we convert truths to a distribution by choosing these bins
-        truth_bins: [Z_SPEC: 'numpy.arange(5)*0.33']
+        truth_bins: [REDSHIFT: 'numpy.arange(5)*0.33']
 
         #which additional bins shall we use to calculate metrics?
         bins: [MAG_DETMODEL_I: '[ 17.5, 19, 22, 25]']
@@ -304,42 +309,84 @@ if len(files[ptype]) > 0:
 
             for photoz in tst['predictions']:
                 res[ptype][f][test_name][photoz] = {}
+                res[ptype][f][test_name][photoz]['metrics_z1_z2'] = {}
+                res[ptype][f][test_name][photoz]['metrics_diffz'] = {}
+
+                z_truth = np.array(d[tst['truths']])
+                z_pred = np.array(d[photoz])
+                
+                for metric in tst['metrics_z1_z2']:
+
+                    res[ptype][f][test_name][photoz]['metrics_z1_z2'][metric] = {}
+
+                    weights = get_weights(tst, 'weights', d)
+
+                    #turn string into function
+                    metric_function = pval.get_function(metric)
+
+                    res[ptype][f][test_name][photoz]['metrics_z1_z2'][metric] = {}
+                    res[ptype][f][test_name][photoz]['metrics_z1_z2'][metric]['VALUE'] = np.asscalar(metric_function(z_truth, z_pred, weights=weights))
+
+ 
+                    #shall we calculate binning statiscs?
+                    if pval.key_not_none(tst, 'bins'):
+                        binning = tst['bins']
+
+                        res[ptype][f][test_name][photoz]['metrics_z1_z2'][metric]['bins'] = {}
+                        for binDict in binning:
+                            ky = binDict.keys()[0]
+                            bin_vals = eval(binDict[ky])
+
+                            res[ptype][f][test_name][photoz]['metrics_z1_z2'][metric]['bins'][ky] = {}
+
+                            bn_stat = np.zeros(len(bin_vals)-1)
+                            bn_cntr_sts = np.zeros(len(bin_vals)-1)
+                            for bbn in range(len(bin_vals)-1):
+                                ind_bn = (d[ky] <= bin_vals[bbn + 1]) * (d[ky] > bin_vals[bbn])
+                                bn_cntr_sts[bbn]  = np.mean(d[ky][ind_bn])
+                                bn_stat[bbn] = metric_function(z_truth[ind_bn], z_pred[ind_bn], weights=weights[ind_bn])
+ 
+                            res[ptype][f][test_name][photoz]['metrics_z1_z2'][metric]['bins'][ky]['BIN_CENTERS'] = [np.asscalar(vv) for vv in bn_cntr_sts]
+                            res[ptype][f][test_name][photoz]['metrics_z1_z2'][metric]['bins'][ky]['VALUE'] = [np.asscalar(vv) for vv in bn_stat]
+
+                #calculate stats on diff=z1-z2 and diff_1pz=(z1-z2)/(1+z1)
                 diff = pval.delta_z(d[tst['truths']], d[photoz])
                 diff_1pz = pval.delta_z_1pz(d[tst['truths']], d[photoz])
 
                 points = {'delta_z': diff, 'diff_1pz': diff_1pz}
 
-                for metric in tst['metrics']:
+                for metric in tst['metrics_diffz']:
+
+                    res[ptype][f][test_name][photoz]['metrics_diffz'][metric] = {}
 
                     #set all objects equal weight, unless defined
                     weights = get_weights(tst, 'weights', d)
 
-                    res[ptype][f][test_name][photoz][metric] = {}
 
                     #turn string into function
                     metric_function = pval.get_function(metric)
 
                     #which residuals shall we employ?
                     for diffpp in points.keys():
-                        res[ptype][f][test_name][photoz][metric][diffpp] = {}
-                        res[ptype][f][test_name][photoz][metric][diffpp]['VALUE'] = np.asscalar(metric_function(points[diffpp]))
+                        res[ptype][f][test_name][photoz]['metrics_diffz'][metric][diffpp] = {}
+                        res[ptype][f][test_name][photoz]['metrics_diffz'][metric][diffpp]['VALUE'] = np.asscalar(metric_function(points[diffpp]))
 
                         #calculate errors on these metrics
                         for ef in err_metric:
                             bstamp_mean_err = err_metric[ef](points[diffpp], weights, metric_function)
-                            res[ptype][f][test_name][photoz][metric][diffpp]['MEAN_' + ef] = np.asscalar(bstamp_mean_err['mean'])
-                            res[ptype][f][test_name][photoz][metric][diffpp]['SIGMA_' + ef] = np.asscalar(bstamp_mean_err['sigma'])
+                            res[ptype][f][test_name][photoz]['metrics_diffz'][metric][diffpp]['MEAN_' + ef] = np.asscalar(bstamp_mean_err['mean'])
+                            res[ptype][f][test_name][photoz]['metrics_diffz'][metric][diffpp]['SIGMA_' + ef] = np.asscalar(bstamp_mean_err['sigma'])
 
                         #shall we calculate binning statiscs?
                         if pval.key_not_none(tst, 'bins'):
                             binning = tst['bins']
 
-                            res[ptype][f][test_name][photoz][metric][diffpp]['bins'] = {}
+                            res[ptype][f][test_name][photoz]['metrics_diffz'][metric][diffpp]['bins'] = {}
                             for binDict in binning:
                                 ky = binDict.keys()[0]
                                 bin_vals = eval(binDict[ky])
 
-                                res[ptype][f][test_name][photoz][metric][diffpp]['bins'][ky] = {}
+                                res[ptype][f][test_name][photoz]['metrics_diffz'][metric][diffpp]['bins'][ky] = {}
                                 #this uses the binned_stats function
                                 """http://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.stats.binned_statistic.html
                                 """
@@ -350,8 +397,8 @@ if len(files[ptype]) > 0:
                                 #determine the center of each bin
                                 bn_cntr_sts = stats.binned_statistic(d[ky], d[ky], bins=bin_vals, statistic=np.mean)
 
-                                res[ptype][f][test_name][photoz][metric][diffpp]['bins'][ky]['BIN_CENTERS'] = [np.asscalar(vv) for vv in bn_cntr_sts.statistic]
-                                res[ptype][f][test_name][photoz][metric][diffpp]['bins'][ky]['VALUE'] = [np.asscalar(vv) for vv in bn_stats.statistic]
+                                res[ptype][f][test_name][photoz]['metrics_diffz'][metric][diffpp]['bins'][ky]['BIN_CENTERS'] = [np.asscalar(vv) for vv in bn_cntr_sts.statistic]
+                                res[ptype][f][test_name][photoz]['metrics_diffz'][metric][diffpp]['bins'][ky]['VALUE'] = [np.asscalar(vv) for vv in bn_stats.statistic]
 
                                 #calculate the mean and error by bootstrapping
                                 bn_bs_stats = pval.bootstrap_mean_error_binned(d[ky], points[diffpp], weights, bin_vals, metric_function)
@@ -359,12 +406,12 @@ if len(files[ptype]) > 0:
                                 #calculate the bin 'centers' by boot strapping
                                 bn_bs_cnters = pval.bootstrap_mean_error_binned(d[ky], d[ky], weights, bin_vals, np.mean)
 
-                                res[ptype][f][test_name][photoz][metric][diffpp]['bins'][ky]['BIN_CENTERS_MEAN_BS'] = [np.asscalar(vv) for vv in bn_bs_cnters['mean']]
+                                res[ptype][f][test_name][photoz]['metrics_diffz'][metric][diffpp]['bins'][ky]['BIN_CENTERS_MEAN_BS'] = [np.asscalar(vv) for vv in bn_bs_cnters['mean']]
 
-                                res[ptype][f][test_name][photoz][metric][diffpp]['bins'][ky]['BIN_CENTERS_SIGMA_BS'] = [np.asscalar(vv) for vv in bn_bs_cnters['sigma']]
+                                res[ptype][f][test_name][photoz]['metrics_diffz'][metric][diffpp]['bins'][ky]['BIN_CENTERS_SIGMA_BS'] = [np.asscalar(vv) for vv in bn_bs_cnters['sigma']]
 
-                                res[ptype][f][test_name][photoz][metric][diffpp]['bins'][ky]['MEAN_BS'] = [np.asscalar(vv) for vv in bn_bs_stats['mean']]
-                                res[ptype][f][test_name][photoz][metric][diffpp]['bins'][ky]['SIGMA_BS'] = [np.asscalar(vv) for vv in bn_bs_stats['sigma']]
+                                res[ptype][f][test_name][photoz]['metrics_diffz'][metric][diffpp]['bins'][ky]['MEAN_BS'] = [np.asscalar(vv) for vv in bn_bs_stats['mean']]
+                                res[ptype][f][test_name][photoz]['metrics_diffz'][metric][diffpp]['bins'][ky]['SIGMA_BS'] = [np.asscalar(vv) for vv in bn_bs_stats['sigma']]
 
     #save this output to a file
     with open('point_' + resultsFilePrefix + '.yaml', 'w') as outfile:

@@ -32,7 +32,7 @@ def gen_map(ip_, arr, nside=512, statistic=np.mean):
 
 
 def err_message(args):
-    print "make_hp_maps.py mapFile[s].fits  [columns=Cols,To,Extract ra=RA dec=DEC z=Z_MEAN zbins=[0,0.3,0.50.7,0.9] nside=512 statistic=numpy.mean|len|numpy.std] "
+    print "make_hp_maps.py mapFile[s].fits  [columns=Cols,To,Extract ra=RA dec=DEC z=MEAN_Z zbins=[0,0.1,0.2,0.3,0.5,0.7,0.9,1.1] nside=512 statistic=numpy.mean|len|numpy.std] "
     print args
 
 if __name__ == "__main__":
@@ -70,7 +70,7 @@ if __name__ == "__main__":
 
     #should we bin a column, if so, which column
     if 'bin_col' not in inputs:
-        inputs['bin_col'] = 'Z_MEAN'
+        inputs['bin_col'] = 'MEAN_Z'
 
     #how should we calculate the 'pixel averaged statistic'
     if 'statistic' not in inputs:

@@ -46,6 +46,14 @@ class MutualInformationCriteria:
         return calc_MI(self.X, self.Y, bins=bins) / np.sqrt(calc_MI(self.X, self.X, bins=bins) * calc_MI(self.Y, self.Y, bins=bins))
 
 
+def resample(arr, sample_weight):
+    if sample_weight is not None:
+        weight = sample_weight / np.sum(sample_weight)
+        arr_ = np.random.choice(arr, size=len(arr), p=weight)
+        return arr_
+    return arr
+
+
 def mutualInformation(arr1_, arr2_, sample_weight=None):
     r = resample(np.arange(len(arr1_)), sample_weight)
     arr1 = arr1_[r]

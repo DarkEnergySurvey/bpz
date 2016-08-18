@@ -85,6 +85,8 @@ if __name__ == "__main__":
     #what resolution of the map do we care about?
     if 'nside' not in inputs:
         inputs['nside'] = 512
+    else:
+        inputs['nside'] = int(inputs['nside'])
 
     # for each of the files
     for file_ in files:

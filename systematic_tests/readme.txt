@@ -9,6 +9,8 @@ Overview:
 
 3) make_hp_maps.py - this file extracts each column from a fits file, and uses Ra/DEc to make healpix maps
 
+4) two_d_correlate.py - this file correlates two healpix files against each other (using PolSpice) and takes into account masks.
+
 ==============
 Script Details
 ==============
@@ -73,7 +75,7 @@ Run the code [changing file paths!] and examine the plots!
 Script Details
 ==============
 3.1)
-This script loads in RA/Dec + every other column "Col1" of a fits file in turn, and generates a healpix mask of Col1. You can decided how to compress the data in each pixel. the default is to take the numpy.mean vaule of all Col1 data in each pixel, but you may want to count the number of data in each pixel, so use 'len' or identify the stdev of Col1 in each pixel, so use numpy.std , or your own statistic.
+This script loads in RA/Dec + every other column "Col1" of a fits file in turn, and generates a healpix map of Col1. You can decided how to compress the data in each pixel. the default is to take the numpy.mean vaule of all Col1 data in each pixel, but you may want to count the number of data in each pixel, so use 'len' or identify the stdev of Col1 in each pixel, so use numpy.std , or your own statistic.
 
 Example:
 
@@ -82,4 +84,16 @@ make_hp_maps.py mapFile[s].fits  [columns=Cols,To,Extract ra=RA dec=DEC z=Z_MEAN
 You may also bin the data along Bin_Column, and make maps for all Col1 data in each bin_col bin 
 
 
+==============
+Script Details
+==============
+4.1) 
+This script loads in a mask file (total_mask.fits) and calcalates the cross correlation between the two maps, for example those created by make_hp_maps.py 
+
+Example
+two_d_correlate.py pathTohealPix/FitFiles*.fits mask=maskFile, output_file=fileName [thetamax=thetamax] 
+thetamax is the apodasiation scale, see ftp://ftp.iap.fr/pub/from_users/hivon/PolSpice/latest/README for details
+""-thetamax [dfloat|NO](NO)
+   maximum value of angle theta used in the integrals to compute the
+   power spectra from the correlation functions.""
 

@@ -86,14 +86,18 @@ if __name__ == "__main__":
     if 'nside' not in inputs:
         inputs['nside'] = 512
 
+    # for each of the files
     for file_ in files:
         hdulist = fits.open(file_)
 
+        #get columns if not inputted
         if 'columns' not in inputs:
             columns = hdulist[1].columns.names
 
+        #get pixel id's of data
         pixel_id = radec_2_pix(hdulist[1].data[inputs['ra']], hdulist[1].data[inputs['dec']], nside=inputs['nside'])
 
+        #make fits files for each column
         for col in columns:
 
             file_name = file_ + col + '.ring_map.fits'
@@ -101,6 +105,7 @@ if __name__ == "__main__":
             hp_map = gen_map(pixel_id, hdulist[1].data[col], nside=inputs['nside'])
             hp.write_map(file_name, hp_map)
 
+            #cut columns by bins if requested
             if 'col_bins' in inputs and col == inputs['bin_col']:
                 for i in range(len(inputs['col_bins']) - 1):
 

@@ -14,7 +14,6 @@ import sys
 #from weighted_kde import gaussian_kde
 import collections
 from cPickle import dumps, load
-import matplotlib.pyplot as plt
 """
 Authors: Ben Hoyle, Christopher Bonnet
 
@@ -284,17 +283,20 @@ Point prediction metrics and tools =
 ====================================
 """
 
+
 def wl_metric(z1, z2, weights=None):
     """Determine the WL metric of choice
     |<z1> - <z2>|
     """
     w_ = np.ones(len(z1), dtype=float)
+    ind = np.arange(len(z1))
     if weights is not None:
         w_ = weights
-    w_ = w_ / np.sum(w_)
-    ind = np.random.choice(np.arange(len(w_), dtype=int), size=len(w_), replace=True, p=w_)
+        w_ = w_ / np.sum(w_)
+        ind = np.random.choice(np.arange(len(w_), dtype=int), size=len(w_), replace=True, p=w_)
 
     return np.abs(np.mean(z1[ind]) - np.mean(z2[ind]))
+
 
 def delta_z(z_spec, z_phot):
     return z_spec - z_phot
@@ -311,6 +313,25 @@ def sigma_68(arr, axis=None):
     """
     upper, lower = np.percentile(arr, [84.075, 15.825], axis=axis)
     return (upper - lower) / 2.0
+
+
+def outFrac_2sigma68(arr, axis=None):
+    """Input: an (multi-dimensional) array
+    Optional input: the axis along which to calculate the metric
+    Outputs: the fraction of data with more than 2*68% spread of data
+    """
+    sigma68 = sigma_68(arr, axis=axis)
+    return np.sum(np.abs(arr) > 2 * sigma68) * 1.0 / len(arr)
+
+
+def outFrac_3sigma68(arr, axis=None):
+    """Input: an (multi-dimensional) array
+    Optional input: the axis along which to calculate the metric
+    Outputs: the 68% spread of data with more than 3*68% spread of data
+    """
+    sigma68 = sigma_68(arr, axis=axis)
+    return np.sum(np.abs(arr) > 3 * sigma68) * 1.0 / len(arr)
+
 
 def mad(arr, axis=None):
     mad_ = np.median(np.abs(arr - np.median(arr)))
@@ -945,6 +966,7 @@ def weighted_nz_distributions(df, binning, weights=False, tomo_bins=np.array([0,
 
 
 def nz_plot(res, file_name, plot_label, weights, selection, binning, save_plot, plot_folder, code):
+    import matplotlib.pyplot as plt
     C = ["#C6B242",
         (0.81490196660161029, 0.18117647245526303, 0.1874509818851941),
         (0.90031372549487099, 0.50504421386064258, 0.10282352945383844),

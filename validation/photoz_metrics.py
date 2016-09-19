@@ -339,12 +339,13 @@ if len(files[ptype]) > 0:
 
                             res[ptype][f][test_name][photoz]['metrics_z1_z2'][metric]['bins'][ky] = {}
 
-                            bn_stat = np.zeros(len(bin_vals)-1)
-                            bn_cntr_sts = np.zeros(len(bin_vals)-1)
+                            bn_stat = np.zeros(len(bin_vals)-1) -1 
+                            bn_cntr_sts = np.zeros(len(bin_vals)-1) -1
                             for bbn in range(len(bin_vals)-1):
                                 ind_bn = (d[ky] <= bin_vals[bbn + 1]) * (d[ky] > bin_vals[bbn])
-                                bn_cntr_sts[bbn]  = np.mean(d[ky][ind_bn])
-                                bn_stat[bbn] = metric_function(z_truth[ind_bn], z_pred[ind_bn], weights=weights[ind_bn])
+                                if np.sum(ind_bn) > 1:
+                                    bn_cntr_sts[bbn] = np.mean(d[ky][ind_bn])
+                                    bn_stat[bbn] = metric_function(z_truth[ind_bn], z_pred[ind_bn], weights=weights[ind_bn])
  
                             res[ptype][f][test_name][photoz]['metrics_z1_z2'][metric]['bins'][ky]['BIN_CENTERS'] = [np.asscalar(vv) for vv in bn_cntr_sts]
                             res[ptype][f][test_name][photoz]['metrics_z1_z2'][metric]['bins'][ky]['VALUE'] = [np.asscalar(vv) for vv in bn_stat]

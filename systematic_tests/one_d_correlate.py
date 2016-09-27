@@ -14,7 +14,52 @@ import sys
 import cPickle as pickle
 import numpy as np
 import bh_photo_z_validation as pval
-import minepy as MINE
+
+import numpy as np
+from sklearn.metrics import mutual_info_score
+import copy
+from scipy.stats import entropy
+
+
+def calc_MI(x, y, bins=None):
+    if bins is None:
+        bins = 25
+    c_xy = np.histogram2d(x, y, bins)[0]
+    mi = mutual_info_score(None, None, contingency=c_xy)
+    return mi
+
+
+def mutual_information(arr1, arr2, bins=None):
+    return calc_MI(arr1, arr2, bins=bins)
+
+
+class MutualInformationCriteria:
+    """Determine MIC using scikit-learn"""
+
+    def __init__(self, X, Y):
+        self.X, self.Y = X, Y
+
+    def mutual_information_2d(self, bins=None):
+        """normalised mutual information score alpha
+        http://scikit-learn.org/stable/modules/generated/sklearn.metrics.normalized_mutual_info_score.html
+        """
+        return calc_MI(self.X, self.Y, bins=bins) / np.sqrt(calc_MI(self.X, self.X, bins=bins) * calc_MI(self.Y, self.Y, bins=bins))
+
+
+def resample(arr, sample_weight):
+    if sample_weight is not None:
+        weight = sample_weight / np.sum(sample_weight)
+        arr_ = np.random.choice(arr, size=len(arr), p=weight)
+        return arr_
+    return arr
+
+
+def mutualInformation(arr1_, arr2_, sample_weight=None):
+    r = resample(np.arange(len(arr1_)), sample_weight)
+    arr1 = arr1_[r]
+    arr2 = arr2_[r]
+    return MutualInformationCriteria(arr1, arr2).mutual_information_2d()
+
 
 def show_help():
     """Show the user how to use this file"""
@@ -33,17 +78,16 @@ def correlation_tests(arr1_, arr2_, max_size=50000):
     #if there are not enough objects to correlate
     if np.sum(ind) < 2:
         return {'MI': np.nan, 'KS': np.nan, 'CC': np.nan}
+
     if np.sum(ind) > max_size:
-       num_to_false = np.sum(ind) - max_size
-       indN0 = np.arange(len(ind))[ind]
-       np.random.shuffle(indN0)
-       indN0 = indN0[0: num_to_false]
-       ind[indN0] = False
+        num_to_false = np.sum(ind) - max_size
+        indN0 = np.arange(len(ind))[ind]
+        np.random.shuffle(indN0)
+        indN0 = indN0[0: num_to_false]
+        ind[indN0] = False
 
     #our battery of correlations
-    mine = MINE.MINE(alpha=0.6, c=15)
-    mine.compute_score(arr1_[ind], arr2_[ind])
-    MI_ = mine.mic()
+    MI_ = mutualInformation(arr1_[ind], arr2_[ind])
     KS_ = pval.ks_test(arr1_[ind], arr2_[ind])
     CC_ = np.corrcoef(arr1_[ind], arr2_[ind])[0, 1]
 
@@ -102,10 +146,7 @@ if __name__ == "__main__":
                     arr2 = hdulist[1].data[c2]
                     test_results[c1][c2] = correlation_tests(arr1, arr2, max_size=argDict['max_size'])
 
-        res = {'filename': dataFile, 'correlation_results': test_results, 'columns': cols1, 'columns2':cols2, 'number_rows': Nrows}
+        res = {'filename': dataFile, 'correlation_results': test_results, 'columns': cols1, 'columns2': cols2, 'number_rows': Nrows}
 
-        # and? as a yaml file
-        with open(out_file_name + '.yaml', 'w') as outfile:
-            outfile.write(yaml.dump(res, default_flow_style=False))
-
-        print out_file_name + '.yaml /.p created.'
+        pickle.dump(res, open(out_file_name + '.p', 'w'))
+        print out_file_name + '.p created'

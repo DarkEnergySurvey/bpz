@@ -32,7 +32,7 @@ def gen_map(ip_, arr, nside=512, statistic=np.mean):
 
 
 def err_message(args):
-    print "make_hp_maps.py mapFile[s].fits  [columns=Cols,To,Extract ra=RA dec=DEC z=Z_MEAN zbins=[0,0.3,0.50.7,0.9] nside=512 statistic=numpy.mean|len|numpy.std] "
+    print "make_hp_maps.py mapFile[s].fits  [columns=Cols,To,Extract ra=RA dec=DEC z=MEAN_Z zbins=[0,0.1,0.2,0.3,0.5,0.7,0.9,1.1] nside=512 statistic=numpy.mean|len|numpy.std] "
     print args
 
 if __name__ == "__main__":
@@ -70,7 +70,7 @@ if __name__ == "__main__":
 
     #should we bin a column, if so, which column
     if 'bin_col' not in inputs:
-        inputs['bin_col'] = 'Z_MEAN'
+        inputs['bin_col'] = 'MEAN_Z'
 
     #how should we calculate the 'pixel averaged statistic'
     if 'statistic' not in inputs:
@@ -85,15 +85,21 @@ if __name__ == "__main__":
     #what resolution of the map do we care about?
     if 'nside' not in inputs:
         inputs['nside'] = 512
+    else:
+        inputs['nside'] = int(inputs['nside'])
 
+    # for each of the files
     for file_ in files:
         hdulist = fits.open(file_)
 
+        #get columns if not inputted
         if 'columns' not in inputs:
             columns = hdulist[1].columns.names
 
+        #get pixel id's of data
         pixel_id = radec_2_pix(hdulist[1].data[inputs['ra']], hdulist[1].data[inputs['dec']], nside=inputs['nside'])
 
+        #make fits files for each column
         for col in columns:
 
             file_name = file_ + col + '.ring_map.fits'
@@ -101,6 +107,7 @@ if __name__ == "__main__":
             hp_map = gen_map(pixel_id, hdulist[1].data[col], nside=inputs['nside'])
             hp.write_map(file_name, hp_map)
 
+            #cut columns by bins if requested
             if 'col_bins' in inputs and col == inputs['bin_col']:
                 for i in range(len(inputs['col_bins']) - 1):
 

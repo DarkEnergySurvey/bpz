@@ -13,7 +13,7 @@ point:
 
     #what metrics do we want to measure. "numpy.std" is the standard deviation from numpy
     # and "bh_photo_z_validation.sigma_68" is the sigma_68 metric found in the bh_photo_z_validation.py file
-    metrics_diffz: [numpy.median, bh_photo_z_validation.sigma_68, bh_photo_z_validation.outlier_fraction]
+    metrics_diffz: [numpy.median, bh_photo_z_validation.sigma_68, bh_photo_z_validation.outlier_fraction, bh_photo_z_validation.outFrac_2sigma68, bh_photo_z_validation.outFrac_3sigma68]
 
     metrics_z1_z2: [bh_photo_z_validation.wl_metric]
 

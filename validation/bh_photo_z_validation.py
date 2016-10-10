@@ -486,38 +486,35 @@ def integrate_dist_bin(dfs, x, minval, maxval):
     return smm
 
 
-def cumaltive_to_point(dfs, bincenter, points, k=3):
+def cumaltive_to_point(dfs, bincenter, points):
     """
     Expected shape: numpy dfs shape (galaxy, bins), x begins at 0, ends at just before 2 """
-    """Note: all points < bincenter[0] are set to bincenter[0] - dx"""
-    """Note: all points > bincenter[-1] are set to bincenter[-1] + dx"""
 
-    dx = (bincenter[1] - bincenter[0]) / 2.0
+    """Note: all points < x[0]-dx are set to x[0] - dx"""
+    """Note: all points > x[-1]+dx are set to x[-1] + dx"""
 
-    if isinstance(points, collections.Iterable):
-        points[points > bincenter[-1] + dx] = bincenter[-1] + dx
-        points[points < bincenter[0] - dx] = bincenter[0] - dx
-    else:
-        if points > bincenter[-1] + dx:
-            points = bincenter[-1] + dx
-        if points < bincenter[0] - dx:
-            points = bincenter[0] - dx
-
-    #calcaulte the cumaltive distribution
     if len(np.shape(dfs)) > 1:
-        cum = np.cumsum(dfs, axis=1)
-        cum = (cum.T / cum[:, -1]).T
-        p_ = points[:]
-        if len(points) == 1:
-            p_ = np.array([points] * len(dfs))
-        #interpolat to get exact cdf value at point]
-        xarr = np.array([interpolate.InterpolatedUnivariateSpline(bincenter, cum[i], k=k)(p_[i]) for i in range(len(cum[:, 0]))])
+        point_ = points
+        if len(np.shape(points)) == 0:
+            point_ = [points] * len(dfs)
+        #do some iterative magick!
+        xarr = np.array([cumaltive_to_point(dfs[c], bincenter, point_[c]) for c in range(len(dfs))])
         return xarr
-
     else:
+
+        point = np.amin((points, np.amax(bincenter)))
+        point = np.amax((points, np.amin(bincenter)))
+
         cum = np.cumsum(dfs)
+        #fix so that cum==0 at beginning
+        cum -= cum[0]
+
+        #ensure cum==1 at end
         cum = cum / float(cum[-1])
-        return interpolate.InterpolatedUnivariateSpline(bincenter, cum, k=k)(points)
+
+        #note spline interpolation has crazy results!
+        return interpolate.interp1d(bincenter, cum)(point)
+
 
 
 def xval_cumaltive_at_ypoint(dfs, bincenter, point, k=3):

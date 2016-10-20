@@ -55,3 +55,8 @@ currently hard coded the parrelisation, using
 n_jobs = 3
 
 """
+
+5)Cosmic variance estimation
+
+
+

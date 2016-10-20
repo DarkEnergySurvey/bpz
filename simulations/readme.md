@@ -30,4 +30,28 @@ To do
 improve rather than output a new file, add a new (unique) column with the IPRING_XXX column to the old file
 
 
+3)Machine learning training 
 
+Removes all the hassle of building a machine learning experiment. Please consult benhoyle1212@gmail.com before using for purposes outside of DES photo-z
+
+%>standardised_ml_training.py config/exampleMLConfig.yaml
+
+If called without a config file, an example will be written to disk
+
+Possible ToDo:
+extend from non DecisionTree based methods
+
+
+4)DES ML predictions
+Using a system trained in 3, make predictions on new data
+./des_ml_output.py data/trainedMachine.p PathToFile[*s] COLUMS,TO,KEEP,COMMA,SEP
+
+Removes all the hassle of obtaining pdfs from a trained machine (using standardised_ml_training.py with tree methods to generate DES formatted data predictions)
+
+%>des_ml_output.py MLA.p files.* COLUMS,TO,KEEP ID,REDSHIFT
+
+ToDo:
+currently hard coded the parrelisation, using
+n_jobs = 3
+
+"""

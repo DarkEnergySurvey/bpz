@@ -2,6 +2,7 @@ import numpy as np
 from astropy.table import Table
 import copy
 import sys
+from joblib import Parallel, delayed
 
 #helper functions
 def get_function(function_string):
@@ -328,3 +329,35 @@ def tree_loss(params_, clf_):
                         params_[fix_param] = np.random.choice(allowed_param_vals)
 
     return params_
+
+
+class Parrallelise:
+    """ Creates a generic method to perform
+    trivially Parrallel operations
+    loop is a tuple of things that one wants to use in the declared function
+    call like:
+    from bh_parallelise import Parrallelise
+    p = Parrallelise(n_jobs=2, method=myFunction, loop=[Tuple,Tuple,..]).run()
+    Tuple is passed to myFunction and containes all the info required by the function
+
+    Exampe call:
+
+    #load all the files
+    files = glob.glob('/Volumes/Untitled/DES/Y1_GOLD_V1_0_1/*.csv')
+
+    arr = []
+    for n, f in enumerate(files):
+        arr.append(['ALL_DES_SPECTRA.fits', f])
+
+    res1 = Parrallelise(n_jobs=5, method=stiltsMatch, loop=arr).run()
+
+    """
+
+    def __init__(self, n_jobs=-1, method=None, loop=None):
+        self._n_jobs = n_jobs
+        self._method = method
+        self._loop = loop
+
+    def run(self):
+        results = Parallel(n_jobs=self._n_jobs)(delayed(self._method)(l) for l in self._loop)
+        return results

@@ -1,0 +1,50 @@
+
+#add paths to data
+trainDataPath: /Users/hoyleb/Documents/python/modules/photoz-wg/simulations/data/IPRING.4096.CosmosXDES._409_500_.txt.Buzzard.sims.fits.clean.fits
+
+#if blank use cross validation, else use this.
+validDataPath:
+
+#ID column. This is required
+ID: ID
+
+#add feature list
+features: {
+   input: [MAG_AUTO_G,MAG_AUTO_R,MAG_AUTO_I,MAG_AUTO_Z,MAG_AUTO_G-MAG_AUTO_R,MAG_AUTO_G-MAG_AUTO_I,MAG_AUTO_G-MAG_AUTO_Z,MAG_AUTO_R-MAG_AUTO_I,MAG_AUTO_R-MAG_AUTO_Z,MAG_AUTO_I-MAG_AUTO_Z],
+   output: Z
+}
+machineLearningArchitecture: [sklearn.ensemble.RandomForestRegressor, sklearn.ensemble.AdaBoostRegressor, sklearn.neighbors.KNeighborsRegressor, sklearn.ensemble.GradientBoostingRegressor]
+
+base_estimator: sklearn.tree.DecisionTreeRegressor
+
+#your outputs will be stored here. Classifier and relevant cross validation info
+outPutFileBase: /Users/hoyleb/Documents/python/modules/photoz-wg/simulations/data/outxv20.p
+
+
+#if validDataPath empty then populate this cross validation
+numberCrossValidation: 20
+
+#should we have a small number of base learners only for the first N rounds?
+small_iters_with_low_n_estimators: 4
+
+#how many machines should we make, we save only the best. Empty=1
+iterations: 150
+
+#verbose output?
+verbose: False
+
+#should we add weights during validation?
+valid_weights:
+
+#should we add weights during training?
+train_weights:
+
+#number of cores (for adaboost in xval)
+n_jobs: 6
+
+#maximimum number of MLAs [useful if standarising how many machines are explored]
+maximum_NMLAs: 150
+
+#which score metric e.g. sklearn.metrics.f1_score | sklearn.metrics.r2_score | ml_metrics.log_loss | ml_metrics.Deltaz_sigma_68_sigma_95 <-
+score_metric: lib.Deltaz_sigma_68_sigma_95
+

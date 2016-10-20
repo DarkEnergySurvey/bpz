@@ -3,6 +3,7 @@ from astropy.table import Table
 import copy
 import sys
 
+#helper functions
 def get_function(function_string):
     import importlib
     module, function = function_string.rsplit('.', 1)
@@ -15,6 +16,8 @@ def key_exist_not_None(dct, ky):
         return False
     return dct[ky] is not None
 
+
+#functions to load datasets
 class dataSet:
 
     """The Class that loads a data set with specified features
@@ -178,7 +181,7 @@ def get_data_ip(ips, cols, files, ID_, IP_):
     return inpS, outSims
 
 
-
+#functions to calculate metrics
 def getStats(diff_, sample_weight=None):
     if sample_weight is not None:
         prob = np.array(sample_weight, dtype=float)
@@ -206,7 +209,122 @@ def getStats(diff_, sample_weight=None):
     return res
 
 
+def HarmonicMean(v1, v2):
+    return v1 * v2 / (v1 + v2)
+
+
+def DeltaZ(arr1, arr2):
+    diff = (arr1 - arr2) / (1 + arr1)
+    return diff
+
+
+#wrapper for ML cost functions
 def Deltaz_sigma_68_sigma_95(arr1, arr2, sample_weight=None):
     diff = DeltaZ(arr1, arr2)
     stats = getStats(diff, sample_weight=sample_weight)
     return -1 * HarmonicMean(stats['sigma_68'], stats['sigma_95'])
+
+
+#ML helper functions
+def getRandomParams(p=None):
+    """ A master list of all possible parameters
+    which have been modified in standard ML jobs
+    Later steps remove those which are unneccesary
+    """
+
+    params = {}
+    params['min_samples_leaf'] = np.random.randint(1, 100)
+    params['max_depth'] = np.random.randint(1, 100)
+    params['max_features'] = np.random.uniform()
+    params['subsample'] = np.random.uniform()
+    params['n_estimators'] = np.random.randint(10, 250)
+    params['learning_rate'] = np.power(10, -2.5 * np.random.random())
+
+    params['base_estimator__min_samples_leaf'] = np.random.randint(1, 100)
+    params['base_estimator__max_depth'] = np.random.randint(1, 100)
+    params['base_estimator__max_features'] = np.random.uniform()
+    params['base_estimator__subsample'] = np.random.uniform()
+
+    #this will use all available cores!!!
+    params['n_jobs'] = -1
+    params['loss'] = np.random.choice(['linear', 'square', 'exponential'])
+    params['class_weight'] = np.random.choice(['auto', 'subsample', None])
+
+    return params
+
+
+def combineParameters(pCLF, pInBase):
+    """combine two dictionaries, only keeping keys in dict pCLF"""
+    pIn = copy.deepcopy(pInBase)
+    for i in pIn:
+        if i in pCLF.keys():
+            pCLF[i] = pIn[i]
+    return pCLF
+
+
+def tree_loss(params_, clf_):
+    """Fixes the sci-kit learn loss function errors, on a MLA by MLA basis
+    By determining if the loss function is in the list of available functions
+    If not set to one which is allowed"""
+    from sklearn.ensemble import GradientBoostingRegressor as gr
+    from sklearn.ensemble import GradientBoostingClassifier as gc
+    from sklearn.ensemble import AdaBoostRegressor as ar
+    from sklearn.ensemble import BaggingRegressor as br
+    from sklearn.ensemble import BaggingClassifier as bc
+    from sklearn.linear_model import RidgeClassifier as rgdc
+    from sklearn.linear_model import Ridge as rgd
+    from sklearn.linear_model import SGDRegressor as sgd
+    from sklearn.linear_model import SGDClassifier as sgdc
+    from sklearn.linear_model import LogisticRegression as lr
+    from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as ldra
+    from sklearn.tree import DecisionTreeClassifier as dtc
+    #from sklearn.svm import SVR
+
+    fix_items = {
+        'loss': {
+            gr: ['ls', 'lad', 'huber', 'quantile'],
+            gc: ['deviance', 'exponential'],
+            ar: ['linear', 'square', 'exponential'],
+            sgd: ['squared_loss', 'huber', 'epsilon_insensitive', 'squared_epsilon_insensitive'],
+            sgdc: ['hinge', 'log', 'modified_huber', 'squared_hinge', 'perceptron', 'squared_loss', 'huber', 'epsilon_insensitive', 'squared_epsilon_insensitive']
+        },
+        'max_samples': {
+            br: [1.0],
+            bc: [1.0]
+        },
+        'solver': {
+            rgd: ['auto', 'svd', 'cholesky', 'lsqr', 'sparse_cg', 'sag'],
+            rgdc: ['auto', 'svd', 'cholesky', 'lsqr', 'sparse_cg', 'sag'],
+            lr: ['newton-cg', 'lbfgs', 'liblinear', 'sag'],
+            ldra: ['svd', 'lsqr', 'eigen']
+        },
+        'class_weight': {
+            ar: ['auto'],
+            gc: ['auto'],
+            gr: ['auto'],
+            sgdc: ['auto', None],
+            sgd: ['auto', None],
+            rgdc: ['balanced', None],
+            dtc: ['balanced', None]
+        },
+        'learning_rate': {
+            sgdc: ['optimal'],
+            sgd: ['invscaling']
+        },
+        'max_features': {
+            bc: [1.0],
+            br: [1.0]
+        },
+        'max_iter': {
+            rgdc: [10000]
+        }
+    }
+
+    for fix_param in fix_items.keys():
+        for cl, allowed_param_vals in fix_items[fix_param].iteritems():
+            if isinstance(clf_, cl):
+                if fix_param in params_:
+                    if params_[fix_param] not in allowed_param_vals:
+                        params_[fix_param] = np.random.choice(allowed_param_vals)
+
+    return params_

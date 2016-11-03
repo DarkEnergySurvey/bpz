@@ -51,7 +51,7 @@ from subprocess import call
 from astropy.io import fits as pyfits
 import numpy as np
 
-cmd = "stilts tmatch2 matcher=exact in1={file1} in2={file2} values1={match_column} values2={match_column} suffix2={file2_suffix} join={join} out={out_file}".format(**inArgs)
+cmd = "stilts tmatch2 matcher=exact in1={file1} in2={file2} values1={match_column} values2={match_column} suffix1= suffix2={file2_suffix} join={join} out={out_file}".format(**inArgs)
 
 cmd = cmd.split(" ")
 
@@ -63,7 +63,7 @@ orig_cols = orig_table.columns
 CLASS = np.array(orig_table['COADD_OBJECTS_ID' + inArgs['file2_suffix']]>0).astype(int)
 
 new_cols = pyfits.ColDefs([
-                pyfits.Column(name=inArgs['file2_suffix'] + '_CLASS', format='D', array=CLASS)])
+                pyfits.Column(name=inArgs['file2_suffix'] + '_CLASS', format='I', array=CLASS)])
 
 hdu = pyfits.BinTableHDU.from_columns(orig_cols + new_cols)
 

@@ -113,7 +113,7 @@ features: {
    input: [MAG_AUTO_G,MAG_AUTO_R,MAG_AUTO_I,MAG_AUTO_Z,MAG_AUTO_G-MAG_AUTO_R,MAG_AUTO_G-MAG_AUTO_I,MAG_AUTO_G-MAG_AUTO_Z,MAG_AUTO_R-MAG_AUTO_I,MAG_AUTO_R-MAG_AUTO_Z,MAG_AUTO_I-MAG_AUTO_Z],
    output: Z
 }
-machineLearningArchitecture: [sklearn.ensemble.RandomForestRegressor, sklearn.ensemble.AdaBoostRegressor, sklearn.ensemble.GradientBoostingRegressor]
+machineLearningArchitecture: [sklearn.ensemble.RandomForestRegressor, sklearn.ensemble.AdaBoostRegressor]
 
 base_estimator: sklearn.tree.DecisionTreeRegressor
 

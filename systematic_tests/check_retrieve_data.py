@@ -55,7 +55,7 @@ import random
 #should we only select some data?
 maxRows = ''
 if 'max-rows' in inArgs:
-    maxRows = ' where ROWNUM<' + inArgs['max-rows'] + 1
+    maxRows = ' where ROWNUM<{:}'.format( int(inArgs['max-rows']) + 1)
 
 #construct the select query from the input tables.
 prt1 = 'SELECT '

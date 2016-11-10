@@ -57,6 +57,7 @@ maxRows = ''
 if 'max-rows' in inArgs:
     maxRows = ' where ROWNUM<' + str(int(inArgs['max-rows']) + 1)
 
+
 #construct the select query from the input tables.
 prt1 = 'SELECT '
 prt2 = ' '

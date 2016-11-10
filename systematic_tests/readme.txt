@@ -92,7 +92,7 @@ This script loads in a mask file (total_mask.fits) and calcalates the cross corr
 
 Example
 two_d_correlate.py pathTohealPix/FitFiles*.fits mask=maskFile, output_file=fileName [thetamax=thetamax] 
-thetamax is the apodasiation scale, see ftp://ftp.iap.fr/pub/from_users/hivon/PolSpice/latest/README for details
+thetamax is the apodadisation scale, for details see ftp://ftp.iap.fr/pub/from_users/hivon/PolSpice/latest/README 
 ""-thetamax [dfloat|NO](NO)
    maximum value of angle theta used in the integrals to compute the
    power spectra from the correlation functions.""

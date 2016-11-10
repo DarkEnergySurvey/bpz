@@ -34,8 +34,8 @@ def get_function(function_string):
 def get_weights(_dict, _ky, _d):
     #set all objects equal weight, unless defined
     if pval.key_not_none(_dict, _ky) is False:
-        print "you have not set any weights for this test"
-        print "continuing with weights=1"
+        #print ("you have not set any weights for this test")
+        #print ("continuing with weights=1")
         weights = np.ones(len(_d))
     else:
         weights = _d[tst['weights']]
@@ -165,4 +165,102 @@ def perform_tests(d, test_dict):
 
                         res[photoz]['metrics_diffz'][metric][diffpp]['bins'][ky]['MEAN_BS'] = [np.asscalar(vv) for vv in bn_bs_stats['mean']]
                         res[photoz]['metrics_diffz'][metric][diffpp]['bins'][ky]['SIGMA_BS'] = [np.asscalar(vv) for vv in bn_bs_stats['sigma']]
+    return res
+
+
+
+def perform_tests_fast(d, test_dict):
+    """perform_tests_fast performs a fast set of tests without boot strap resampling, or any error resampling """
+    #results dictionary
+    res = {}
+
+    for photoz in test_dict['predictions']:
+        res[photoz] = {}
+        res[photoz]['metrics_z1_z2'] = {}
+        res[photoz]['metrics_diffz'] = {}
+
+        z_truth = np.array(d[test_dict['truths']])
+        z_pred = np.array(d[photoz])
+        
+        for metric in test_dict['metrics_z1_z2']:
+
+            res[photoz]['metrics_z1_z2'][metric] = {}
+
+            weights = get_weights(test_dict, 'weights', d)
+
+            #turn string into function
+            metric_function = pval.get_function(metric)
+
+            res[photoz]['metrics_z1_z2'][metric] = {}
+            res[photoz]['metrics_z1_z2'][metric]['VALUE'] = np.asscalar(metric_function(z_truth, z_pred, weights=weights))
+
+
+            #shall we calculate binning statiscs?
+            if pval.key_not_none(test_dict, 'bins'):
+                binning = test_dict['bins']
+
+                res[photoz]['metrics_z1_z2'][metric]['bins'] = {}
+                for binDict in binning:
+                    ky = binDict.keys()[0]
+                    bin_vals = eval(binDict[ky])
+
+                    res[photoz]['metrics_z1_z2'][metric]['bins'][ky] = {}
+
+                    bn_stat = np.zeros(len(bin_vals)-1) -1 
+                    bn_cntr_sts = np.zeros(len(bin_vals)-1) -1
+                    for bbn in range(len(bin_vals)-1):
+                        ind_bn = (d[ky] <= bin_vals[bbn + 1]) * (d[ky] > bin_vals[bbn])
+                        if np.sum(ind_bn) > 1:
+                            bn_cntr_sts[bbn] = np.mean(d[ky][ind_bn])
+                            bn_stat[bbn] = metric_function(z_truth[ind_bn], z_pred[ind_bn], weights=weights[ind_bn])
+
+                    res[photoz]['metrics_z1_z2'][metric]['bins'][ky]['BIN_CENTERS'] = [np.asscalar(vv) for vv in bn_cntr_sts]
+                    res[photoz]['metrics_z1_z2'][metric]['bins'][ky]['VALUE'] = [np.asscalar(vv) for vv in bn_stat]
+
+        #calculate stats on diff=z1-z2 and diff_1pz=(z1-z2)/(1+z1)
+        diff = pval.delta_z(d[test_dict['truths']], d[photoz])
+        diff_1pz = pval.delta_z_1pz(d[test_dict['truths']], d[photoz])
+
+        points = {'delta_z': diff, 'diff_1pz': diff_1pz}
+
+        for metric in test_dict['metrics_diffz']:
+
+            res[photoz]['metrics_diffz'][metric] = {}
+
+            #set all objects equal weight, unless defined
+            weights = get_weights(test_dict, 'weights', d)
+
+
+            #turn string into function
+            metric_function = pval.get_function(metric)
+
+            #which residuals shall we employ?
+            for diffpp in points.keys():
+                res[photoz]['metrics_diffz'][metric][diffpp] = {}
+                res[photoz]['metrics_diffz'][metric][diffpp]['VALUE'] = np.asscalar(metric_function(points[diffpp]))
+
+
+                #shall we calculate binning statiscs?
+                if pval.key_not_none(test_dict, 'bins'):
+                    binning = test_dict['bins']
+
+                    res[photoz]['metrics_diffz'][metric][diffpp]['bins'] = {}
+                    for binDict in binning:
+                        ky = binDict.keys()[0]
+                        bin_vals = eval(binDict[ky])
+
+                        res[photoz]['metrics_diffz'][metric][diffpp]['bins'][ky] = {}
+                        #this uses the binned_stats function
+                        """http://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.stats.binned_statistic.html
+                        """
+
+                        #calculate the unweighted statistics in each bin
+                        bn_stats = stats.binned_statistic(d[ky], points[diffpp], bins=bin_vals, statistic=metric_function)
+
+                        #determine the center of each bin
+                        bn_cntr_sts = stats.binned_statistic(d[ky], d[ky], bins=bin_vals, statistic=np.mean)
+
+                        res[photoz]['metrics_diffz'][metric][diffpp]['bins'][ky]['BIN_CENTERS'] = [np.asscalar(vv) for vv in bn_cntr_sts.statistic]
+                        res[photoz]['metrics_diffz'][metric][diffpp]['bins'][ky]['VALUE'] = [np.asscalar(vv) for vv in bn_stats.statistic]
+
     return res

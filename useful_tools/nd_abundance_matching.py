@@ -46,8 +46,8 @@ def match_data_clouds(data1, data2, num_percentiles=100):
     return match_d1_d2
 
 
-def test_nd_abundance_matching():
-    """Test in N-d this code"""
+def test_nd_abundance_matching1():
+    """Test in N-d this code uncorrelated gaussians"""
 
     import matplotlib.pyplot as plt
     import copy
@@ -93,4 +93,57 @@ def test_nd_abundance_matching():
                 axarr[i, j].plot(d1[:, i], d1[:, j], ',', alpha=0.6, rasterized=True, label='data1')
                 axarr[i, j].plot(d2[:, i], d2[:, j], ',', alpha=0.6, rasterized=True, label='data2')
                 axarr[i, j].plot(d12[:, i], d12[:, j], '*', alpha=0.6, rasterized=True, label='data1->2')
+    plt.show()
+
+
+def test_nd_abundance_matching2():
+    """Test in N-d this code correlated gaussians"""
+    Nd = 2
+
+    ln =  [4000, 4000]
+
+    for i in range(Nd):
+        sig1 = [np.random.uniform()*3, np.random.uniform()*7]
+        xx = np.array([np.random.uniform()*10, 30+np.random.uniform()*10])
+        yy =  np.array([np.random.uniform()*30, 60+np.random.uniform()*30])
+        means = [xx.mean(), yy.mean()]  
+        stds = sig1
+        corr = 0.2         # correlation
+        covs = [[stds[0]**2          , stds[0]*stds[1]*corr], 
+            [stds[0]*stds[1]*corr,           stds[1]**2]] 
+
+        if i == 0:
+            d1 = np.random.multivariate_normal(means, covs, ln[i])
+        else:
+            d2 = np.random.multivariate_normal(means, covs, ln[i])
+
+
+    ind1_2 = match_data_clouds(d1, d2, num_percentiles=100)
+
+    almost_black = '#262626'
+    plt.rcParams['figure.figsize'] = (24, 16)
+    plt.rcParams.update({'font.size': 12,
+                         'axes.linewidth': 5,
+                        'text.color': almost_black,
+                        'xtick.major.size': 4,
+                        'ytick.major.size': 4,
+                        'legend.fancybox': True,
+                        'figure.dpi': 300,
+                        'legend.fontsize': 14,
+                        'legend.framealpha': 0.8,
+                        'legend.shadow': True,
+                        'xtick.labelsize': 32,
+                        'ytick.labelsize': 32})
+
+    for i in range(Nd):
+        d12[:, i] += (d2[ind1_2, i] - d1[:, i])
+
+    f, axarr = plt.subplots(Nd, Nd)
+    for i in range(Nd):
+        for j in range(Nd):
+            if j>=i:
+                axarr[i, j].plot(d1[:, i], d1[:, j], ',', alpha=0.6, rasterized=True, label='data1')
+                axarr[i, j].plot(d2[:, i], d2[:, j], ',', alpha=0.6, rasterized=True, label='data2')
+                axarr[i, j].plot(d12[:, i], d12[:, j], '*', alpha=0.6, rasterized=True, label='data1-2')
+    plt.legend()
     plt.show()

@@ -52,4 +52,4 @@ for sample in ['WL_CLASS', 'LSS_CLASS', 'Y1_CLASS']:
     for i, ky in enumerate(conf['errors']):
         d1[err + ky] = np.array([d2[ky][j] for j in match_d1_d2], dtype=float)
 
-d1.write(args[0].replace('.fits') + '_resampleErrs.fits')    
+d1.write(args[0].replace('.fits','') + '_resampleErrs.fits')    

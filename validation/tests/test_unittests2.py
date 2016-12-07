@@ -88,8 +88,7 @@ def test_cumaltive_to_point1():
     #calcalate cumulative df of this, up to 0, 1, 2, 3,.. ngals etc
     for i in np.arange(40)+1:
         res = pval.cumaltive_to_point(pdf, np.arange(500), i)
-        print i, res
-        np.testing.assert_almost_equal(res, np.sum(pdf[0:i+1])/500.0, 4)
+        np.testing.assert_almost_equal(res, np.sum(pdf[1:i+1])/500.0, 3)
 
 
 def test_cumaltive_to_point2():

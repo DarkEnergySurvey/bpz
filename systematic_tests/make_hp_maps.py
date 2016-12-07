@@ -59,7 +59,9 @@ if __name__ == "__main__":
 
     #which cols to extract (or all of them)
     if 'columns' in inputs:
-        columns = inputs['columns'].split(',')
+        columns = inputs['columns']
+        if ',' in columns:
+            columns = columns.split(',')
 
     #set ra , dec
     if 'ra' not in inputs:

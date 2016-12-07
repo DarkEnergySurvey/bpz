@@ -10,6 +10,7 @@ PhotoZ validation code
 
 5. More information
 
+6. Plotting results from validation pipeline
 
 1. ===== About this doc and the code =====
 This doc describes how to call and use the photo-z validation code, photoz_metrics.py
@@ -106,3 +107,20 @@ And then load/click on the ValidationScriptExample.ipynb
 
 contact benhoyle1212@gmail.com, or see me in photo-z hipchat.
 
+6. == Plotting results ===
+enter the ../notebook/ directory and run
+%>juypyter notebook
+
+Then load this file:
+
+Validation_metric_values_resampled_data.ipynb
+
+And change the paths in the first cell:
+--path = 'PathToYourphoto-zwgDir/validation/'
+
+and then change "point_LSS_MLv2.p.bz2" to be
+point_YourRandString.p [or .bz2 if you have compressed it using bz2]
+
+--path_to_pickle_output_file = path + 'point_LSS_MLv2.p.bz2'
+
+Then execute all the cells. Your plots will be shown in the bottom panels.

@@ -502,18 +502,28 @@ def cumaltive_to_point(dfs, bincenter, points):
         return xarr
     else:
 
-        point = np.amin((points, np.amax(bincenter)))
-        point = np.amax((points, np.amin(bincenter)))
+        #df value sits in a bin, with a given bin center.
+        #append to first and last bin a df value to encompass the bin
+        delta_bin0 = (bincenter[1] - bincenter[0]) / 2.0
+        delta_binN = (bincenter[-1] - bincenter[-2]) / 2.0
+
+        binEdges = np.append(bincenter[0] - delta_bin0, bincenter)
+        binEdges = np.append(binEdges, bincenter[-1] + delta_binN)
+
+        #print 'point b4', points
+        point_ = np.amin((points, np.amax(binEdges)))
+        point_ = np.amax((point_, np.amin(binEdges)))
 
         cum = np.cumsum(dfs)
-        #fix so that cum==0 at beginning
-        cum -= cum[0]
 
         #ensure cum==1 at end
         cum = cum / float(cum[-1])
 
+        #fix endpoints for the CDF to be [0, 1)
+        cum = np.append(np.append(0, cum), 1)
+
         #note spline interpolation has crazy results!
-        return interpolate.interp1d(bincenter, cum)(point)
+        return interpolate.interp1d(binEdges, cum, kind='linear')(point_)
 
 
 
@@ -524,14 +534,24 @@ def xval_cumaltive_at_ypoint(dfs, bincenter, point, k=3):
     """Note: all points < x[0]-dx are set to x[0] - dx"""
     """Note: all points > x[-1]+dx are set to x[-1] + dx"""
 
-    point = np.amin((point, np.amax(bincenter)))
-    point = np.amax((point, np.amin(bincenter)))
 
     if len(np.shape(dfs)) > 1:
         #do some iterative magick!
         xarr = np.array([xval_cumaltive_at_ypoint(c, bincenter, point) for c in dfs])
         return xarr
     else:
+
+        #df value sits in a bin, with a given bin center.
+        #append to first and last bin a df value to encompass the bin
+        delta_bin = (bincenter[1]-bincenter[0]) / 2.0
+        
+        binEdges = np.append(bincenter[0] - delta_bin, bincenter)
+        binEdges = np.append(binEdges, bincenter[-1] + delta_bin)
+        
+        dfs_bins = np.append(np.append(dfs[0], dfs), dfs[-1])
+        print 'point b4', point
+        point = np.amin((point, np.amax(binEdges)))
+        point = np.amax((point, np.amin(binEdges)))
 
         cum = np.cumsum(dfs)
         #fix so that cum==0 at beginning

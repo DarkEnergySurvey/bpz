@@ -24,8 +24,8 @@ Your web browser will appear. Click any of the files to load them into the noteb
 The files:
 =========================
 --- UnderstandingTheValidationScriptFile.ipynb 
-This script loads the output yaml files of the validation/photoz_metrics.py script, which is run to measure sets of metrics on redshift predictions.
-It then makes nice plots of various useful metrics from the yaml files.
+This script loads the output [.p] pickle files of the validation/photoz_metrics.py script, which is run to measure sets of metrics on redshift predictions.
+It then makes nice plots of various useful metrics from the [.p] pickle files.
 
 
 ------ValidationScriptExample.ipynb                     
@@ -51,5 +51,9 @@ This script shows how to sample a random point from a pdf.
 
 --------- Validation_metric_values_resampled_data.ipynb
 This script reads in the validation file output from the ReSampled Alhambra data, and determines the metric values and errors, and also adds the error component from Cosmic variance.
+
+
+--------- Validation_metric_values_resampled_datav1.ipynb
+This script reads in the validation file output from singular Dec ReSampled COSMOS data file, and determines the metric values and errors, and also adds the error component from Cosmic variance.
 
 

@@ -2,7 +2,7 @@
 import sys
 
 def show_help(args):
-    print ("""y1_cosmos_science_mapping.py CosDataFile.fits ScienceSamplesFile.fits mapping_file.yaml
+    print ("""cosmos_science_sample_mapping.py CosDataFile.fits ScienceSamplesFile.fits mapping_file.yaml
         ScienceSamplesFile.fits must have columns LSS_CLASS WL_CLASS Y1_CLASS
         mapping_file.yaml should look like
 

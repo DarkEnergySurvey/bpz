@@ -78,7 +78,6 @@ def test_integrate_dist_bin2():
     for i in range(ngals):
         np.testing.assert_almost_equal(tot[i], (maxval-minval) * (i + 1), 4)
 
-
 def test_cumaltive_to_point1():
     """ can we determine cumulative 1-d pdf at a set of points"""
 
@@ -87,8 +86,9 @@ def test_cumaltive_to_point1():
 
     #calcalate cumulative df of this, up to 0, 1, 2, 3,.. ngals etc
     for i in np.arange(40)+1:
-        res = pval.cumaltive_to_point(pdf, np.arange(500), i)
-        np.testing.assert_almost_equal(res, np.sum(pdf[1:i+1])/500.0, 3)
+        res = pval.cumaltive_to_point(pdf, np.arange(500)+0.5, i)
+        print i, np.sum(pdf[0:i])/500.0, res
+        np.testing.assert_almost_equal(res, np.sum(pdf[0:i])/500.0, 3)
 
 
 def test_cumaltive_to_point2():

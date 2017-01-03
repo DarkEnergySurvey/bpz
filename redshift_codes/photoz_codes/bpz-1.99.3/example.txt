@@ -1,0 +1,43 @@
+This file describes how to run BPZ on a small example file in the test directory
+
+----- How to format data for BPZ -----
+
+format data files for des like:
+
+%>python
+f = open(file_path + '.cat', 'w')
+
+f.write('# COADD_OBJECTS_ID\tMAG_AUTO_G\tMAG_AUTO_R\tMAG_AUTO_I\tMAG_AUTO_Z\tMAGERR_AUTO_G\tMAGERR_AUTO_R\tMAGERR_AUTO_I\tMAGERR_AUTO_Z\Z\n')
+
+-- Z is true redshift
+kys1 = ['COADD_OBJECTS_ID','MAG_AUTO_G','MAG_AUTO_R','MAG_AUTO_I','MAG_AUTO_Z',
+       'MAGERR_AUTO_G','MAGERR_AUTO_R','MAGERR_AUTO_I','MAGERR_AUTO_Z','REDSHIFT']
+for j in range(len(rs_data)):
+    dt = rs_data[j]
+    f.write('\t'.join(['{:}'.format(dt[k]) for k in kys1]) + '\n')
+f.close()
+
+
+--- Example data ---
+See this file:
+test_DES/exampleBPZfile.cat  
+
+For an example of DES Y1A1Goldv103 data.
+
+
+--- Call like ---
+%> python bpz_tcorr.py test_DES/exampleBPZfile.cat   -COLUMNS columns/y1a1_final_spec_valid.columns  -INTERP 8
+
+Notes and tipps from Will:
+Open up one of the file_path + '.bpz' files and ensure the paths to the y1a1_final_spec_valid.columns is correct, and the redshift range is adequate.
+
+Check the output suggested offsets for each filter:
+
+e.g. have dmag values which are small.
+  fo/ft    dmag   nobj   filter
+  1.001    0.001     5   DECam_2014_g.res
+  1.003    0.003     5   DECam_2014_r.res
+  1.012    0.013     5   DECam_2014_i.res
+  0.991   -0.010     5   DECam_2014_z.res
+
+

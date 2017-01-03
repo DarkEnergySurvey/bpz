@@ -1,0 +1,9 @@
+# Filter            columns  AB/Vega  zp_error  zp_offset
+20130322_g.res	    MAG_AUTO_G,MAGERR_AUTO_G	     AB	      0.02	0.0
+20130322_r.res	    MAG_AUTO_R,MAGERR_AUTO_R	     AB	      0.02	0.0
+20130322_i.res	    MAG_AUTO_I,MAGERR_AUTO_I	     AB	      0.02	0.0
+20130322_z.res	    MAG_AUTO_Z,MAGERR_AUTO_Z     AB	      0.02	0.0
+#20130322_Y.res	    MAG_AUTO_Y,MAGERR_AUTO_Y     AB	      0.05	0.0
+M_0                   MAG_AUTO_I
+Z_S 		     Z
+ID                    COADD_OBJECTS_ID

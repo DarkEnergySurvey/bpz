@@ -13,14 +13,12 @@ d = Table.load('PhotoZPredictionsFile.fits')
 res = pzt.perform_tests(d, tst_yaml)
 
 """
-
 import numpy as np
 numpy = np
-
 import bh_photo_z_validation as pval
+import vlfn
 from scipy import stats
 import cPickle as pickle
-
 
 
 def get_function(function_string):
@@ -42,8 +40,8 @@ def get_weights(_dict, _ky, _d):
 
     return weights / np.sum(weights)
 
-
-
+"""
+-- this function is broken because of change to .yaml file.
 def perform_tests(d, test_dict):
 
     #results dictionary
@@ -166,101 +164,69 @@ def perform_tests(d, test_dict):
                         res[photoz]['metrics_diffz'][metric][diffpp]['bins'][ky]['MEAN_BS'] = [np.asscalar(vv) for vv in bn_bs_stats['mean']]
                         res[photoz]['metrics_diffz'][metric][diffpp]['bins'][ky]['SIGMA_BS'] = [np.asscalar(vv) for vv in bn_bs_stats['sigma']]
     return res
-
-
+"""
 
 def perform_tests_fast(d, test_dict):
     """perform_tests_fast performs a fast set of tests without boot strap resampling, or any error resampling """
     #results dictionary
     res = {}
 
-    for photoz in test_dict['predictions']:
+       #results dictionary
+    res = {'test_config': test_dict}
+
+    #get all the columns we are gonna test on
+    reqcols = test_dict['metrics'].keys()
+
+    for i in reqcols:
+        if i not in d.keys():
+            print "missing column ", i
+            sys.exit()
+
+    #which redshift do we need for this metric test?
+    for photoz in tst['metrics']:
         res[photoz] = {}
-        res[photoz]['metrics_z1_z2'] = {}
-        res[photoz]['metrics_diffz'] = {}
 
-        z_truth = np.array(d[test_dict['truths']])
+        z_truth = np.array(d[tst['truths']])
         z_pred = np.array(d[photoz])
-        
-        for metric in test_dict['metrics_z1_z2']:
 
-            res[photoz]['metrics_z1_z2'][metric] = {}
+        #what is the metric test?
+        for metric in tst['metrics'][photoz]:
 
-            weights = get_weights(test_dict, 'weights', d)
+            res[photoz][metric] = {}
 
-            #turn string into function
+            #convert metric name to metric function
             metric_function = pval.get_function(metric)
 
-            res[photoz]['metrics_z1_z2'][metric] = {}
-            res[photoz]['metrics_z1_z2'][metric]['VALUE'] = np.asscalar(metric_function(z_truth, z_pred, weights=weights))
+            #do I have to pass any additional arguments to this function?
+            extra_params = get_extra_params(tst, metric)
 
+            #what weighting scheme shall we apply?
+            for wght in tst['weights']:
+                res[photoz][metric][wght] = {}
 
-            #shall we calculate binning statiscs?
-            if pval.key_not_none(test_dict, 'bins'):
-                binning = test_dict['bins']
+                #get the data weights
+                weights = np.array(d[wght], dtype=float)
 
-                res[photoz]['metrics_z1_z2'][metric]['bins'] = {}
-                for binDict in binning:
-                    ky = binDict.keys()[0]
-                    bin_vals = eval(binDict[ky])
-
-                    res[photoz]['metrics_z1_z2'][metric]['bins'][ky] = {}
-
-                    bn_stat = np.zeros(len(bin_vals)-1) -1 
-                    bn_cntr_sts = np.zeros(len(bin_vals)-1) -1
-                    for bbn in range(len(bin_vals)-1):
-                        ind_bn = (d[ky] <= bin_vals[bbn + 1]) * (d[ky] > bin_vals[bbn])
-                        if np.sum(ind_bn) > 1:
-                            bn_cntr_sts[bbn] = np.mean(d[ky][ind_bn])
-                            bn_stat[bbn] = metric_function(z_truth[ind_bn], z_pred[ind_bn], weights=weights[ind_bn])
-
-                    res[photoz]['metrics_z1_z2'][metric]['bins'][ky]['BIN_CENTERS'] = [np.asscalar(vv) for vv in bn_cntr_sts]
-                    res[photoz]['metrics_z1_z2'][metric]['bins'][ky]['VALUE'] = [np.asscalar(vv) for vv in bn_stat]
-
-        #calculate stats on diff=z1-z2 and diff_1pz=(z1-z2)/(1+z1)
-        diff = pval.delta_z(d[test_dict['truths']], d[photoz])
-        diff_1pz = pval.delta_z_1pz(d[test_dict['truths']], d[photoz])
-
-        points = {'delta_z': diff, 'diff_1pz': diff_1pz}
-
-        for metric in test_dict['metrics_diffz']:
-
-            res[photoz]['metrics_diffz'][metric] = {}
-
-            #set all objects equal weight, unless defined
-            weights = get_weights(test_dict, 'weights', d)
-
-
-            #turn string into function
-            metric_function = pval.get_function(metric)
-
-            #which residuals shall we employ?
-            for diffpp in points.keys():
-                res[photoz]['metrics_diffz'][metric][diffpp] = {}
-                res[photoz]['metrics_diffz'][metric][diffpp]['VALUE'] = np.asscalar(metric_function(points[diffpp]))
+                res[photoz][metric][wght]['value'] = vlfn.process_function(metric_function, z_truth,
+                    z_pred, weights=weights, extra_params=extra_params)
 
 
                 #shall we calculate binning statiscs?
-                if pval.key_not_none(test_dict, 'bins'):
-                    binning = test_dict['bins']
+                if pval.key_not_none(tst, 'bins'):
+                    binning = tst['bins']
 
-                    res[photoz]['metrics_diffz'][metric][diffpp]['bins'] = {}
-                    for binDict in binning:
-                        ky = binDict.keys()[0]
-                        bin_vals = eval(binDict[ky])
+                res[photoz][metric][wght]['bins'] = {}
+                for ky in binning:
+                    bin_vals = binning[ky]
 
-                        res[photoz]['metrics_diffz'][metric][diffpp]['bins'][ky] = {}
-                        #this uses the binned_stats function
-                        """http://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.stats.binned_statistic.html
-                        """
+                    res[photoz][metric][wght]['bins'][ky] = {}
+                    res[photoz][metric][wght]['bins'][ky]['bin_center'] = []
+                    res[photoz][metric][wght]['bins'][ky]['value'] = []
 
-                        #calculate the unweighted statistics in each bin
-                        bn_stats = stats.binned_statistic(d[ky], points[diffpp], bins=bin_vals, statistic=metric_function)
-
-                        #determine the center of each bin
-                        bn_cntr_sts = stats.binned_statistic(d[ky], d[ky], bins=bin_vals, statistic=np.mean)
-
-                        res[photoz]['metrics_diffz'][metric][diffpp]['bins'][ky]['BIN_CENTERS'] = [np.asscalar(vv) for vv in bn_cntr_sts.statistic]
-                        res[photoz]['metrics_diffz'][metric][diffpp]['bins'][ky]['VALUE'] = [np.asscalar(vv) for vv in bn_stats.statistic]
+                    for bbn in range(len(bin_vals)-1):
+                        ind_bn = (d[ky] <= bin_vals[bbn + 1]) * (d[ky] > bin_vals[bbn])
+                        if np.sum(ind_bn) > 1 and np.sum(weights[ind_bn]) > 0:
+                            res[photoz][metric][wght]['bins'][ky]['bin_center'].append(np.mean(d[ky][ind_bn]))
+                            res[photoz][metric][wght]['bins'][ky]['value'].append(vlfn.process_function(metric_function, z_truth[ind_bn], z_pred[ind_bn], weights=weights[ind_bn], extra_params=extra_params))
 
     return res

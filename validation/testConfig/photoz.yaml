@@ -6,7 +6,7 @@ point:
 
     #shall we use weights when calculating metrics, if so specify here.
     #:  no weights, or list of weights
-    weights: [IN_SCIENCE_SAMPLE]
+    weights: [IN_WL_SAMPLE, WL_WEIGHTS]
 
     #what metrics do we want to measure. 
     #see validation/vlfn.py for a guide of how to add your own.

@@ -54,6 +54,19 @@ def random_choice(arr, axis=None):
 def mode(arr, axis=None):
     return sp.stats.mode(arr, axis=axis)[0]
 
+def get_extra_params(tst_, metric_name):
+    """check the config test file. If the extra_params keywoard is set
+    and it has a key=== metric_name, then return the extra params
+    else return None"""
+
+    extra_params = key_not_none(tst_, 'extra_params')
+    if extra_params is not None:
+        if key_not_none(tst_['extra_params'], metric_name):
+            extra_params = tst_['extra_params'][metric_name]
+        else:
+            extra_params = None
+    return extra_params
+
 
 """ ===========================
 Error function checking tools =

@@ -169,19 +169,6 @@ def load_yaml(filename):
         sys.exit()
 
 
-def get_extra_params(tst_, metric_name):
-    """check the config test file. If the extra_params keywoard is set
-    and it has a key=== metric_name, then return the extra params
-    else return None"""
-
-    extra_params = pval.key_not_none(tst_, 'extra_params')
-    if extra_params is not None:
-        if pval.key_not_none(tst_['extra_params'], metric_name):
-            extra_params = tst_['extra_params'][metric_name]
-        else:
-            extra_params = None
-    return extra_params
-
 
 #get the galaxy weights
 def get_weights(_d, _ky):
@@ -209,6 +196,9 @@ if '.p' not in args[0] or '.fits' == args[0][-4:]:
 else:
     results_file_name = args[0]
     input_files = args[1:]
+
+if results_file_name[-2:] != '.p':
+    results_file_name += '.p'
 
 #poplate the lists of files for point predictions, and pdf predictions
 files = {'point': [], 'pdf': []}
@@ -279,7 +269,7 @@ if len(files[ptype]) > 0:
                 metric_function = pval.get_function(metric)
 
                 #do I have to pass any additional arguments to this function?
-                extra_params = get_extra_params(tst, metric)
+                extra_params = pval.get_extra_params(tst, metric)
 
                 #what weighting scheme shall we apply?
                 for wght in tst['weights']:
@@ -310,7 +300,7 @@ if len(files[ptype]) > 0:
                                 res[f][photoz][metric][wght]['bins'][ky]['bin_center'].append(np.mean(d[ky][ind_bn]))
                                 res[f][photoz][metric][wght]['bins'][ky]['value'].append(vlfn.process_function(metric_function, z_truth[ind_bn], z_pred[ind_bn], weights=weights[ind_bn], extra_params=extra_params))
 
-    pickle.dump(res, open(results_file_name + '.p', 'w'))
+    pickle.dump(res, open(results_file_name, 'w'))
 
 
 """ ==========================
@@ -441,5 +431,5 @@ if len(files[ptype]) > 0:
 
                             res[f][metric]['binned_result'][bnCol]['VALUE'] = [np.asscalar(binned_stats[vv]['weighted_value']) for vv in binned_stats]
 
-    pickle.dump(res, open(results_file_name + '.p', 'w'))
+    pickle.dump(res, open(results_file_name, 'w'))
 

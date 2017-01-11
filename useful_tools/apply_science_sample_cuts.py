@@ -8,16 +8,17 @@ def apply_cuts(d, sample):
     """
     cols = {}
     if sample == 'LSS':
-        cols['IN_SCIENCE_SAMPLE'] = np.array((d['MEAN_Z'] < 1.0) * (d['MEAN_Z'] > 0.6))
+        cols['IN_LSS_SAMPLE'] = np.array((d['MEAN_Z'] < 1.0) * (d['MEAN_Z'] > 0.6))
     elif sample == 'WL':
-        cols['IN_SCIENCE_SAMPLE'] = np.ones(len(d), dtype=bool)
+        cols['IN_WL_SAMPLE'] = np.ones(len(d), dtype=bool)
         cols['WL_WEIGHT'] = np.ones(len(d), dtype=bool)
     return cols
 
 if __name__ == "__main__":
     import sys
     from astropy.io import fits as pyfits
-
+    import os
+    
     args = sys.argv[1:]
     sample = args[0]
     files = args[1:]
@@ -33,4 +34,6 @@ if __name__ == "__main__":
         fname = i.replace('.fits', sample + '.fits')
         hdu.writeto(fname)
         print ("Science sample {:} identified in {:}".format(sample, i))
-        print ("Saving to {:} with new column names {:}".format(fname, cols.keys()))
+        print ("Saving to {:} with new column names {:}".format(i, cols.keys()))
+        import os
+        os.rename(fname, i)

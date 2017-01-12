@@ -3,5 +3,9 @@ BPZ:
 
 2. For fits input, see WL_CLASS.rescaled.columns
 
-3. One of the resampled validation files Ben made is included as an example, and the top 300 lines are in WL_CLASS.rescaled.bpz.cut, so you can check that nothing suspicious is going on.
-Invoke as, >python bpz_tcorr_fits.py WL_CLASS.rescaled.fits -INTERP 8
+3. One of the resampled validation files Ben made is included as an example to run on.
+Invoke as,
+>python bpz_tcorr_fits.py WL_CLASS.rescaled.fits -INTERP 8
+>python post_process_bpz.py WL_CLASS.rescaled.bpz
+
+*** YOU MAY NEED TO ALTER THE PYFITS IMPORT STATEMENT IN BOTH SCRIPTS ***

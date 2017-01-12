@@ -65,7 +65,7 @@ Z_MC    <-- this is sampled point from the pdf, used to construct dn/dz quickly
 MEDIAN_Z
 MODE_Z
 MEAN_Z
-Z_SPEC -- spec-z of galaxy
+REDSHIFT -- "true" redshift of galaxy
 
 [lower-case] (sorry for temporary mixing of types)
 weights_valid
@@ -80,7 +80,7 @@ We column names should start with the bin centre , for exmaple PDF_0.025, PDF0.0
 Please also include the following in the DataFrame 
 MODE_Z
 MEAN_Z
-Z_SPEC
+REDSHIFT
 MEDIAN_Z
 Z_MC
 

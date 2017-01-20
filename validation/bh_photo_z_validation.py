@@ -307,15 +307,14 @@ def delta_sigma_crit(z1, z2, z_lens):
 
     """
     binCenters = np.linspace(0, 3, 300)
-    p_w_true = gss_kde(z1).evaluate(binCenters)
-    p_w_phot = gss_kde(z2).evaluate(binCenters)
+    p_w_true = gaussian_kde(z1).evaluate(binCenters)
+    p_w_phot = gaussian_kde(z2).evaluate(binCenters)
 
     cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
-    dC = cosmo.comoving_distance(binCenters)
-    dc_lensz = cosmo.comoving_distance(z_lens)
 
-    #true for a flat cosmoslogy.
-    DCs_Ds = np.array((dC - dc_lensz) / dc_lensz)
+    Ds = cosmo.angular_diameter_distance(binCenters)
+    Dds = cosmo.angular_diameter_distance_z1z2(z_lens, binCenters)
+    DCs_Ds = Dds / Ds
 
     DCs_Ds[binCenters < z_lens] = 0
     p_w_phot = p_w_phot / np.trapz(p_w_phot, x=binCenters)
@@ -323,8 +322,9 @@ def delta_sigma_crit(z1, z2, z_lens):
 
     int_phot = np.trapz(p_w_phot * DCs_Ds, x=binCenters)
     int_true = np.trapz(p_w_true * DCs_Ds, x=binCenters)
-
-    return int_true - int_phot
+    print ("int_true", int_true)
+    print ("int_phot", int_phot)
+    return int_true / int_phot
 
 
 def delta_z(z_spec, z_phot):

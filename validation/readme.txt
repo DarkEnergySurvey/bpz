@@ -50,6 +50,7 @@ e.g.
 
 ./photoz_metrics.py LSS.COADD.ADAZ.p /bensdir/allmypredictions/*.fits
 
+Add the name LSS, or WL, or Y1 to the pickle file. This will enable smooth usage in the validation notebook.
 
 -- currently depreciated.
 2) %>./photoz_metrics.py  pdfFilePredictions.hdf5

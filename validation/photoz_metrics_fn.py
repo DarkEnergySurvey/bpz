@@ -139,8 +139,8 @@ def perform_tests(d, test_dict):
 
                         res[photoz]['metrics_diffz'][metric][diffpp]['bins'][ky] = {}
                         #this uses the binned_stats function
-                        """http://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.stats.binned_statistic.html
-                        """
+                        #http://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.stats.binned_statistic.html
+                        
 
                         #calculate the unweighted statistics in each bin
                         bn_stats = stats.binned_statistic(d[ky], points[diffpp], bins=bin_vals, statistic=metric_function)
@@ -166,16 +166,13 @@ def perform_tests(d, test_dict):
     return res
 """
 
-def perform_tests_fast(d, test_dict):
+def perform_tests_fast(d, tst):
     """perform_tests_fast performs a fast set of tests without boot strap resampling, or any error resampling """
     #results dictionary
     res = {}
 
-       #results dictionary
-    res = {'test_config': test_dict}
-
-    #get all the columns we are gonna test on
-    reqcols = test_dict['metrics'].keys()
+     #get all the columns we are gonna test on
+    reqcols = tst['metrics'].keys()
 
     for i in reqcols:
         if i not in d.keys():
@@ -198,7 +195,7 @@ def perform_tests_fast(d, test_dict):
             metric_function = pval.get_function(metric)
 
             #do I have to pass any additional arguments to this function?
-            extra_params = get_extra_params(tst, metric)
+            extra_params = pval.get_extra_params(tst, metric)
 
             #what weighting scheme shall we apply?
             for wght in tst['weights']:

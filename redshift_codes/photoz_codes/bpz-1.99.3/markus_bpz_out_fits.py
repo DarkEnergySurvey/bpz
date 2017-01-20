@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 import sys
 import numpy as np
-import pyfits
+import astropy.io.fits as pyfits
 import random as rdm
 import copy
 from joblib import Parallel, delayed
@@ -47,10 +47,11 @@ def get_mc(pdf, zarr):
     else:
         return -1.
 
-def get_mean(pdf, zarr):
+def get_mean_and_sig(pdf, zarr):
     if np.sum(pdf) > 0:
         zm = np.average(zarr, weights=pdf)
-        return zm
+        sig = np.sqrt(np.average((zarr-zm)*(zarr-zm), weights=pdf))
+        return zm, sig
     else:
         return -1.
 
@@ -60,7 +61,7 @@ def get_median(pdf, zarr):
     else:
         return -1.
 
-def get_sig(pdf, zarr):
+def get_sig68(pdf, zarr):
     s2 = pval.xval_cumaltive_at_ypoint(pdf, zarr, 0.84075)
     s1 = pval.xval_cumaltive_at_ypoint(pdf, zarr, 0.15825)
     s68 = (s2 - s1) / 2.0
@@ -99,10 +100,10 @@ def main_program(in_file):
     ID = copy.copy(prob_in[:, 0])
     probs = prob_in[:, 1:]
 
-    mean = np.array([get_mean(el, z_default) for el in probs])
+    mean, sigma = np.array([get_meanand_sig(el, z_default) for el in probs])
     median = np.array([get_median(el, z_default) for el in probs])
     mc = np.array([get_mc(el, z_default) for el in probs])
-    sig68 = np.array([get_sig(el, z_default) for el in probs])
+    sig68 = np.array([get_sig68(el, z_default) for el in probs])
 
     del probs, prob_in
 
@@ -114,7 +115,7 @@ def main_program(in_file):
                 pyfits.Column(name='Z_MC', format='D', array=mc),
                 pyfits.Column(name='REDSHIFT', format='D', array=zspec),
                 pyfits.Column(name='Z_SIGMA68', format='D', array=sig68),
-                pyfits.Column(name='Z_SIGMA', format='D', array=sig68)
+                pyfits.Column(name='Z_SIGMA', format='D', array=sigma)
                                             ])
 
     tbhdu.writeto(out_fits)

@@ -9,6 +9,8 @@ A worked example with a small example BPZ ready file
 --- markus_bpz_out_fits.py ---
 Executable file to convert current BPZ output to a redshift-validation ready point prediction fits files.
 
+%>python markus_pbz_out_fits.py Paths*ToBPZPredictions.bpz
+
 
 --- bpz_prior_wrapper.py ---
 A handy wrapper to extract the prior used for BPZ. 

@@ -114,7 +114,7 @@ def main_program(in_file):
     ID = copy.copy(prob_in[:, 0])
     probs = prob_in[:, 1:]
 
-    mean, sigma = np.array([get_mean(el, z_default) for el in probs])
+    mean = np.array([get_mean(el, z_default) for el in probs])
     sigma = np.array([get_sig(el, z_default) for el in probs])
 
     median = np.array([get_median(el, z_default) for el in probs])

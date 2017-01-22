@@ -56,6 +56,7 @@ def get_mean(pdf, zarr):
 
 def get_sig(pdf, zarr):
     if np.sum(pdf) > 0:
+        zm = np.average(zarr, weights=pdf)
         sig = np.sqrt(np.average((zarr-zm)*(zarr-zm), weights=pdf))
         return sig
     else:

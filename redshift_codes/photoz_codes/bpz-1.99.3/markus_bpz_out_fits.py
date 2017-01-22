@@ -47,6 +47,20 @@ def get_mc(pdf, zarr):
     else:
         return -1.
 
+def get_mean(pdf, zarr):
+    if np.sum(pdf) > 0:
+        zm = np.average(zarr, weights=pdf)
+        return zm
+    else:
+        return -1.
+
+def get_sig(pdf, zarr):
+    if np.sum(pdf) > 0:
+        sig = np.sqrt(np.average((zarr-zm)*(zarr-zm), weights=pdf))
+        return sig
+    else:
+        return -1.
+
 def get_mean_and_sig(pdf, zarr):
     if np.sum(pdf) > 0:
         zm = np.average(zarr, weights=pdf)
@@ -100,7 +114,9 @@ def main_program(in_file):
     ID = copy.copy(prob_in[:, 0])
     probs = prob_in[:, 1:]
 
-    mean, sigma = np.array([get_meanand_sig(el, z_default) for el in probs])
+    mean, sigma = np.array([get_mean(el, z_default) for el in probs])
+    sigma = np.array([get_sig(el, z_default) for el in probs])
+
     median = np.array([get_median(el, z_default) for el in probs])
     mc = np.array([get_mc(el, z_default) for el in probs])
     sig68 = np.array([get_sig68(el, z_default) for el in probs])

@@ -24,26 +24,28 @@ Update Aug 2016, to include WL metrics
 Authors: Ben Hoyle
 
 -input:
-photoz_metrics.py data/PointPredictions1.fits data/PointPredictions*.fits
+photoz_metrics.py SCIENCE_SAMPLE ResultsFileName.p data/PointPredictions*.fits
 or
-photoz_metrics.py data/pdfPredictions*.hdf5
-or a mix of the two
-photoz_metrics.py data/pdfPredictions*.hdf5 data/PointPredictions*.fits
-or you can make more fine tuned validations using a configuration yaml file
-photoz_metrics.py config.yaml
+photoz_metrics.py SCIENCE_SAMPLE ResultsFileName.p data/pdfPredictions*.hdf5
 
 -help
 Also see the ipython notebook, called ValidationScriptExample.ipynb
-if you run
-./photoz_metrics.py
-an example configuration file will been written to the directory.
 
--outputs:
 """
 
 #determine path to enclosing directory
 pathname = os.path.dirname(sys.argv[0])
 path = os.path.abspath(pathname)
+
+
+def help():
+    print "DES photoz validation code"
+    print "usage like"
+    print "photoz_metrics.py SCIENCE_SAMPLE ResultsFileName.p data/PointPredictions*.fits"
+    print "or"
+    print "photoz_metrics.py SCIENCE_SAMPLE ResultsFileName.p data/pdfPredictions*.hdf5"
+    print "SCIENCE_SAMPLE = LSS_SAMPLE | WL_SAMPLE | Y1_SAMPLE"
+    sys.exit()
 
 
 def get_function(function_string):
@@ -52,98 +54,6 @@ def get_function(function_string):
     module = importlib.import_module(module)
     function = getattr(module, function)
     return function
-
-
-#write a config file, if called without a .fits of .hdf5 file
-def writeExampleConfig():
-    if os.path.isfile('exampleValidation.yaml') is False:
-        f = open('exampleValidation.yaml', 'w')
-        txt = textwrap.dedent("""
-
-#paths to file locations. will assume '.fits' as point predictions '.hdf5' as pdf predictions
-#add more files to list to compare multiple files
-filePaths: ['Y1A1_GOLD101_Y1A1trainValid_14.12.2015.valid.fits', 'Y1A1_GOLD101_Y1A1trainValid_14.12.2015.valid.hdf5']
-
-#1) OPTIONAL Which metrics and tolerance should we measure either a list of metrics, such as
-# and or a precomputed collection of group metrics and tolerances
-#set blank, or delete this line to not use these preconfigured metrics/bins/tolerances
-standardPredictions: [/testConfig/photoz.yaml, /testConfig/weak_lensing.yaml]
-
-# what will the path/ and or/base file name of the results be called?
-resultsFilePrefix:
-
-#2) EITHER 1) AND OR OPTIONAL Tests here:
-#And or / additionally choose your own metrics, as list
-#remove these if not required
-#these are the point prediction tests
-point:
-    #what is the true redshift that we will compare with?
-    truths: REDSHIFT
-
-    #shall we use weights when calculating metrics, if so specify here.
-    #:  no weights, or list of weights
-    weights: [IN_SCIENCE_SAMPLE, WL_WEIGHT]
-
-    #what metrics do we want to measure. 
-    #see validation/vlfn.py for a guide of how to add your own.
-    metrics: {MEAN_Z: [vlfn.median, vlfn.median_1pz, 
-                         vlfn.sigma_68_1pz, vlfn.sigma_68,
-                         vlfn.outFrac_2sigma68_1pz, 
-                         vlfn.outFrac_3sigma68_1pz,
-                         vlfn.outFrac_2sigma68, 
-                         vlfn.outFrac_3sigma68], 
-              Z_MC : [vlfn.wl_metric, vlfn.delta_sigma_crit]
-              }
-
-    #for WL we also care about measuring some quantities as a function of lens Z
-    #we need to pass these in as extra parameters
-    extra_params: {'vlfn.delta_sigma_crit': [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]}
-
-    #Finally do we want to also measure the metrics in some "bins". 
-    #we define the column_name: 'string of bins / string of function that makes bins'
-    bins: {MEAN_Z: [0.0, 0.1, 0.2, 0.43, 0.63, 0.9, 1.3]}
-    #'[0, 0.1, 0.2, 0.43, 0.63, 0.9, 1.3]']
-    #'[0, 0.1, 0.2, 0.39, 0.45, 0.58, 0.75, 1.3]']
-
-    #Should we calculate errors on each metric? if yes state how
-    #you can include as many different error functions as you like.
-    #e.g. pval.bootstrap_mean_error_binned == boostrap resampled errors
-    error_function:
-   
-#these are the pdf tests
-pdf:
-    #we can examine individual redshift pdfs. Remove this part you don't need to compare
-    individual:
-        truths: REDSHIFT
-
-        #let's perform the test found in Bordoloi et al 2012
-        metrics: [bh_photo_z_validation.Bordoloi_pdf_test]
-        tolerance: [0.7]
-
-        #show we calculate the metric in some user specified bins?
-        bins: [MAG_DETMODEL_I: '[ 17.5, 19, 22, 25]']
-
-        #shall we use weights when calculating metrics, if so specify here.
-        weights: WEIGHT
-
-        #how will we calculate an error on this test? Take care when changing this
-        error_function: [bh_photo_z_validation.bootstrap_mean_error_pdf_point]
-
-    #or shall we compare against stacked pdfs
-    stacks:
-        truths: REDSHIFT
-        #we convert truths to a distribution by choosing these bins
-        truth_bins: [REDSHIFT: 'numpy.arange(5)*0.33']
-
-        #which additional bins shall we use to calculate metrics?
-        bins: [MAG_DETMODEL_I: '[ 17.5, 19, 22, 25]']
-        metrics: [bh_photo_z_validation.ks_test, bh_photo_z_validation.npoisson, bh_photo_z_validation.log_loss]
-        tolerance: [0.7, 20, 50]
-        #shall we use weights when calculating metrics, if so specify here. e.g. WEIGHTS_LSS
-        weights: WEIGHT
-""")
-        f.write(txt)
-        f.close()
 
 
 def fileType(filename, _dict):
@@ -189,16 +99,18 @@ def load_file(f, cols):
 #get input arguments
 args = sys.argv[1:]
 print args
+if '_SAMPLE' not in args[0].upper() or '.p' not in args[1] or '.fits' == args[0][-4:]:
+   help()
+ 
+SCIENCE_SAMPLE = args[0].upper()
+results_file_name = args[1]
+input_files = args[2:]
 
-if '.p' not in args[0] or '.fits' == args[0][-4:]:
-    results_file_name = join(random.choice(string.ascii_uppercase + string.digits) for _ in range(5)) + '.p'
-    input_files = args
-else:
-    results_file_name = args[0]
-    input_files = args[1:]
 
 if results_file_name[-2:] != '.p':
-    results_file_name += '.p'
+    print ('add .p to pickleFileoutPut.p')
+    print (results_file_name)
+    help()
 
 #poplate the lists of files for point predictions, and pdf predictions
 files = {'point': [], 'pdf': []}
@@ -209,13 +121,7 @@ for arg in input_files:
     files = fileType(arg, files)
 
 if len(files['point']) + len(files['pdf']) < 1:
-    print "DES photoz validation code"
-    print "usage like"
-    print "photoz_metrics.py ResultsFileName.p data/PointPredictions*.fits"
-    print "or"
-    print "photoz_metrics.py ResultsFileName.p data/pdfPredictions*.hdf5"
-    writeExampleConfig()
-    sys.exit()
+    help()
 
 #which sets of metrics + tests shall we perform
 testProperties = {'point': [], 'pdf': []}
@@ -224,7 +130,7 @@ import string
 import random
 
 #nothing is specified, using the standard tests
-test_path = path + '/testConfig/photoz.yaml'
+test_path = path + '/testConfig/' + SCIENCE_SAMPLE + '.yaml'
 p = load_yaml(test_path)
 for ptype in testProperties:
     if pval.key_not_none(p, ptype):

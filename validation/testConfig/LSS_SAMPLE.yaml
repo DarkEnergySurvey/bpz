@@ -1,0 +1,52 @@
+test_name: photoz-wg
+#these are the point prediction tests
+point:
+    #what is the true redshift that we will compare with?
+    truths: REDSHIFT
+
+    #shall we use weights when calculating metrics, if so specify here.
+    #:  no weights, or list of weights
+    weights: [IN_LSS_SAMPLE]
+
+    #what metrics do we want to measure. 
+    #see validation/vlfn.py for a guide of how to add your own.
+    metrics: {MEAN_Z: [vlfn.median, vlfn.median_1pz, 
+                         vlfn.sigma_68_1pz, vlfn.sigma_68,
+                         vlfn.outFrac_2sigma68_1pz, 
+                         vlfn.outFrac_3sigma68_1pz,
+                         vlfn.outFrac_2sigma68, 
+                         vlfn.outFrac_3sigma68], 
+              Z_MC : [vlfn.wl_metric]
+              }
+
+    #for WL we also care about measuring some quantities as a function of lens Z
+    #we need to pass these in as extra parameters
+    extra_params:
+
+    #Finally do we want to also measure the metrics in some "bins". 
+    #we define the column_name: 'string of bins / string of function that makes bins'
+    bins: {MEAN_Z: [0.6, 0.7, 0.8, 0.9, 1.0]}
+    #'[0, 0.1, 0.2, 0.43, 0.63, 0.9, 1.3]']
+    #'[0, 0.1, 0.2, 0.39, 0.45, 0.58, 0.75, 1.3]']
+    #'[0.6, 0.7, 0.8, 0.9, 1.0]']
+
+    #Should we calculate errors on each metric? if yes state how
+    #you can include as many different error functions as you like.
+    #e.g. pval.bootstrap_mean_error_binned == boostrap resampled errors
+    error_function:
+
+#these are the pdf tests
+pdf: 
+    #we can examine individual redshift pdfs. Remove this part you don't need to compare
+
+    #or shall we compare against stacked pdfs
+    stacks:
+        truths: REDSHIFT
+
+        #which additional bins shall we use to calculate metrics?
+        bins: [REDSHIFT: [0.0, 0.3, 0.6, 0.9, 1.3, 2.0]]
+        metrics: [bh_photo_z_validation.ks_test, bh_photo_z_validation.npoisson, bh_photo_z_validation.log_loss, numpy.mean]
+
+        #shall we use weights when calculating metrics, if so specify here.
+        weights:
+

@@ -6,7 +6,7 @@ point:
 
     #shall we use weights when calculating metrics, if so specify here.
     #:  no weights, or list of weights
-    weights: [IN_WL_SAMPLE, WEIGHT_ZLENS_0.2, WEIGHT_ZLENS_0.3,WEIGHT_ZLENS_0.4,WEIGHT_ZLENS_0.5,WEIGHT_ZLENS_0.6,WEIGHT_ZLENS_0.7, WEIGHT_ZLENS_0.8]
+    weights: [IN_WL_SAMPLE, WEIGHT_ZLENS_0.2, WEIGHT_ZLENS_0.3, WEIGHT_ZLENS_0.4,WEIGHT_ZLENS_0.5,WEIGHT_ZLENS_0.6, WEIGHT_ZLENS_0.7, WEIGHT_ZLENS_0.8]
 
     #what metrics do we want to measure. 
     #see validation/vlfn.py for a guide of how to add your own.
@@ -19,7 +19,7 @@ point:
 
     #for WL we also care about measuring some quantities as a function of lens Z
     #we need to pass these in as extra parameters
-    extra_params:
+    extra_params: {'vlfn.delta_sigma_crit': [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]}
 
     #Finally do we want to also measure the metrics in some "bins". 
     #we define the column_name: 'string of bins / string of function that makes bins'

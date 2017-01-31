@@ -59,17 +59,20 @@ def remove_crazy_colors(d, PHOT_, indicies=False):
 def lensing_weight_cosmic_shear(obj):
     # return lensing weight (shape noise only) for an object from the matched shear catalogs
 
-    if('m1' in obj.columns):
+    if('M1' in obj.columns.names):
         # it's im3shape
-        return obj['weight'] * (1. + (obj['m1'] + obj['m2']) / 2.)
+        return obj['WEIGHT'] * (1. + (obj['M1'] + obj['M2']) / 2.)
 
-    if('mcal_e1_1m' in obj.columns):
+    if('mcal_e1_1m' in obj.columns.names):
         # it's metacal
         return 0.5 * obj['weight'] * [(obj['mcal_e1_1p'] - obj['mcal_e1_1m']) / 0.02 + (obj['mcal_e2_2p'] - obj['mcal_e2_2m']) / 0.02]
-    print("this is not a proper shape object. i am failing you")
+
+    if('R11' in obj.columns.names):
+        # it's metacal
+        return 0.5 * obj['WEIGHT'] * (obj['R11'] + obj['R22'])
+
+    print ('error calculating weights')
     sys.exit()
-
-
 def lensing_weight_stacked_shear(obj, zlens):
     """Calculate the lengin weight for different zlens"""
     from astropy.cosmology import FlatLambdaCDM
@@ -94,18 +97,24 @@ def apply_cuts(d, sample):
 
     elif sample == 'WL':
         #WL weights
+        fntz = np.isfinite(d['MEAN_Z'])
         for z_l in [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]:
-            cols['WEIGHT_ZLENS_{:}'.format(z_l)] = lensing_weight_stacked_shear(obj, z_l)
+            wgt = lensing_weight_stacked_shear(d, z_l)
+            wgt[wgt < 0] = 0.0
+            wgt[np.isfinite(wgt) != True] = 0.0
+            wgt = np.array(wgt, dtype=float)
+            cols['WEIGHT_ZLENS_{:}'.format(z_l)] = wgt * np.array(d['MEAN_Z'] > 0) * fntz
+        cols['IN_WL_SAMPLE'] = np.array(d['WEIGHT'] > 0) * np.array(d['MEAN_Z'] > 0) * fntz
 
     elif sample == 'Y1':
         #Y1 sample definition
         cols['IN_Y1_SAMPLE'] = np.array((d['MEAN_Z'] > 0) * (d['SIGMA_68'] < 1.0))
 
-        if ('MAG_AUTO_I' in obj.columns):
+        if ('MAG_AUTO_I' in obj.columns.names):
             cols['IN_Y1_SAMPLE'] *= np.array((d['MAG_AUTO_I'] < 23.5) * (d['MAGERR_AUTO_I'] < 0.3))
             cols['IN_Y1_SAMPLE'] *= remove_crazy_colors(d, 'COADD', indicies=True)
             cols['IN_Y1_SAMPLE'] *= np.array((d['MAG_AUTO_I'] > 16))
-        if ('MAG_MOF_I' in obj.columns):
+        if ('MAG_MOF_I' in obj.columns.names):
             cols['IN_Y1_SAMPLE'] *= remove_crazy_colors(d, 'MOF', indicies=True)
             cols['IN_Y1_SAMPLE'] *= np.array((d['MAG_MOF_I'] < 23.5) * (d['MAG_MOF_I'] > 16))
 

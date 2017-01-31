@@ -59,6 +59,8 @@ def get_extra_params(tst_, metric_name):
     and it has a key=== metric_name, then return the extra params
     else return None"""
 
+    if tst_['extra_params'] is None:
+        return None
     extra_params = key_not_none(tst_, 'extra_params')
     if extra_params is not None:
         if key_not_none(tst_['extra_params'], metric_name):
@@ -322,8 +324,6 @@ def delta_sigma_crit(z1, z2, z_lens):
 
     int_phot = np.trapz(p_w_phot * DCs_Ds, x=binCenters)
     int_true = np.trapz(p_w_true * DCs_Ds, x=binCenters)
-    print ("int_true", int_true)
-    print ("int_phot", int_phot)
     return int_true / int_phot
 
 

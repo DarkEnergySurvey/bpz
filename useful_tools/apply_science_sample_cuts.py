@@ -69,7 +69,7 @@ def lensing_weight_cosmic_shear(obj):
 
     if('R11' in obj.columns.names):
         # it's metacal
-        return 0.5 * obj['WEIGHT'] * (obj['R11'] + obj['R22'])
+        return 0.5 * (obj['R11'] + obj['R22'])
 
     print ('error calculating weights')
     sys.exit()
@@ -104,7 +104,7 @@ def apply_cuts(d, sample):
             wgt[np.isfinite(wgt) != True] = 0.0
             wgt = np.array(wgt, dtype=float)
             cols['WEIGHT_ZLENS_{:}'.format(z_l)] = wgt * np.array(d['MEAN_Z'] > 0) * fntz
-        cols['IN_WL_SAMPLE'] = np.array(d['WEIGHT'] > 0) * np.array(d['MEAN_Z'] > 0) * fntz
+        cols['IN_WL_SAMPLE'] = np.array(d['R11'] + d['R22'] > 0) * np.array(d['MEAN_Z'] > 0) * fntz
 
     elif sample == 'Y1':
         #Y1 sample definition

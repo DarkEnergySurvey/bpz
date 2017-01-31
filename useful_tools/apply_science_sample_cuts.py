@@ -12,7 +12,8 @@ Note, these columns are required to be in the files"
 COADD+MOF: MEAN_Z Z_SIGMA_68
 depending on science sample + photometry
 for COADD: MAG_AUTO_G MAG_AUTO_R MAG_AUTO_I MAG_AUTO_Z WEIGHT M1 M2 MAGERR_AUTO_I
-for MOF: MAG_MOF_G MAG_MOF_R MAG_MOF_I MAG_MOF_Z mcal_e1_1p mcal_e1_1m mcal_e2_2p mcal_e2_2m WEIGHT
+for MOF: MAG_MOF_G MAG_MOF_R MAG_MOF_I MAG_MOF_Z mcal_e1_1p mcal_e1_1m mcal_e2_2p mcal_e2_2m weight
+for METACAL: R11 R22 mcal_psf_e1 mcal_psf_e2 weight"
 """
 
 import sys
@@ -28,6 +29,7 @@ def help():
     print "COADD+MOF: MEAN_Z Z_SIGMA_68"
     print "for COADD: MAG_AUTO_G MAG_AUTO_R MAG_AUTO_I MAG_AUTO_Z WEIGHT M1 M2 MAGERR_AUTO_I"
     print "for MOF: MAG_MOF_G MAG_MOF_R MAG_MOF_I MAG_MOF_Z mcal_e1_1p mcal_e1_1m mcal_e2_2p mcal_e2_2m WEIGHT"
+    print "for METACAL: R11 R22 mcal_psf_e1 mcal_psf_e2"
     sys.exit()
 
 
@@ -40,6 +42,10 @@ def remove_crazy_colors(d, PHOT_, indicies=False):
     if PHOT_ == 'COADD':
         cols = [['MAG_AUTO_G', 'MAG_AUTO_R'], ['MAG_AUTO_R', 'MAG_AUTO_I'],
                 ['MAG_AUTO_I', 'MAG_AUTO_Z']]
+    
+    if PHOT_ == 'METACAL':
+        cols = [['MAG_G', 'MAG_R'], ['MAG_R', 'MAG_I'],
+                ['MAG_I', 'MAG_Z']]
 
     ind = np.ones(len(d), dtype=bool)
     for m1, m2 in cols:
@@ -99,7 +105,7 @@ def apply_cuts(d, sample):
             cols['IN_Y1_SAMPLE'] *= np.array((d['MAG_AUTO_I'] < 23.5) * (d['MAGERR_AUTO_I'] < 0.3))
             cols['IN_Y1_SAMPLE'] *= remove_crazy_colors(d, 'COADD', indicies=True)
             cols['IN_Y1_SAMPLE'] *= np.array((d['MAG_AUTO_I'] > 16))
-        else:
+        if ('MAG_MOF_I' in obj.columns):
             cols['IN_Y1_SAMPLE'] *= remove_crazy_colors(d, 'MOF', indicies=True)
             cols['IN_Y1_SAMPLE'] *= np.array((d['MAG_MOF_I'] < 23.5) * (d['MAG_MOF_I'] > 16))
 

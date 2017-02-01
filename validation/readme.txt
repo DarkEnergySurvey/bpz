@@ -45,12 +45,13 @@ There is one way of calling the code:
 
 1)
 
-%>./photoz_metrics.py PathToOutPutPickleFile.p LocationOfFitsFiles*.fits
+%>./photoz_metrics.py SCIENCE_SAMPLE PathToOutPutPickleFile.p LocationOfFitsFiles*.fits
 e.g.
 
-./photoz_metrics.py LSS.COADD.ADAZ.p /bensdir/allmypredictions/*.fits
+./photoz_metrics.py LSS_SAMPLE LSS.COADD.ADAZ.p /bensdir/allmypredictions/*.fits
 
 Add the name LSS, or WL, or Y1 to the pickle file. This will enable smooth usage in the validation notebook.
+SCIENCE_SAMPLE = LSS_SAMPLE | WL_SAMPLE | Y1_SAMPLE
 
 -- currently depreciated.
 2) %>./photoz_metrics.py  pdfFilePredictions.hdf5
@@ -82,7 +83,7 @@ Either
 IN_LSS_SAMPLE
 IN_Y1_SAMPLE 
 or for WL
-WEIGHT_ZLENS_0.2, WEIGHT_ZLENS_0.3,WEIGHT_ZLENS_0.4,WEIGHT_ZLENS_0.5,WEIGHT_ZLENS_0.6,WEIGHT_ZLENS_0.7, WEIGHT_ZLENS_0.8
+IN_WL_SAMPLE, WEIGHT_ZLENS_0.2, WEIGHT_ZLENS_0.3,WEIGHT_ZLENS_0.4,WEIGHT_ZLENS_0.5,WEIGHT_ZLENS_0.6,WEIGHT_ZLENS_0.7, WEIGHT_ZLENS_0.8
 
 It must also have any extra columns that you use in the test file, in the correct case.
 

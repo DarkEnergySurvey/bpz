@@ -578,7 +578,7 @@ def xval_cumaltive_at_ypoint(dfs, bincenter, point, k=3):
         binEdges = np.append(binEdges, bincenter[-1] + delta_bin)
         
         dfs_bins = np.append(np.append(dfs[0], dfs), dfs[-1])
-        print 'point b4', point
+
         point = np.amin((point, np.amax(binEdges)))
         point = np.amax((point, np.amin(binEdges)))
 

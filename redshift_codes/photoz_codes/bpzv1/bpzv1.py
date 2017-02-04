@@ -385,8 +385,8 @@ def main(args):
                     )
                     t = time.time()
 
-                    if 'REDSHIFT' in orig_cols.name():
-                        delta_z = z_max_post - orig_table['REDSHIFT'][0: n_gals]
+                    if 'REDSHIFT' in orig_cols.names:
+                        delta_z = z_max_post[0: i] - orig_table['REDSHIFT'][0: i]
                         print ('median, mean, std, len', np.median(delta_z), np.mean(delta_z), np.std(delta_z), len(delta_z))
 
         cols = {'MEAN_Z': mean, 'Z_SIGMA': sigma, 'MEDIAN_Z': median,

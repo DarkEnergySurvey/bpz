@@ -125,7 +125,7 @@ import random as rdm
 import copy
 from joblib import Parallel, delayed
 import bh_photo_z_validation as pval
-
+import time
 """
 if __name__ == '__main__':
     args = sys.argv[1:]
@@ -137,6 +137,7 @@ if __name__ == '__main__':
 #@profile
 def main(args):
 
+    t = time.time()
     config = yaml.load(open(args[0]))
 
     files = args[1:]
@@ -336,16 +337,14 @@ def main(args):
             f = f_obs[i]
             ef = ef_obs[i]
             foo = np.sum(np.power(f / ef, 2))
-            
+
             ef_ = ef.reshape(1, 1, nf)
+
+            #this is a slow part of the code!
             fot = np.sum(np.divide(f.reshape(1, 1, nf) * f_mod,  np.power(ef_, 2)), axis=2)
 
-            #ftt = np.sum(np.power(f_mod, 2) / np.power(ef.reshape(1, 1, nf), 2), axis=2)
-
-            #print np.shape(ftt)
-            
+            #this is the slowest part of the code!         
             ftt = np.sum(np.power(np.divide(f_mod, ef_), 2), axis=2)
-            #print 
 
             chi2 = foo - np.power(fot, 2) / (ftt + eps)
 
@@ -379,13 +378,19 @@ def main(args):
             sig68[i] = get_sig68(marg_post, z_bins)
             z_max_post[i] = z_bins[ind_max_marg]
 
+            if key_not_none(config, 'verbose'):
+                if i % int(n_gals/50) == int(n_gals/50) - 1:
+                    print ('iteration {:} of {:}: {:}secs'.format(
+                           i, n_gals, time.time()-t)
+                    )
+                    t = time.time()
 
-        #delta_z = z_max_post - orig_table['REDSHIFT'][0: n_gals]
-        #print 'mean, std, len',np.median(delta_z), np.mean(delta_z), np.std(delta_z), len(delta_z) 
-
+                    if 'REDSHIFT' in orig_cols.name():
+                        delta_z = z_max_post - orig_table['REDSHIFT'][0: n_gals]
+                        print ('median, mean, std, len', np.median(delta_z), np.mean(delta_z), np.std(delta_z), len(delta_z))
 
         cols = {'MEAN_Z': mean, 'Z_SIGMA': sigma, 'MEDIAN_Z': median,
-            'Z_MC': mc, 'Z_SIGMA68':sig68}
+            'Z_MC': mc, 'Z_SIGMA68': sig68}
         
         new_cols = pyfits.ColDefs([pyfits.Column(name=col_name, array=cols[col_name], format='D') for col_name in cols.keys()])
         add_cols = pyfits.ColDefs([pyfits.Column(name=col_name, array=orig_table[col_name], format='D') for col_name in config['ADDITIONAL_OUTPUT_COLUMNS']])
@@ -396,12 +401,10 @@ def main(args):
         hdu.writeto(fname)
 
 #"""
-args = sys.argv[1:]
-if len(args) < 2 or 'help' in args or '-h' in args:
-    help()
-
 if __name__ == '__main__':
-
+    args = sys.argv[1:]
+    if len(args) < 2 or 'help' in args or '-h' in args:
+        help()
 
     #args = ['bpzConfig.yaml', 'WL_CLASS.METACAL.rescaled.slr.cosmos.v2._96_200.fits']
     main(args)

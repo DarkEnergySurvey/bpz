@@ -74,3 +74,6 @@ INTERP: 8
 
 #should we parralise the loops?
 n_jobs: 5
+
+#print some information to screen
+verbose: True

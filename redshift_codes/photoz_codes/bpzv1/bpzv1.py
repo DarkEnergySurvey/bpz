@@ -156,9 +156,11 @@ def main(args):
     if key_not_none(config, 'SED_DIR') is False:
         config['SED_DIR'] = config['BPZ_BASE_DIR'] + 'SED/'
 
+
     output_file_suffix = ''
     if key_not_none(config, 'output_file_suffix'):
         output_file_suffix = config['output_file_suffix']
+
 
     #load redshift bins
     z_bins = np.arange(config['redshift_bins'][0], config['redshift_bins'][1] + config['redshift_bins'][2], config['redshift_bins'][2])
@@ -168,6 +170,9 @@ def main(args):
 
     MAG_OR_FLUX = [config['filters'][i]['MAG_OR_FLUX'] for i in filters]
     MAG_OR_FLUXERR = [config['filters'][i]['ERR'] for i in filters]
+
+    if config['INPUT_MAGS'] is None:
+        config['INPUT_MAGS'] = ('mag' in MAG_OR_FLUX[0]) or ('MAG' in MAG_OR_FLUX[0]) 
 
     #jazz with spectra_list. Make all combinations of everything
     if config['rearrange_spectra']:
@@ -293,7 +298,7 @@ def main(args):
         ef_obs = np.array([np.array(orig_table[i]) for i in MAG_OR_FLUXERR]).T
 
         ind_process = np.ones(len(f_obs), dtype=bool)
-        if config['MAGS']:
+        if config['INPUT_MAGS']:
             for i in range(len(MAG_OR_FLUX)):
                 ind_process *= (f_obs[:, i] != config['mag_unobs'])
 
@@ -334,18 +339,19 @@ def main(args):
 
         for i in np.arange(n_gals):
 
-            f = f_obs[i]
-            ef = ef_obs[i]
-            foo = np.sum(np.power(f / ef, 2))
 
-            ef_ = ef.reshape(1, 1, nf)
+            foo = np.sum(np.power(f_obs[i] / ef_obs[i], 2))
 
+            f = f_obs[i].reshape(1, 1, nf)
+            ef = ef_obs[i].reshape(1, 1, nf)
+
+            
             #this is a slow part of the code!
-            fot = np.sum(np.divide(f.reshape(1, 1, nf) * f_mod,  np.power(ef_, 2)), axis=2)
-
+            fot = np.sum(np.divide(f * f_mod,  np.power(ef, 2)), axis=2)
+            
             #this is the slowest part of the code!         
-            ftt = np.sum(np.power(np.divide(f_mod, ef_), 2), axis=2)
-
+            ftt = np.sum(np.power(np.divide(f_mod, ef), 2), axis=2)
+            
             chi2 = foo - np.power(fot, 2) / (ftt + eps)
 
             ind_mchi2 = np.where(chi2 == np.amin(chi2))
@@ -357,10 +363,13 @@ def main(args):
 
             prior = np.zeros_like(likelihood)
             pr_mg = gal_mag_type_prior.keys()
+
+
             ind_mag_p = np.argmin(np.abs(prior_mag[i] - np.array(pr_mg)))
 
             for j in np.arange(len(f_mod[0, :, 0])):
                 prior[:, j] = gal_mag_type_prior[pr_mg[ind_mag_p]][j]
+
 
             #posterior is prior * Likelihood
             posterior = prior * likelihood
@@ -377,6 +386,10 @@ def main(args):
             mc[i] = get_mc(marg_post, z_bins)
             sig68[i] = get_sig68(marg_post, z_bins)
             z_max_post[i] = z_bins[ind_max_marg]
+
+            #print i, 'z_max_post[i]', z_max_post[i]
+
+      
 
             if key_not_none(config, 'verbose'):
                 if i % int(n_gals/50) == int(n_gals/50) - 1:

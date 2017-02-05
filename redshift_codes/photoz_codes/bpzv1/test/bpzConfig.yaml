@@ -26,8 +26,9 @@ prior_name: sed_prior_file.cosmos_Laigle
 #expect i-band mag. e.g. MAG_AUTO_I
 PRIOR_MAGNITUDE: MAG_I
 
-#work with MAGS of FLUX [I'm too lazy to learn this from the data securely]
-MAGS: False
+#work with MAGS [True] or FLUX [False]. If left blank [default] the code infers this 
+#from the presence of MAG or mag in the XXX of filters: ky: {MAG_OR_FLUX: 'XXX'}
+INPUT_MAGS: 
 
 #minimum magnitude error
 MIN_MAGERR: 0.001
@@ -37,6 +38,7 @@ mag_unobs: -99
 
 #Objects not detected 
 mag_undet: 99
+
 
 #this construct which magnitudes / or FLUXES map to which filters
 filters: {
@@ -56,6 +58,8 @@ filters: {
     DECam_2014_z.res: {MAG_OR_FLUX: FLUX_Z, ERR: FLUX_ERR_Z, AB_V: AB, zp_error: 0.02, zp_offset: 0.0}
     #DECam_2014_Y.res: {MAG: MAG_MOF_Y, ERR: MAGERR_MOF_Y, AB_V: AB, zp_error: 0.02, zp_offset: 0.0}
     }
+
+
 
 
 #which magnitude will we use for flux normalisation?

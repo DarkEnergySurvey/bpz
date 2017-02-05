@@ -1,31 +1,86 @@
 This directory contains an updated version of BPZ.
-
-
 Authors: Ben Hoyle
 
-It is usable, but still under construction.
+1) About
 
-example usage. 
+2) Example
+
+3) Output
+
+4) comparison with old BPZv1.99.3
+
+5) To do
+
+1) About
+--- What this code does: ---
+This is a re-writing of BPZ. We make the code a lot cleaner, so that it could be parralised or cythonised in the future.
+
+The prior functions has re-written the priors into a nice class that can be callable from anywhere, not just BPZ
+
+It is also trivial to change the priors. Simply look at sed_prior_file.py for an example of how to change the priors.
+
+--- What this code doesn't do:---
+BPZ does lots of error checking under the hood and deals with missing / unseen data nicely. This is not currently implemented here.
+
+BPZ allows you to understand if you photometry is offset, and how to fix this. This is also not implemented.
+
+2) Example usage. 
+
+Use a text editor to look at bpzConfig.yaml. There you can make all the adjustments, set directory paths that you used to make within the BPZ code.
+
+To generate an exmaple yaml file run
+%>./bpzv1.py 
+
+-- this write exampleBPZConfig.yaml to disk (if it doesn't already exist) 
+
+To run the code
+
 %>./bpzv1.py PathToConfig.yaml PathToListofFitsFiles.fits
+
+PathToListofFitsFiles.fits can contain a * so that all files will be processsed separately
+
 
 where PathToConfig.yaml is a configuration file, that defines how to run the code. See bpzConfig.py for an example
 
+3) Output
 
+The code generates a output fits files, which contain 'MEAN_Z'  'Z_SIGMA' 'MEDIAN_Z': 'Z_MC': 'Z_SIGMA68': and any additional columns e.g. REDSHIFT or MAG_I or COADDED_OBJECTS_ID that you asked for within the config.yaml file.
 
+the file has the same name as the input fits file, with .BPZ.fits at the end.
+
+4) Comparison with older BPZ
+In the test/ directory there is .cat file and a .fits file of the same data. 
+
+The .cat file works with older version of bpz
 
 #compare the output of original BPZ and this version
-
 cd ../bpz-1.99.3/
 %> python bpz_tcorrv1.py ../bpzv1/test/WL_CLASS.METACAL.rescaled.slr.cosmos.v2._96_200_sampled.fits.cat  -COLUMNS columns/y1a1_final_spec_valid.columns  -INTERP 8 -VERBOSE 0
 
-with 
+And for comparison the newer version 
 %>./bpzv1.py test/bpzConfig.yaml test/WL_CLASS.METACAL.rescaled.slr.cosmos.v2._96_200_sampled.fits
 
+--- results ---
+Compare the outputs. The priors are identical [if old BPZ is correctly re-normalised -- it currently is not!], and the likelihoods are identical. Some small differences creep
+in due to different interpolation algorithms. This is a smaller than 2% effect.
+
+output:
+array:
+delta_z = z_max_post - REDSHIFT
+metrics:
+('median(delta_z), mean(delta_z), std(delta_z), len(delta_z)', 
+old-bpz
+0.027565844374 0.00345371289173 0.561903352785 4999
+new-bpz
+0.02721233069248824, -0.0069863751258707587, 0.56566552010489746, 4999)
+
+5) To do
+- write pdfs to hdf5
+- deal with unseen / missing data
+- cythonise code
+- parrallelise code
 
 
+-- under construction ---
 #first compile the cython code that allows a speed up of BPZ
-
 %>python setup.py build_ext --inplace
-
-
-

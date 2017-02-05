@@ -41,9 +41,8 @@ def writeExampleConfig():
     import os.path
     import os
     path = os.getcwd() + '/'
-    if os.path.isfile('exampleBPZConfig.yaml') is False:
-
-        f = open('exampleBPZConfig.yaml', 'w')
+    if os.path.isfile(path + 'exampleBPZConfig.yaml') is False:
+        f = open(path + 'exampleBPZConfig.yaml', 'w')
         txt = textwrap.dedent("""
 #redshift bins min, max, width
 redshift_bins: [0.01, 3.5, 0.01]
@@ -54,7 +53,6 @@ BPZ_BASE_DIR:
 AB_DIR: 
 SED_DIR: 
 FILTER_DIR: 
-
 
 #spectra list. This *must* match the sed_type below.
 sed_list: [El_B2004a.sed, Sbc_B2004a.sed, Scd_B2004a.sed, El_B2004a.sed, Im_B2004a.sed, SB3_B2004a.sed, El_B2004a.sed, SB2_B2004a.sed]
@@ -112,7 +110,7 @@ normalisation_filter: DECam_2014_i.res
 ADDITIONAL_OUTPUT_COLUMNS: [COADD_OBJECTS_ID, REDSHIFT, R11, R22, MAG_I, MAGERR_I]
 
 #do you wanna output a suffix for a filename
-output_file_suffix: 
+output_file_suffix:
 #do we also want pdfs to be produced?
 output_pdfs: True
 
@@ -124,9 +122,8 @@ n_jobs: 5
 
 #print some information to screen
 verbose: True 
-""".format(path))
+""")
         f.write(txt)
-        f.close()
         print ("An example file exampleBPZConfig.yaml has been written to disk")
 
 def key_not_none(d, ky):
@@ -510,7 +507,7 @@ def main(args):
 if __name__ == '__main__':
     args = sys.argv[1:]
     if len(args) < 2 or 'help' in args or '-h' in args:
-        help()
+        _help()
 
     #args = ['bpzConfig.yaml', 'WL_CLASS.METACAL.rescaled.slr.cosmos.v2._96_200.fits']
     main(args)

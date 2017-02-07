@@ -26,8 +26,9 @@ prior_name: sed_prior_file.cosmos_Laigle
 #expect i-band mag. e.g. MAG_AUTO_I
 PRIOR_MAGNITUDE: MAG_I
 
-#work with MAGS of FLUX [I'm too lazy to learn this from the data securely]
-MAGS: False
+#work with MAGS [True] or FLUX [False]. If left blank [default] the code infers this 
+#from the presence of MAG or mag in the XXX of filters: ky: {MAG_OR_FLUX: 'XXX'}
+INPUT_MAGS: 
 
 #minimum magnitude error
 MIN_MAGERR: 0.001

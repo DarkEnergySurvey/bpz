@@ -14,13 +14,117 @@ Deal with missing / unseen data properly
 """
 
 import sys
+import textwrap
+import inspect
+import yaml
+import numpy as np
+from galaxy_type_prior import GALAXYTYPE_PRIOR
+import os
+import copy
+from astropy.io import fits as pyfits
+import random as rdm
+import copy
+from joblib import Parallel, delayed
+import bh_photo_z_validation as pval
+import time
+
 
 def _help():
     print "new version BPZ"
     print "call like"
     print "bpzv1.py pathToConfigFile.yaml pathTofits*.fits"
+    writeExampleConfig()
     sys.exit()
 
+
+def writeExampleConfig():
+    import os.path
+    import os
+    path = os.getcwd() + '/'
+    if os.path.isfile(path + 'exampleBPZConfig.yaml') is False:
+        f = open(path + 'exampleBPZConfig.yaml', 'w')
+        txt = textwrap.dedent("""
+#redshift bins min, max, width
+redshift_bins: [0.01, 3.5, 0.01]
+
+#either set here, or we will determine this from the code.
+#Default: determine from code
+BPZ_BASE_DIR: 
+AB_DIR: 
+SED_DIR: 
+FILTER_DIR: 
+
+#spectra list. This *must* match the sed_type below.
+sed_list: [El_B2004a.sed, Sbc_B2004a.sed, Scd_B2004a.sed, El_B2004a.sed, Im_B2004a.sed, SB3_B2004a.sed, El_B2004a.sed, SB2_B2004a.sed]
+
+#Either E/S0 Spiral or Irr (elliptical, spiral, Irregular). The SEDs will be rearranged such that their is exact ascending order E/S0->Spiral->Irr
+sed_type: [E/S0, Spiral, Spiral, E/S0, Irr, Irr, E/S0, Irr]
+
+#go crazy and reorder all spectra types? Note: this is properly unphysical,
+#due to interpolation reordering above!
+rearrange_spectra: False
+
+# prior name, any set you like. See sed_proir_file.py for details.
+prior_name: sed_prior_file.cosmos_Laigle
+
+#expect i-band mag. e.g. MAG_AUTO_I
+PRIOR_MAGNITUDE: MAG_I
+
+#work with MAGS [True] or FLUX [False]. If left blank [default] the code infers this 
+#from the presence of MAG or mag in the XXX of filters: ky: {MAG_OR_FLUX: 'XXX'}
+INPUT_MAGS: 
+
+#minimum magnitude error
+MIN_MAGERR: 0.001
+
+# Objects not observed
+mag_unobs: -99 
+
+#Objects not detected 
+mag_undet: 99
+
+#this construct which magnitudes / or FLUXES map to which filters
+filters: {
+    DECam_2014_g.res: {MAG_OR_FLUX: MAG_G, ERR: MAGERR_G, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
+    DECam_2014_r.res: {MAG_OR_FLUX: MAG_R, ERR: MAGERR_R, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
+    DECam_2014_i.res: {MAG_OR_FLUX: MAG_I, ERR: MAGERR_I, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
+    DECam_2014_z.res: {MAG_OR_FLUX: MAG_Z, ERR: MAGERR_Z, AB_V: AB, zp_error: 0.02, zp_offset: 0.0}
+    #DECam_2014_Y.res: {MAG: MAG_MOF_Y, ERR: MAGERR_MOF_Y, AB_V: AB, zp_error: 0.02, zp_offset: 0.0}
+    }
+
+
+#this construct which magnitudes / or FLUXES map to which filters
+filters: {
+    DECam_2014_g.res: {MAG_OR_FLUX: FLUX_G, ERR: FLUX_ERR_G, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
+    DECam_2014_r.res: {MAG_OR_FLUX: FLUX_R, ERR: FLUX_ERR_R, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
+    DECam_2014_i.res: {MAG_OR_FLUX: FLUX_I, ERR: FLUX_ERR_I, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
+    DECam_2014_z.res: {MAG_OR_FLUX: FLUX_Z, ERR: FLUX_ERR_Z, AB_V: AB, zp_error: 0.02, zp_offset: 0.0}
+    #DECam_2014_Y.res: {MAG: MAG_MOF_Y, ERR: MAGERR_MOF_Y, AB_V: AB, zp_error: 0.02, zp_offset: 0.0}
+    }
+
+
+#which magnitude will we use for flux normalisation?
+normalisation_filter: DECam_2014_i.res
+
+#if these columns [in the stated case] don't exist a warning will be made, but the code will run.
+ADDITIONAL_OUTPUT_COLUMNS: [COADD_OBJECTS_ID, REDSHIFT, R11, R22, MAG_I, MAGERR_I]
+
+#do you wanna output a suffix for a filename
+output_file_suffix:
+#do we also want pdfs to be produced?
+output_pdfs: True
+
+#N_INTERPOLATE_TEMPLATES: Blank means No
+INTERP: 8
+
+#should we parralise the loops?
+n_jobs: 5
+
+#print some information to screen
+verbose: True 
+""")
+        f.write(txt)
+        print ("An example file exampleBPZConfig.yaml has been written to disk")
 
 def key_not_none(d, ky):
     if ky in d:
@@ -115,17 +219,6 @@ def get_sig68(pdf, zarr):
     s68 = (s2 - s1) / 2.0
     return s68
 
-import yaml
-import numpy as np
-from galaxy_type_prior import GALAXYTYPE_PRIOR
-import os
-import copy
-from astropy.io import fits as pyfits
-import random as rdm
-import copy
-from joblib import Parallel, delayed
-import bh_photo_z_validation as pval
-import time
 """
 if __name__ == '__main__':
     args = sys.argv[1:]
@@ -156,9 +249,11 @@ def main(args):
     if key_not_none(config, 'SED_DIR') is False:
         config['SED_DIR'] = config['BPZ_BASE_DIR'] + 'SED/'
 
+
     output_file_suffix = ''
     if key_not_none(config, 'output_file_suffix'):
         output_file_suffix = config['output_file_suffix']
+
 
     #load redshift bins
     z_bins = np.arange(config['redshift_bins'][0], config['redshift_bins'][1] + config['redshift_bins'][2], config['redshift_bins'][2])
@@ -168,6 +263,9 @@ def main(args):
 
     MAG_OR_FLUX = [config['filters'][i]['MAG_OR_FLUX'] for i in filters]
     MAG_OR_FLUXERR = [config['filters'][i]['ERR'] for i in filters]
+
+    if config['INPUT_MAGS'] is None:
+        config['INPUT_MAGS'] = ('mag' in MAG_OR_FLUX[0]) or ('MAG' in MAG_OR_FLUX[0]) 
 
     #jazz with spectra_list. Make all combinations of everything
     if config['rearrange_spectra']:
@@ -293,7 +391,7 @@ def main(args):
         ef_obs = np.array([np.array(orig_table[i]) for i in MAG_OR_FLUXERR]).T
 
         ind_process = np.ones(len(f_obs), dtype=bool)
-        if config['MAGS']:
+        if config['INPUT_MAGS']:
             for i in range(len(MAG_OR_FLUX)):
                 ind_process *= (f_obs[:, i] != config['mag_unobs'])
 
@@ -334,18 +432,19 @@ def main(args):
 
         for i in np.arange(n_gals):
 
-            f = f_obs[i]
-            ef = ef_obs[i]
-            foo = np.sum(np.power(f / ef, 2))
 
-            ef_ = ef.reshape(1, 1, nf)
+            foo = np.sum(np.power(f_obs[i] / ef_obs[i], 2))
 
+            f = f_obs[i].reshape(1, 1, nf)
+            ef = ef_obs[i].reshape(1, 1, nf)
+
+            
             #this is a slow part of the code!
-            fot = np.sum(np.divide(f.reshape(1, 1, nf) * f_mod,  np.power(ef_, 2)), axis=2)
-
+            fot = np.sum(np.divide(f * f_mod,  np.power(ef, 2)), axis=2)
+            
             #this is the slowest part of the code!         
-            ftt = np.sum(np.power(np.divide(f_mod, ef_), 2), axis=2)
-
+            ftt = np.sum(np.power(np.divide(f_mod, ef), 2), axis=2)
+            
             chi2 = foo - np.power(fot, 2) / (ftt + eps)
 
             ind_mchi2 = np.where(chi2 == np.amin(chi2))
@@ -357,10 +456,13 @@ def main(args):
 
             prior = np.zeros_like(likelihood)
             pr_mg = gal_mag_type_prior.keys()
+
+
             ind_mag_p = np.argmin(np.abs(prior_mag[i] - np.array(pr_mg)))
 
             for j in np.arange(len(f_mod[0, :, 0])):
                 prior[:, j] = gal_mag_type_prior[pr_mg[ind_mag_p]][j]
+
 
             #posterior is prior * Likelihood
             posterior = prior * likelihood
@@ -371,6 +473,7 @@ def main(args):
             
             ind_max_marg = np.where(marg_post == np.amax(marg_post))[0][0]
 
+            #define summary stats from the margenalised posterior.
             mean[i] = get_mean(marg_post, z_bins)
             sigma[i] = get_sig(marg_post, z_bins)
             median[i] = get_median(marg_post, z_bins)
@@ -404,7 +507,7 @@ def main(args):
 if __name__ == '__main__':
     args = sys.argv[1:]
     if len(args) < 2 or 'help' in args or '-h' in args:
-        help()
+        _help()
 
     #args = ['bpzConfig.yaml', 'WL_CLASS.METACAL.rescaled.slr.cosmos.v2._96_200.fits']
     main(args)

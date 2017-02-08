@@ -3,6 +3,8 @@ Authors: Ben Hoyle
 
 1) About
 
+1.1) Requirements
+
 2) Example
 
 3) Output
@@ -23,6 +25,27 @@ It is also trivial to change the priors. Simply look at sed_prior_file.py for an
 BPZ does lots of error checking under the hood and deals with missing / unseen data nicely. This is not currently implemented here.
 
 BPZ allows you to understand if you photometry is offset, and how to fix this. This is also not implemented.
+
+1.1) Requirements
+
+import sys
+from joblib import Parallel, delayed
+import numpy as np
+import inspect
+import random as rdm
+import yaml
+import os
+import copy
+from astropy.io import fits as pyfits
+import copy
+import time
+import pandas as pd
+
+-in the photoz-wg /validation/ directory
+import bh_photo_z_validation as pval
+
+-- in this directory
+from galaxy_type_prior import GALAXYTYPE_PRIOR
 
 2) Example usage. 
 

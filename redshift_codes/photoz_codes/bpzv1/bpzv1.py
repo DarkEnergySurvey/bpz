@@ -312,7 +312,7 @@ def parr_loop(lst):
     verbose = key_not_none(config, 'verbose')
     if verbose:
         print ('loop complete', config['n_jobs'])
-    
+
     return {'ind': ind_, 'mean': mean, 'sigma': sigma, 'median': median, 'sig68': sig68, 'z_max_post': z_max_post,
             'KL_post_prior': KL_post_prior, 'pdfs_': pdfs_, 'mc': mc}
 
@@ -324,7 +324,6 @@ def main(args):
     import os
     import copy
     from astropy.io import fits as pyfits
-    
     import copy
     import time
     import pandas as pd

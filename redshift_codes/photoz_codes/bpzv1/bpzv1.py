@@ -27,6 +27,8 @@ import copy
 from joblib import Parallel, delayed
 import bh_photo_z_validation as pval
 import time
+import pandas as pd
+from scipy.stats import entropy
 
 
 def _help():
@@ -233,10 +235,13 @@ def main(args):
     t = time.time()
     config = yaml.load(open(args[0]))
 
+    verbose = key_not_none(config, 'verbose')
+
     files = args[1:]
     if isinstance(files, list) is False:
         files = [files]
 
+    #Set up bpz paths, or infer them from the location of this script.
     if key_not_none(config, 'BPZ_BASE_DIR') is False:
         config['BPZ_BASE_DIR'] = '/' + '/'.join([i for i in os.path.realpath(__file__).split('/')[0:-1]]) + '/'
 
@@ -249,11 +254,9 @@ def main(args):
     if key_not_none(config, 'SED_DIR') is False:
         config['SED_DIR'] = config['BPZ_BASE_DIR'] + 'SED/'
 
-
     output_file_suffix = ''
     if key_not_none(config, 'output_file_suffix'):
         output_file_suffix = config['output_file_suffix']
-
 
     #load redshift bins
     z_bins = np.arange(config['redshift_bins'][0], config['redshift_bins'][1] + config['redshift_bins'][2], config['redshift_bins'][2])
@@ -300,7 +303,7 @@ def main(args):
     """Populate the model fluxes here """
     #prepare to populate the model fluxes
     f_mod = np.zeros((len(z_bins), len(config['sed_list']), len(filters)), dtype=float)
-    
+
     #which template types does each SED correspond to
     template_type_dict = {}
     for i, sed in enumerate(config['sed_list']):
@@ -382,10 +385,16 @@ def main(args):
         n_gals = len(orig_table[orig_cols.names[0]])
         prior_mag = np.array(orig_table[config['PRIOR_MAGNITUDE']]*100, dtype=int)
 
-        #warn if all other requested columns are not in table
-        for i in config['ADDITIONAL_OUTPUT_COLUMNS']:
-            if i not in orig_cols.names:
-                print ('Warning {:} not found in {:}. Continuing'.format(i, fil))
+        ADDITIONAL_OUTPUT_COLUMNS = []
+
+        if key_not_none(config, 'ADDITIONAL_OUTPUT_COLUMNS'):
+
+            #warn if all other requested columns are not in table
+            for i, cl in enumerate(config['ADDITIONAL_OUTPUT_COLUMNS']):
+                if cl not in orig_cols.names:
+                    print ('Warning {:} not found in {:}. Continuing'.format(cl, fil))
+                else:
+                    ADDITIONAL_OUTPUT_COLUMNS.append(cl)
 
         f_obs = np.array([np.array(orig_table[i]) for i in MAG_OR_FLUX]).T
         ef_obs = np.array([np.array(orig_table[i]) for i in MAG_OR_FLUXERR]).T
@@ -420,88 +429,144 @@ def main(args):
             print ("problem the template and real fluxes are out of order!: != ", ind_norm, ind_norm_flux)
             sys.exit()
 
+        if key_not_none(config, 'output_pdfs'):
+            pdf_file = fil.split('.fits')[0] + '.pdf.h5'
+            df = pd.DataFrame()
+            df.to_hdf(pdf_file, 'pdf_predictions', append=True)
+            df.to_hdf(pdf_file, 'point_predictions', append=True)
+            df.to_hdf(pdf_file, 'info', append=True)
+            df2 = pd.DataFrame({'z_bins': z_bins, 'z_bin_centers': z_bins + np.sum(z_bins[0:2]) / 2.0})
+            df2.to_hdf(pdf_file, key='info', append=True)
+            store = pd.HDFStore(pdf_file)
+
         nf = len(filters)
 
         #results files
-        z_max_post = np.zeros(n_gals)
-        mean = np.zeros(n_gals)
-        sigma = np.zeros(n_gals)
-        median = np.zeros(n_gals)
-        mc = np.zeros(n_gals)
-        sig68 = np.zeros(n_gals)
+        z_max_post = np.zeros(n_gals) + np.nan
+        mean = np.zeros(n_gals)  + np.nan
+        sigma = np.zeros(n_gals)  + np.nan
+        median = np.zeros(n_gals) + np.nan
+        mc = np.zeros(n_gals) + np.nan
+        sig68 = np.zeros(n_gals) + np.nan
+        KL_post_prior = np.zeros(n_gals) + np.nan
+        if key_not_none(config, 'output_pdfs'):
+            pdfs_ = np.zeros((n_gals, len(z_bins))) + np.nan
 
         for i in np.arange(n_gals):
-
 
             foo = np.sum(np.power(f_obs[i] / ef_obs[i], 2))
 
             f = f_obs[i].reshape(1, 1, nf)
             ef = ef_obs[i].reshape(1, 1, nf)
 
-            
             #this is a slow part of the code!
             fot = np.sum(np.divide(f * f_mod,  np.power(ef, 2)), axis=2)
-            
-            #this is the slowest part of the code!         
+
+            #this is the slowest part of the code!
             ftt = np.sum(np.power(np.divide(f_mod, ef), 2), axis=2)
-            
+
             chi2 = foo - np.power(fot, 2) / (ftt + eps)
 
             ind_mchi2 = np.where(chi2 == np.amin(chi2))
-            min_chi2 = chi2[ind_mchi2][0]
+            if len(ind_mchi2) > 0:
 
-            z_min_chi2 = z_bins[ind_mchi2[0]][0]
+                if len(ind_mchi2) > 1:
+                    print 'mutlitpy min-chi2 found. choosing one at random'
+                    ind_mchi2 = np.random.choice(ind_mchi2)[0]
 
-            likelihood = np.exp(-0.5 * np.clip(chi2 - min_chi2, 0., -2 * eeps))
+                min_chi2 = chi2[ind_mchi2][0]
 
-            prior = np.zeros_like(likelihood)
-            pr_mg = gal_mag_type_prior.keys()
+                z_min_chi2 = z_bins[ind_mchi2[0]][0]
+
+                likelihood = np.exp(-0.5 * np.clip(chi2 - min_chi2, 0., -2 * eeps))
+
+                prior = np.zeros_like(likelihood)
+                pr_mg = gal_mag_type_prior.keys()
+
+                ind_mag_p = np.argmin(np.abs(prior_mag[i] - np.array(pr_mg)))
+
+                for j in np.arange(len(f_mod[0, :, 0])):
+                    prior[:, j] = gal_mag_type_prior[pr_mg[ind_mag_p]][j]
 
 
-            ind_mag_p = np.argmin(np.abs(prior_mag[i] - np.array(pr_mg)))
+                #posterior is prior * Likelihood
+                posterior = prior * likelihood
 
-            for j in np.arange(len(f_mod[0, :, 0])):
-                prior[:, j] = gal_mag_type_prior[pr_mg[ind_mag_p]][j]
+                #margenalise over Templates in Prior and posterior:
+                marg_post = np.sum(posterior, axis=1)
+                marg_post /= np.sum(marg_post)
+                marg_prior = np.sum(prior, axis=1)
+                marg_prior /= np.sum(marg_prior)
 
+                KL_post_prior[i] = entropy(marg_post, marg_prior)
 
-            #posterior is prior * Likelihood
-            posterior = prior * likelihood
+                ind_max_marg = np.where(marg_post == np.amax(marg_post))[0][0]
 
-            #margenalise over Templates:
-            marg_post = np.sum(posterior, axis=1)
-            marg_post /= np.sum(marg_post)
-            
-            ind_max_marg = np.where(marg_post == np.amax(marg_post))[0][0]
+                #define summary stats from the margenalised posterior.
+                mean[i] = get_mean(marg_post, z_bins)
+                sigma[i] = get_sig(marg_post, z_bins)
+                median[i] = get_median(marg_post, z_bins)
+                mc[i] = get_mc(marg_post, z_bins)
+                sig68[i] = get_sig68(marg_post, z_bins)
+                z_max_post[i] = z_bins[ind_max_marg]
 
-            #define summary stats from the margenalised posterior.
-            mean[i] = get_mean(marg_post, z_bins)
-            sigma[i] = get_sig(marg_post, z_bins)
-            median[i] = get_median(marg_post, z_bins)
-            mc[i] = get_mc(marg_post, z_bins)
-            sig68[i] = get_sig68(marg_post, z_bins)
-            z_max_post[i] = z_bins[ind_max_marg]
+                if key_not_none(config, 'output_pdfs'):
+                    pdfs_[i] = marg_post
 
-            if key_not_none(config, 'verbose'):
+            if verbose:
                 if i % int(n_gals/50) == int(n_gals/50) - 1:
                     print ('iteration {:} of {:}: {:}secs'.format(
                            i, n_gals, time.time()-t)
-                    )
+                           )
                     t = time.time()
 
                     if 'REDSHIFT' in orig_cols.names:
                         delta_z = z_max_post[0: i] - orig_table['REDSHIFT'][0: i]
-                        print ('median, mean, std, len', np.median(delta_z), np.mean(delta_z), np.std(delta_z), len(delta_z))
+                        delta_z_1pz = delta_z / (1 + orig_table['REDSHIFT'][0: i])
+                        print ('median, mean, std, outFrac|>0.15| len', np.median(delta_z), np.mean(delta_z), np.std(delta_z), np.sum(np.abs(delta_z_1pz) > 0.15) * 100.0 / len(delta_z_1pz), len(delta_z))
 
         cols = {'MEAN_Z': mean, 'Z_SIGMA': sigma, 'MEDIAN_Z': median,
-            'Z_MC': mc, 'Z_SIGMA68': sig68}
-        
-        new_cols = pyfits.ColDefs([pyfits.Column(name=col_name, array=cols[col_name], format='D') for col_name in cols.keys()])
-        add_cols = pyfits.ColDefs([pyfits.Column(name=col_name, array=orig_table[col_name], format='D') for col_name in config['ADDITIONAL_OUTPUT_COLUMNS']])
+                'Z_MC': mc, 'Z_SIGMA68': sig68, 'KL_POST_PRIOR': KL_post_prior}
 
-        hdu = pyfits.BinTableHDU.from_columns(add_cols + new_cols)
+        if key_not_none(config, 'output_pdfs'):
+            add_ = copy.copy(cols)
+
+            if len(ADDITIONAL_OUTPUT_COLUMNS) > 0:
+                for col_name in ADDITIONAL_OUTPUT_COLUMNS:
+                    add_[col_name] = np.array(orig_table[col_name])
+
+            df2 = pd.DataFrame(add_)
+            df2.to_hdf(pdf_file, key='point_predictions', format='table', append=True)
+            #free memory
+            del add_
+            del df2
+            if verbose:
+                print 'entering pdf'
+            post_dict = {'KL_POST_PRIOR': KL_post_prior, 'MEAN_Z': mean[i]}
+            for ii in np.arange(len(z_bins)):
+                post_dict['pdf_{:0.4}'.format(z_bins[ii] + (z_bins[0]+z_bins[1])/2.0)] = pdfs_[:, ii]
+            df2 = pd.DataFrame(post_dict)
+
+            df2.to_hdf(pdf_file, key='pdf_predictions', format='table', append=True)
+            #free memory
+            del df2
+            del post_dict
+            if verbose:
+                print 'leaving pdf'
+
+        new_cols = pyfits.ColDefs([pyfits.Column(name=col_name, array=cols[col_name], format='D') for col_name in cols.keys()])
+        #free memory
+        del cols
+        if len(ADDITIONAL_OUTPUT_COLUMNS) > 0:
+            add_cols = pyfits.ColDefs([pyfits.Column(name=col_name, array=orig_table[col_name], format='D') for col_name in ADDITIONAL_OUTPUT_COLUMNS])
+            hdu = pyfits.BinTableHDU.from_columns(add_cols + new_cols)
+        else:
+            hdu = pyfits.BinTableHDU.from_columns(new_cols)
 
         fname = fil.replace('.fits', '.BPZ' + output_file_suffix + '.fits')
         hdu.writeto(fname)
+        #free memory
+        del new_cols
 
 #"""
 if __name__ == '__main__':

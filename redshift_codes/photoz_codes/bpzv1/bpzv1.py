@@ -14,22 +14,11 @@ Deal with missing / unseen data properly
 """
 
 import sys
-import textwrap
-import inspect
-import yaml
-import numpy as np
-from galaxy_type_prior import GALAXYTYPE_PRIOR
-import os
-import copy
-from astropy.io import fits as pyfits
-import random as rdm
-import copy
 from joblib import Parallel, delayed
+import numpy as np
+import inspect
 import bh_photo_z_validation as pval
-import time
-import pandas as pd
-from scipy.stats import entropy
-
+import random as rdm
 
 def _help():
     print "new version BPZ"
@@ -42,6 +31,7 @@ def _help():
 def writeExampleConfig():
     import os.path
     import os
+    import textwrap
     path = os.getcwd() + '/'
     if os.path.isfile(path + 'exampleBPZConfig.yaml') is False:
         f = open(path + 'exampleBPZConfig.yaml', 'w')
@@ -229,8 +219,116 @@ if __name__ == '__main__':
         _help()
 """
 
+
+def parr_loop(lst):
+    """parralisation loop for joblib
+    lst is a [] containing ind, f_obs_, ef_obs_, prior_mag_, f_mod, gal_mag_type_prior, z_bins, config 
+    f_mod = tempalate fluxes [redshift, template, band]
+
+    returns a dictionary with
+    {'ind': ind_, 'mean': mean, 'sigma': sigma, 'median': median, 'sig68': sig68, 'z_max_post': z_max_post,
+            'KL_post_prior': KL_post_prior, 'pdfs_': pdfs_}
+    for later combination
+    """
+
+    from scipy.stats import entropy
+
+    ind_, f_obs_, ef_obs_, prior_mag_, f_mod, gal_mag_type_prior, z_bins, config = lst
+
+    n_gals = len(ind_)
+
+    #some small value to truncate probs.
+    eps = 1e-300
+    eeps = np.log(eps)
+
+
+    #results arrays for this loop
+    z_max_post = np.zeros(n_gals) + np.nan
+    mean = np.zeros(n_gals) + np.nan
+    sigma = np.zeros(n_gals) + np.nan
+    median = np.zeros(n_gals) + np.nan
+    mc = np.zeros(n_gals) + np.nan
+    sig68 = np.zeros(n_gals) + np.nan
+    KL_post_prior = np.zeros(n_gals) + np.nan
+    pdfs_ = np.zeros((n_gals, len(z_bins))) + np.nan
+
+    for i in np.arange(n_gals):
+
+        foo = np.sum(np.power(f_obs_[i] / ef_obs_[i], 2))
+
+        nf = len(f_mod[0, 0, :])
+
+        f = f_obs_[i].reshape(1, 1, nf)
+        ef = ef_obs_[i].reshape(1, 1, nf)
+
+        #this is a slow part of the code!
+        fot = np.sum(np.divide(f * f_mod,  np.power(ef, 2)), axis=2)
+
+        #this is the slowest part of the code!
+        ftt = np.sum(np.power(np.divide(f_mod, ef), 2), axis=2)
+
+        chi2 = foo - np.power(fot, 2) / (ftt + eps)
+
+        ind_mchi2 = np.where(chi2 == np.amin(chi2))
+
+        min_chi2 = chi2[ind_mchi2][0]
+
+        z_min_chi2 = z_bins[ind_mchi2[0]][0]
+
+        likelihood = np.exp(-0.5 * np.clip(chi2 - min_chi2, 0., -2 * eeps))
+
+        prior = np.zeros_like(likelihood)
+        pr_mg = gal_mag_type_prior.keys()
+
+        ind_mag_p = np.argmin(np.abs(prior_mag_[i] - np.array(pr_mg)))
+
+        for j in np.arange(len(f_mod[0, :, 0])):
+            prior[:, j] = gal_mag_type_prior[pr_mg[ind_mag_p]][j]
+
+
+        #posterior is prior * Likelihood
+        posterior = prior * likelihood
+
+        #margenalise over Templates in Prior and posterior:
+        marg_post = np.sum(posterior, axis=1)
+        marg_post /= np.sum(marg_post)
+        marg_prior = np.sum(prior, axis=1)
+        marg_prior /= np.sum(marg_prior)
+
+        KL_post_prior[i] = entropy(marg_post, marg_prior)
+
+        ind_max_marg = np.where(marg_post == np.amax(marg_post))[0][0]
+
+        #define summary stats from the margenalised posterior.
+        mean[i] = get_mean(marg_post, z_bins)
+        sigma[i] = get_sig(marg_post, z_bins)
+        median[i] = get_median(marg_post, z_bins)
+        mc[i] = get_mc(marg_post, z_bins)
+        sig68[i] = get_sig68(marg_post, z_bins)
+        z_max_post[i] = z_bins[ind_max_marg]
+
+        if key_not_none(config, 'output_pdfs'):
+            pdfs_[i] = marg_post
+    verbose = key_not_none(config, 'verbose')
+    if verbose:
+        print ('loop complete', config['n_jobs'])
+    
+    return {'ind': ind_, 'mean': mean, 'sigma': sigma, 'median': median, 'sig68': sig68, 'z_max_post': z_max_post,
+            'KL_post_prior': KL_post_prior, 'pdfs_': pdfs_, 'mc': mc}
+
 #@profile
 def main(args):
+
+    import yaml
+    from galaxy_type_prior import GALAXYTYPE_PRIOR
+    import os
+    import copy
+    from astropy.io import fits as pyfits
+    
+    import copy
+    import time
+    import pandas as pd
+    
 
     t = time.time()
     config = yaml.load(open(args[0]))
@@ -333,8 +431,7 @@ def main(args):
 
         #how many interpolated points?
         num_interps = (len(config['sed_list'])-1) * config['INTERP'] + len(config['sed_list'])
-        #print 'num_interps', num_interps
-        #1 /0
+
         #generate some dummy indicies that are intergers spaced between 0 -- num_interps
         index = np.linspace(0, num_interps, len(config['sed_list']), endpoint=True, dtype=int)
 
@@ -372,10 +469,7 @@ def main(args):
     #fast access to prior dictionary
     gal_mag_type_prior = GALPRIOR.prepare_prior_dictionary_types(template_type_dict)
     mags_bins = np.array(gal_mag_type_prior.keys(), dtype=float)
-    # some small value to truncate probs.
-    eps = 1e-300
-    eeps = np.log(eps)
-
+    
     #now load each file in turn.
     for fil in files:
 
@@ -443,87 +537,53 @@ def main(args):
 
         #results files
         z_max_post = np.zeros(n_gals) + np.nan
-        mean = np.zeros(n_gals)  + np.nan
-        sigma = np.zeros(n_gals)  + np.nan
+        mean = np.zeros(n_gals) + np.nan
+        sigma = np.zeros(n_gals) + np.nan
         median = np.zeros(n_gals) + np.nan
         mc = np.zeros(n_gals) + np.nan
         sig68 = np.zeros(n_gals) + np.nan
         KL_post_prior = np.zeros(n_gals) + np.nan
+        f_obs
         if key_not_none(config, 'output_pdfs'):
             pdfs_ = np.zeros((n_gals, len(z_bins))) + np.nan
 
-        for i in np.arange(n_gals):
+        #prepare for trivial parralisation using job_lib see  Parrallelise
+        #above for an example
+        ind = np.arange(n_gals)
+        parr_lsts = []
+        if key_not_none(config, 'n_jobs'):
+            parr_lsts = []
+            ind_ = np.array_split(ind, config['n_jobs'])
+            for ind1 in ind_:
+                parr_lsts.append([ind1, f_obs[ind1], ef_obs[ind1], prior_mag[ind1], f_mod, gal_mag_type_prior, z_bins, config])
 
-            foo = np.sum(np.power(f_obs[i] / ef_obs[i], 2))
+            res1 = Parrallelise(n_jobs=config['n_jobs'], method=parr_loop, loop=parr_lsts).run()
+        else:
+            #we do not want to parralise. let's send all the data required to the same function in one go.
+            parr_lsts = [ind, f_obs, ef_obs, prior_mag, f_mod, gal_mag_type_prior, z_bins, config]
 
-            f = f_obs[i].reshape(1, 1, nf)
-            ef = ef_obs[i].reshape(1, 1, nf)
+            #this must be kept as a list, so that we can loop over it, as it it was parrellised
+            res1 = [parr_loop(parr_lsts)]
+        
+        #free space
+        del parr_lsts
 
-            #this is a slow part of the code!
-            fot = np.sum(np.divide(f * f_mod,  np.power(ef, 2)), axis=2)
+        #let's combine all the results from the parrallel (or not) jobs
+        for res in res1:
+            ind_ = res['ind']
+            z_max_post[ind_] = res['z_max_post']
+            mean[ind_] = res['mean']
+            sigma[ind_] = res['sigma']
+            median[ind_] = res['median']
+            mc[ind_] = res['mc']
+            sig68[ind_] = res['sig68']
+            KL_post_prior[ind_] = res['KL_post_prior']
+            if key_not_none(config, 'output_pdfs'):
+                pdfs_[ind_] = res['pdfs_']
 
-            #this is the slowest part of the code!
-            ftt = np.sum(np.power(np.divide(f_mod, ef), 2), axis=2)
-
-            chi2 = foo - np.power(fot, 2) / (ftt + eps)
-
-            ind_mchi2 = np.where(chi2 == np.amin(chi2))
-            if len(ind_mchi2) > 0:
-
-                if len(ind_mchi2) > 1:
-                    print 'mutlitpy min-chi2 found. choosing one at random'
-                    ind_mchi2 = np.random.choice(ind_mchi2)[0]
-
-                min_chi2 = chi2[ind_mchi2][0]
-
-                z_min_chi2 = z_bins[ind_mchi2[0]][0]
-
-                likelihood = np.exp(-0.5 * np.clip(chi2 - min_chi2, 0., -2 * eeps))
-
-                prior = np.zeros_like(likelihood)
-                pr_mg = gal_mag_type_prior.keys()
-
-                ind_mag_p = np.argmin(np.abs(prior_mag[i] - np.array(pr_mg)))
-
-                for j in np.arange(len(f_mod[0, :, 0])):
-                    prior[:, j] = gal_mag_type_prior[pr_mg[ind_mag_p]][j]
-
-
-                #posterior is prior * Likelihood
-                posterior = prior * likelihood
-
-                #margenalise over Templates in Prior and posterior:
-                marg_post = np.sum(posterior, axis=1)
-                marg_post /= np.sum(marg_post)
-                marg_prior = np.sum(prior, axis=1)
-                marg_prior /= np.sum(marg_prior)
-
-                KL_post_prior[i] = entropy(marg_post, marg_prior)
-
-                ind_max_marg = np.where(marg_post == np.amax(marg_post))[0][0]
-
-                #define summary stats from the margenalised posterior.
-                mean[i] = get_mean(marg_post, z_bins)
-                sigma[i] = get_sig(marg_post, z_bins)
-                median[i] = get_median(marg_post, z_bins)
-                mc[i] = get_mc(marg_post, z_bins)
-                sig68[i] = get_sig68(marg_post, z_bins)
-                z_max_post[i] = z_bins[ind_max_marg]
-
-                if key_not_none(config, 'output_pdfs'):
-                    pdfs_[i] = marg_post
-
-            if verbose:
-                if i % int(n_gals/50) == int(n_gals/50) - 1:
-                    print ('iteration {:} of {:}: {:}secs'.format(
-                           i, n_gals, time.time()-t)
-                           )
-                    t = time.time()
-
-                    if 'REDSHIFT' in orig_cols.names:
-                        delta_z = z_max_post[0: i] - orig_table['REDSHIFT'][0: i]
-                        delta_z_1pz = delta_z / (1 + orig_table['REDSHIFT'][0: i])
-                        print ('median, mean, std, outFrac|>0.15| len', np.median(delta_z), np.mean(delta_z), np.std(delta_z), np.sum(np.abs(delta_z_1pz) > 0.15) * 100.0 / len(delta_z_1pz), len(delta_z))
+        #free up space
+        del res1
+        del res
 
         cols = {'MEAN_Z': mean, 'Z_SIGMA': sigma, 'MEDIAN_Z': median,
                 'Z_MC': mc, 'Z_SIGMA68': sig68, 'KL_POST_PRIOR': KL_post_prior}
@@ -542,7 +602,7 @@ def main(args):
             del df2
             if verbose:
                 print 'entering pdf'
-            post_dict = {'KL_POST_PRIOR': KL_post_prior, 'MEAN_Z': mean[i]}
+            post_dict = {'KL_POST_PRIOR': KL_post_prior, 'MEAN_Z': mean}
             for ii in np.arange(len(z_bins)):
                 post_dict['pdf_{:0.4}'.format(z_bins[ii] + (z_bins[0]+z_bins[1])/2.0)] = pdfs_[:, ii]
             df2 = pd.DataFrame(post_dict)

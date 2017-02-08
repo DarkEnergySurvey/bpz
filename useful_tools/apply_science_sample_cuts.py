@@ -104,17 +104,17 @@ def apply_cuts(d, sample):
             wgt[np.isfinite(wgt) != True] = 0.0
             wgt = np.array(wgt, dtype=float)
             cols['WEIGHT_ZLENS_{:}'.format(z_l)] = wgt * np.array(d['MEAN_Z'] > 0) * fntz
-        cols['IN_WL_SAMPLE'] = np.array(d['R11'] + d['R22'] > 0) * np.array(d['MEAN_Z'] > 0) * fntz
+        cols['IN_WL_SAMPLE'] =  np.array(d['MEAN_Z'] > 0) * fntz
 
     elif sample == 'Y1':
         #Y1 sample definition
-        cols['IN_Y1_SAMPLE'] = np.array((d['MEAN_Z'] > 0) * (d['SIGMA_68'] < 1.0))
+        cols['IN_Y1_SAMPLE'] = np.array((d['MEAN_Z'] > 0) * (d['Z_SIGMA'] < 1.0))
 
-        if ('MAG_AUTO_I' in obj.columns.names):
+        if ('MAG_AUTO_I' in d.columns.names):
             cols['IN_Y1_SAMPLE'] *= np.array((d['MAG_AUTO_I'] < 23.5) * (d['MAGERR_AUTO_I'] < 0.3))
             cols['IN_Y1_SAMPLE'] *= remove_crazy_colors(d, 'COADD', indicies=True)
             cols['IN_Y1_SAMPLE'] *= np.array((d['MAG_AUTO_I'] > 16))
-        if ('MAG_MOF_I' in obj.columns.names):
+        if ('MAG_MOF_I' in d.columns.names):
             cols['IN_Y1_SAMPLE'] *= remove_crazy_colors(d, 'MOF', indicies=True)
             cols['IN_Y1_SAMPLE'] *= np.array((d['MAG_MOF_I'] < 23.5) * (d['MAG_MOF_I'] > 16))
 

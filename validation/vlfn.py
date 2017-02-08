@@ -25,7 +25,8 @@ def process_function(func, z1, z2, weights=None, extra_params=None):
     if extra_params is None:
         return func(z1[ind], z2[ind])
     else:
-        return func(z1[ind], z2[ind], extra_params)
+        #beware this function acts differntly to the others
+        return func(z1, z2, weights, extra_params)
 
 
 def median(z1, z2):
@@ -60,15 +61,16 @@ def outFrac_2sigma68_1pz(z1, z2):
     delta_z_1pz = bhz.delta_z_1pz(z1, z2)
     return bhz.outFrac_3sigma68(delta_z_1pz)
 
-def outFrac_3sigma68_1pz(z1, z2): 
+def outFrac_3sigma68_1pz(z1, z2):
     delta_z_1pz = bhz.delta_z_1pz(z1, z2)
     return bhz.outFrac_3sigma68(delta_z_1pz)
 
 def wl_metric(z1, z2):
     return bhz.wl_metric(z1, z2)
-    
-def delta_sigma_crit(z1, z2, z_lens):
+
+#beware extra z2weight column.
+def delta_sigma_crit(z1, z2, z2weight, z_lens):
     res = {}
     for zl in z_lens:
-        res[zl] = bhz.delta_sigma_crit(z1, z2, zl)
+        res[zl] = bhz.delta_sigma_crit(z1, z2, z2weight, zl)
     return res

@@ -303,14 +303,24 @@ def wl_metric(z1, z2):
     return np.abs(np.mean(z1) - np.mean(z2))
 
 
-def delta_sigma_crit(z1, z2, z_lens):
+def delta_sigma_crit(z1, z2, z2weight, z_lens):
     """Determine the int{P_w(photz) * Dds/Ds(z)  dz }
     Where P_w(photz) = sum(z_mc_i * weight_i), and Dds, Ds are angular diam distances
-
+    p_w_phot = sum of weight in eahc 
     """
     binCenters = np.linspace(0, 3, 300)
+    p_w_phot = np.zeros_like(binCenters)
+    for i in range(len(binCenters)-1):
+        ind = (z2 > binCenters[i]) * (z2 < binCenters[i+1])
+        p_w_phot[i] = np.sum(z2weight[ind])*1.0
+
+    p_w_phot[p_w_phot < 0] = 0
+
+    int_ = np.trapz(p_w_phot, x=binCenters)
+
+    p_w_phot = p_w_phot/int_
+
     p_w_true = gaussian_kde(z1).evaluate(binCenters)
-    p_w_phot = gaussian_kde(z2).evaluate(binCenters)
 
     cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
 
@@ -573,10 +583,10 @@ def xval_cumaltive_at_ypoint(dfs, bincenter, point, k=3):
         #df value sits in a bin, with a given bin center.
         #append to first and last bin a df value to encompass the bin
         delta_bin = (bincenter[1]-bincenter[0]) / 2.0
-        
+
         binEdges = np.append(bincenter[0] - delta_bin, bincenter)
         binEdges = np.append(binEdges, bincenter[-1] + delta_bin)
-        
+
         dfs_bins = np.append(np.append(dfs[0], dfs), dfs[-1])
 
         point = np.amin((point, np.amax(binEdges)))

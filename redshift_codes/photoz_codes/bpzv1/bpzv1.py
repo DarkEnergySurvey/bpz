@@ -236,11 +236,9 @@ def parr_loop(lst):
     ind_, f_obs_, ef_obs_, prior_mag_, f_mod, gal_mag_type_prior, z_bins, config = lst
 
     n_gals = len(ind_)
-
     #some small value to truncate probs.
     eps = 1e-300
     eeps = np.log(eps)
-
 
     #results arrays for this loop
     z_max_post = np.zeros(n_gals) + np.nan
@@ -284,7 +282,6 @@ def parr_loop(lst):
 
         for j in np.arange(len(f_mod[0, :, 0])):
             prior[:, j] = gal_mag_type_prior[pr_mg[ind_mag_p]][j]
-
 
         #posterior is prior * Likelihood
         posterior = prior * likelihood
@@ -534,25 +531,16 @@ def main(args):
 
         nf = len(filters)
 
-        #results files
-        z_max_post = np.zeros(n_gals) + np.nan
-        mean = np.zeros(n_gals) + np.nan
-        sigma = np.zeros(n_gals) + np.nan
-        median = np.zeros(n_gals) + np.nan
-        mc = np.zeros(n_gals) + np.nan
-        sig68 = np.zeros(n_gals) + np.nan
-        KL_post_prior = np.zeros(n_gals) + np.nan
-        f_obs
         if key_not_none(config, 'output_pdfs'):
             pdfs_ = np.zeros((n_gals, len(z_bins))) + np.nan
 
         #prepare for trivial parralisation using job_lib see  Parrallelise
-        #above for an example
+        #above for an example. Split into 50k chunks
         ind = np.arange(n_gals)
         parr_lsts = []
         if key_not_none(config, 'n_jobs'):
             parr_lsts = []
-            ind_ = np.array_split(ind, config['n_jobs'])
+            ind_ = np.array_split(ind, int(len(ind) / 50000) + 2)
             for ind1 in ind_:
                 parr_lsts.append([ind1, f_obs[ind1], ef_obs[ind1], prior_mag[ind1], f_mod, gal_mag_type_prior, z_bins, config])
 
@@ -563,9 +551,18 @@ def main(args):
 
             #this must be kept as a list, so that we can loop over it, as it it was parrellised
             res1 = [parr_loop(parr_lsts)]
-        
+
         #free space
         del parr_lsts
+
+        #results files
+        z_max_post = np.zeros(n_gals) + np.nan
+        mean = np.zeros(n_gals) + np.nan
+        sigma = np.zeros(n_gals) + np.nan
+        median = np.zeros(n_gals) + np.nan
+        mc = np.zeros(n_gals) + np.nan
+        sig68 = np.zeros(n_gals) + np.nan
+        KL_post_prior = np.zeros(n_gals) + np.nan
 
         #let's combine all the results from the parrallel (or not) jobs
         for res in res1:

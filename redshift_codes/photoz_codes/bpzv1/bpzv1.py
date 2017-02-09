@@ -607,7 +607,7 @@ def main(args):
                     cols[col_name] = np.array(orig_table[col_name])
 
             #split into manageable write chunks to save RAM [otherwise blows up with >1M rows!]
-            inds = np.array_split(np.arange(ngals), int(ngals/200000) + 2)
+            inds = np.array_split(np.arange(n_gals), int(n_gals/200000) + 2)
             for ind in inds:
                 cols_ = {}
                 for j in cols.keys():

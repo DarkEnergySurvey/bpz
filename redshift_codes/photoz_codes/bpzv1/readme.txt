@@ -117,10 +117,9 @@ intpolate x5 all template types with each other
 0.019447923890760777, -0.018850748000445672, 0.55952095548652392, 30.00600
 
 5) To do
-- write pdfs to hdf5
 - deal with unseen / missing data
 - cythonise code
-- parrallelise code
+- parrallelise code -- currently with joblib
 
 
 -- under construction ---

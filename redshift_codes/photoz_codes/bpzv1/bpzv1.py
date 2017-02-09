@@ -313,7 +313,7 @@ def parr_loop(lst):
     return {'ind': ind_, 'mean': mean, 'sigma': sigma, 'median': median, 'sig68': sig68, 'z_max_post': z_max_post,
             'KL_post_prior': KL_post_prior, 'pdfs_': pdfs_, 'mc': mc}
 
-#@profile
+
 def main(args):
 
     import yaml
@@ -525,14 +525,11 @@ def main(args):
             df.to_hdf(pdf_file, 'pdf_predictions', append=True)
             df.to_hdf(pdf_file, 'point_predictions', append=True)
             df.to_hdf(pdf_file, 'info', append=True)
-            df2 = pd.DataFrame({'z_bins': z_bins, 'z_bin_centers': z_bins + np.sum(z_bins[0:2]) / 2.0})
+            df2 = pd.DataFrame({'z_bins': z_bins, 'z_bin_centers': z_bins + (z_bins[1]-z_bins[0]) / 2.0})
             df2.to_hdf(pdf_file, key='info', append=True)
             store = pd.HDFStore(pdf_file)
 
         nf = len(filters)
-
-        if key_not_none(config, 'output_pdfs'):
-            pdfs_ = np.zeros((n_gals, len(z_bins))) + np.nan
 
         #prepare for trivial parralisation using job_lib see  Parrallelise
         #above for an example. Split into 50k chunks
@@ -564,6 +561,9 @@ def main(args):
         sig68 = np.zeros(n_gals) + np.nan
         KL_post_prior = np.zeros(n_gals) + np.nan
 
+        if key_not_none(config, 'output_pdfs'):
+            pdfs_ = np.zeros((n_gals, len(z_bins))) + np.nan
+
         #let's combine all the results from the parrallel (or not) jobs
         for res in res1:
             ind_ = res['ind']
@@ -581,38 +581,12 @@ def main(args):
         del res1
         del res
 
+        #saving point predictions as .fits files
         cols = {'MEAN_Z': mean, 'Z_SIGMA': sigma, 'MEDIAN_Z': median,
                 'Z_MC': mc, 'Z_SIGMA68': sig68, 'KL_POST_PRIOR': KL_post_prior}
 
-        if key_not_none(config, 'output_pdfs'):
-            add_ = copy.copy(cols)
-
-            if len(ADDITIONAL_OUTPUT_COLUMNS) > 0:
-                for col_name in ADDITIONAL_OUTPUT_COLUMNS:
-                    add_[col_name] = np.array(orig_table[col_name])
-
-            df2 = pd.DataFrame(add_)
-            df2.to_hdf(pdf_file, key='point_predictions', format='table', append=True)
-            #free memory
-            del add_
-            del df2
-            if verbose:
-                print 'entering pdf'
-            post_dict = {'KL_POST_PRIOR': KL_post_prior, 'MEAN_Z': mean}
-            for ii in np.arange(len(z_bins)):
-                post_dict['pdf_{:0.4}'.format(z_bins[ii] + (z_bins[0]+z_bins[1])/2.0)] = pdfs_[:, ii]
-            df2 = pd.DataFrame(post_dict)
-
-            df2.to_hdf(pdf_file, key='pdf_predictions', format='table', append=True)
-            #free memory
-            del df2
-            del post_dict
-            if verbose:
-                print 'leaving pdf'
-
         new_cols = pyfits.ColDefs([pyfits.Column(name=col_name, array=cols[col_name], format='D') for col_name in cols.keys()])
-        #free memory
-        del cols
+
         if len(ADDITIONAL_OUTPUT_COLUMNS) > 0:
             add_cols = pyfits.ColDefs([pyfits.Column(name=col_name, array=orig_table[col_name], format='D') for col_name in ADDITIONAL_OUTPUT_COLUMNS])
             hdu = pyfits.BinTableHDU.from_columns(add_cols + new_cols)
@@ -621,15 +595,59 @@ def main(args):
 
         fname = fil.replace('.fits', '.BPZ' + output_file_suffix + '.fits')
         hdu.writeto(fname)
+        
         #free memory
-        del new_cols
+        del new_cols, add_cols
 
-#"""
+        #save pdf files
+        if key_not_none(config, 'output_pdfs'):
+
+            if len(ADDITIONAL_OUTPUT_COLUMNS) > 0:
+                for col_name in ADDITIONAL_OUTPUT_COLUMNS:
+                    cols[col_name] = np.array(orig_table[col_name])
+
+            #split into manageable write chunks to save RAM [otherwise blows up with >1M rows!]
+            inds = np.array_split(np.arange(ngals), int(ngals/200000) + 2)
+            for ind in inds:
+                cols_ = {}
+                for j in cols.keys():
+                    cols_[j] = cols[j][ind]
+
+                df2 = pd.DataFrame(cols)
+                df2.to_hdf(pdf_file, key='point_predictions', format='table', append=True, complevel=5, complib='blosc')
+
+                #free memory
+                del cols_
+                del df2
+                if verbose:
+                    print 'entering pdf'
+                post_dict = {'KL_POST_PRIOR': KL_post_prior[ind], 'MEAN_Z': mean[ind]}
+
+                for ii in np.arange(len(z_bins)):
+                    post_dict['pdf_{:0.4}'.format(z_bins[ii] + (z_bins[0]+z_bins[1])/2.0)] = pdfs_[ind, ii]
+                if verbose:
+                    print 'generating DataFrame'
+
+                df2 = pd.DataFrame(post_dict)
+
+                if verbose:
+                    print 'writing pdf'
+
+                df2.to_hdf(pdf_file, key='pdf_predictions', format='table', append=True, complevel=5, complib='blosc')
+
+                #free memory
+                del df2
+                del post_dict
+                if verbose:
+                    print 'leaving pdf'
+            del inds
+            del cols
+            
 if __name__ == '__main__':
     args = sys.argv[1:]
     if len(args) < 2 or 'help' in args or '-h' in args:
         _help()
 
-    #args = ['bpzConfig.yaml', 'WL_CLASS.METACAL.rescaled.slr.cosmos.v2._96_200.fits']
+    #args = ['bpzConfig.yaml', 'WL_CLASS.METACAL.rescaled.slr.cosmos.v2._96_200_sampled.fits']
     main(args)
 #    """

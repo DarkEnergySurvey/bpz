@@ -100,8 +100,8 @@ def apply_cuts(d, sample):
         fntz = np.isfinite(d['MEAN_Z'])
         for z_l in [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]:
             wgt = lensing_weight_stacked_shear(d, z_l)
-            wgt[wgt < 0] = 0.0
-            wgt[np.isfinite(wgt) != True] = 0.0
+            #wgt[wgt < 0] = 0.0
+            #wgt[np.isfinite(wgt) != True] = 0.0
             wgt = np.array(wgt, dtype=float)
             cols['WEIGHT_ZLENS_{:}'.format(z_l)] = wgt * np.array(d['MEAN_Z'] > 0) * fntz
         cols['IN_WL_SAMPLE'] =  np.array(d['MEAN_Z'] > 0) * fntz

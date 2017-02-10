@@ -20,14 +20,15 @@ def process_function(func, z1, z2, weights=None, extra_params=None):
     """
     ind = np.arange(len(z1))
     if weights is not None:
-        ind = np.random.choice(ind, size=len(z1), p=weights / np.sum(weights), replace=True)
+        weights_ = weights
+        weights_[weights_<0] = 0
+        ind = np.random.choice(ind, size=len(z1), p=weights_ / np.sum(weights_), replace=True)
 
     if extra_params is None:
         return func(z1[ind], z2[ind])
     else:
         #beware this function acts differntly to the others
         return func(z1, z2, weights, extra_params)
-
 
 def median(z1, z2):
     delta_z = bhz.delta_z(z1, z2)

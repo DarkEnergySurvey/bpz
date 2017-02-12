@@ -4,7 +4,7 @@
 
 author: benhoyle1212@gmail.com
 
-about: This codes implements some of the key features in the original Bayesean Probability Redshift BPZ (Benitez 200X), with a more transparent user interface, and the native .fits support. 
+about: This codes implements some of the key features in the original Bayesean Probability Redshift BPZ (Benitez 200X), with a more transparent user interface, and the native .fits support.
 
     The original BPZ is still very useful. e.g determining photometric offsets is not implemented
 
@@ -19,6 +19,7 @@ import numpy as np
 import inspect
 import bh_photo_z_validation as pval
 import random as rdm
+
 
 def _help():
     print "new version BPZ"
@@ -168,49 +169,6 @@ def e_mag2frac(errmag):
     return 10. ** (.4 * errmag) - 1.
 
 
-def get_mc(pdf, zarr):
-    # renorm incase there is probability at higher-z that we've cut, or some error.
-    if np.sum(pdf) > 0:
-        targ_prob = rdm.random()
-        return pval.xval_cumaltive_at_ypoint(pdf, zarr, targ_prob)
-    else:
-        return -1.
-
-def get_mean(pdf, zarr):
-    if np.sum(pdf) > 0:
-        zm = np.average(zarr, weights=pdf)
-        return zm
-    else:
-        return -1.
-
-def get_sig(pdf, zarr):
-    if np.sum(pdf) > 0:
-        zm = np.average(zarr, weights=pdf)
-        sig = np.sqrt(np.average((zarr-zm)*(zarr-zm), weights=pdf))
-        return sig
-    else:
-        return -1.
-
-def get_mean_and_sig(pdf, zarr):
-    if np.sum(pdf) > 0:
-        zm = np.average(zarr, weights=pdf)
-        sig = np.sqrt(np.average((zarr-zm)*(zarr-zm), weights=pdf))
-        return zm, sig
-    else:
-        return -1.
-
-def get_median(pdf, zarr):
-    if np.sum(pdf) > 0:
-        return pval.xval_cumaltive_at_ypoint(pdf, zarr, 0.5)
-    else:
-        return -1.
-
-def get_sig68(pdf, zarr):
-    s2 = pval.xval_cumaltive_at_ypoint(pdf, zarr, 0.84075)
-    s1 = pval.xval_cumaltive_at_ypoint(pdf, zarr, 0.15825)
-    s68 = (s2 - s1) / 2.0
-    return s68
-
 """
 if __name__ == '__main__':
     args = sys.argv[1:]
@@ -297,11 +255,11 @@ def parr_loop(lst):
         ind_max_marg = np.where(marg_post == np.amax(marg_post))[0][0]
 
         #define summary stats from the margenalised posterior.
-        mean[i] = get_mean(marg_post, z_bins)
-        sigma[i] = get_sig(marg_post, z_bins)
-        median[i] = get_median(marg_post, z_bins)
-        mc[i] = get_mc(marg_post, z_bins)
-        sig68[i] = get_sig68(marg_post, z_bins)
+        mean[i] = pval.get_mean(marg_post, z_bins)
+        sigma[i] = pval.get_sig(marg_post, z_bins)
+        median[i] = pval.get_median(marg_post, z_bins)
+        mc[i] = pval.get_mc(marg_post, z_bins)
+        sig68[i] = pval.get_sig68(marg_post, z_bins)
         z_max_post[i] = z_bins[ind_max_marg]
 
         if key_not_none(config, 'output_pdfs'):
@@ -324,8 +282,8 @@ def main(args):
     import copy
     import time
     import pandas as pd
-    
 
+    #some timing tests
     t = time.time()
     config = yaml.load(open(args[0]))
 
@@ -362,7 +320,7 @@ def main(args):
     MAG_OR_FLUXERR = [config['filters'][i]['ERR'] for i in filters]
 
     if config['INPUT_MAGS'] is None:
-        config['INPUT_MAGS'] = ('mag' in MAG_OR_FLUX[0]) or ('MAG' in MAG_OR_FLUX[0]) 
+        config['INPUT_MAGS'] = ('mag' in MAG_OR_FLUX[0]) or ('MAG' in MAG_OR_FLUX[0])
 
     #jazz with spectra_list. Make all combinations of everything
     if config['rearrange_spectra']:
@@ -465,7 +423,7 @@ def main(args):
     #fast access to prior dictionary
     gal_mag_type_prior = GALPRIOR.prepare_prior_dictionary_types(template_type_dict)
     mags_bins = np.array(gal_mag_type_prior.keys(), dtype=float)
-    
+
     #now load each file in turn.
     for fil in files:
 
@@ -525,7 +483,7 @@ def main(args):
             df.to_hdf(pdf_file, 'pdf_predictions', append=True)
             df.to_hdf(pdf_file, 'point_predictions', append=True)
             df.to_hdf(pdf_file, 'info', append=True)
-            df2 = pd.DataFrame({'z_bins': z_bins, 'z_bin_centers': z_bins + (z_bins[1]-z_bins[0]) / 2.0})
+            df2 = pd.DataFrame({'z_bin_centers': z_bins})
             df2.to_hdf(pdf_file, key='info', append=True)
             store = pd.HDFStore(pdf_file)
 
@@ -595,7 +553,7 @@ def main(args):
 
         fname = fil.replace('.fits', '.BPZ' + output_file_suffix + '.fits')
         hdu.writeto(fname)
-        
+
         #free memory
         del new_cols, add_cols
 
@@ -613,7 +571,7 @@ def main(args):
                 for j in cols.keys():
                     cols_[j] = cols[j][ind]
 
-                df2 = pd.DataFrame(cols)
+                df2 = pd.DataFrame(cols_)
                 df2.to_hdf(pdf_file, key='point_predictions', format='table', append=True, complevel=5, complib='blosc')
 
                 #free memory

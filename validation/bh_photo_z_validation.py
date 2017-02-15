@@ -716,6 +716,52 @@ def binned_statistic_dist1_dist2(arr_, bin_vals_, truths_, pdf_, pdf_z_center_, 
     return res
 
 
+""" --- tools for extracting properties from pdfs ----"""
+import random as rdm
+def get_mc(pdf, zarr):
+    # renorm incase there is probability at higher-z that we've cut, or some error.
+    if np.sum(pdf) > 0:
+        targ_prob = rdm.random()
+        return xval_cumaltive_at_ypoint(pdf, zarr, targ_prob)
+    else:
+        return -1.
+
+def get_mean(pdf, zarr):
+    if np.sum(pdf) > 0:
+        zm = np.average(zarr, weights=pdf)
+        return zm
+    else:
+        return -1.
+
+def get_sig(pdf, zarr):
+    if np.sum(pdf) > 0:
+        zm = np.average(zarr, weights=pdf)
+        sig = np.sqrt(np.average((zarr-zm)*(zarr-zm), weights=pdf))
+        return sig
+    else:
+        return -1.
+
+def get_mean_and_sig(pdf, zarr):
+    if np.sum(pdf) > 0:
+        zm = np.average(zarr, weights=pdf)
+        sig = np.sqrt(np.average((zarr-zm)*(zarr-zm), weights=pdf))
+        return zm, sig
+    else:
+        return -1.
+
+def get_median(pdf, zarr):
+    if np.sum(pdf) > 0:
+        return xval_cumaltive_at_ypoint(pdf, zarr, 0.5)
+    else:
+        return -1.
+
+def get_sig68(pdf, zarr):
+    s2 = xval_cumaltive_at_ypoint(pdf, zarr, 0.84075)
+    s1 = xval_cumaltive_at_ypoint(pdf, zarr, 0.15825)
+    s68 = (s2 - s1) / 2.0
+    return s68
+
+#to do, uniti test these bad boys!
 """ ==========================
 validation metrics and tools =
 ==============================

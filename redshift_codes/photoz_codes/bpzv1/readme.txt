@@ -16,7 +16,9 @@ Authors: Ben Hoyle
 
 5) To do
 
+================================
 1) About
+================================
 --- What this code does: ---
 This is a re-writing of BPZ. We make the code a lot cleaner, so that it could be parralised or cythonised in the future.
 
@@ -50,8 +52,9 @@ import bh_photo_z_validation as pval
 -- in this directory
 from galaxy_type_prior import GALAXYTYPE_PRIOR
 
+================================
 2) Example usage. 
-
+================================
 Use a text editor to look at bpzConfig.yaml. There you can make all the adjustments, set directory paths that you used to make within the BPZ code.
 
 To generate an exmaple yaml file run
@@ -68,8 +71,9 @@ PathToListofFitsFiles.fits can contain a * so that all files will be processsed 
 
 where PathToConfig.yaml is a configuration file, that defines how to run the code. See bpzConfig.py for an example
 
+================================
 3) Output
-
+================================
 3.1) point predictions: the output file has the same name as the input fits file, with .BPZ.fits at the end.
 
 The code generates a output fits files, which contain 'MEAN_Z'  'Z_SIGMA' 'MEDIAN_Z': 'Z_MC': 'Z_SIGMA68': and any additional columns e.g. REDSHIFT or MAG_I or COADDED_OBJECTS_ID that you asked for within the config.yaml file.
@@ -77,9 +81,11 @@ The code generates a output fits files, which contain 'MEAN_Z'  'Z_SIGMA' 'MEDIA
 Additional outputs are: 
 KL_POST_PRIOR - the information gain (Kullbeck Leibler divergence) between prior and posterior
 chi2 - the minimum \Chi^2 to the closest template synthetic example
-template_type - the maximum posterior template type, as defined as a linear combination of input templates! 
-    e.g {0: 0.5, 1: 0.5} = 0.5 of template 0 and 0.5 of template 1
-    e.g {0: 0.25, 1: 0.75} = 0.25 of template 0 and 0.75 of template 1
+TEMPLATE_TYPE - the maximum posterior template type, as defined as a linear combination of input templates using a floating point notation [as per standard BPZ]! 
+    #each sed (in order) is a number between 1 -> Num seds.
+    #interpolatated sed are fractional quantites between, 
+        e.g. TEMPLATE_TYPE = 1.4  meaning 0.6 of sed1 and 0.4 of sed2 
+        e.g. TEMPLATE_TYPE = 3.1  meaning 0.9 of sed3 and 0.1 of sed4
 
 3.2) pdf prediction files: the output file has the same name as the input fits file, with .h5 at the end
 
@@ -95,7 +101,11 @@ Various extensions:
     -- the pdfs labelled like "pdf_{:0.4}.format(bin_center)"
     -- the ID specified in the config file
 
+
+================================
 4) Comparison with older BPZ
+================================
+
 In the test/ directory there is .cat file and a .fits file of the same data. 
 
 The .cat file works with older version of bpz
@@ -140,10 +150,12 @@ intpolate x3 all template types with each other
 intpolate x5 all template types with each other
 0.019447923890760777, -0.018850748000445672, 0.55952095548652392, 30.00600
 
+================================
 5) To do
+================================
 - deal with unseen / missing data
 - cythonise code
-- parrallelise code -- currently with joblib
+- parrallelise code with MPI? -- currently with joblib
 
 
 -- under construction ---

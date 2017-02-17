@@ -99,8 +99,11 @@ filters: {
 #which magnitude will we use for flux normalisation?
 normalisation_filter: DECam_2014_i.res
 
+#this is the id column. Don't mess around! use it.
+ID: COADD_OBJECTS_ID
+
 #if these columns [in the stated case] don't exist a warning will be made, but the code will run.
-ADDITIONAL_OUTPUT_COLUMNS: [COADD_OBJECTS_ID, REDSHIFT, R11, R22, MAG_I, MAGERR_I]
+ADDITIONAL_OUTPUT_COLUMNS: [REDSHIFT, R11, R22, MAG_I, MAGERR_I]
 
 #do you wanna output a suffix for a filename
 output_file_suffix:
@@ -206,6 +209,8 @@ def parr_loop(lst):
     mc = np.zeros(n_gals) + np.nan
     sig68 = np.zeros(n_gals) + np.nan
     KL_post_prior = np.zeros(n_gals) + np.nan
+    min_chi2_arr = np.zeros(n_gals) + np.nan
+    maxL_template_ind = np.zeros(n_gals, dtype=int) -1000
     pdfs_ = np.zeros((n_gals, len(z_bins))) + np.nan
 
     for i in np.arange(n_gals):
@@ -229,6 +234,8 @@ def parr_loop(lst):
 
         min_chi2 = chi2[ind_mchi2][0]
 
+        min_chi2_arr[i] = min_chi2
+
         z_min_chi2 = z_bins[ind_mchi2[0]][0]
 
         likelihood = np.exp(-0.5 * np.clip(chi2 - min_chi2, 0., -2 * eeps))
@@ -243,6 +250,15 @@ def parr_loop(lst):
 
         #posterior is prior * Likelihood
         posterior = prior * likelihood
+
+        #get the maximum posterior, and determine which template this is
+        ind_max = np.where(posterior == np.amax(posterior))
+
+        #if many choose one!
+        #if len(ind_max) > 1:
+        #    ind_max = np.random.choose(ind_max)
+
+        maxL_template_ind[i] = ind_max[1]
 
         #margenalise over Templates in Prior and posterior:
         marg_post = np.sum(posterior, axis=1)
@@ -269,7 +285,8 @@ def parr_loop(lst):
         print ('loop complete', config['n_jobs'])
 
     return {'ind': ind_, 'mean': mean, 'sigma': sigma, 'median': median, 'sig68': sig68, 'z_max_post': z_max_post,
-            'KL_post_prior': KL_post_prior, 'pdfs_': pdfs_, 'mc': mc}
+            'KL_post_prior': KL_post_prior, 'pdfs_': pdfs_, 'mc': mc,
+            'min_chi2': min_chi2_arr, 'maxL_template_ind': maxL_template_ind}
 
 
 def main(args):
@@ -306,6 +323,10 @@ def main(args):
     if key_not_none(config, 'SED_DIR') is False:
         config['SED_DIR'] = config['BPZ_BASE_DIR'] + 'SED/'
 
+    if key_not_none(config, 'ID') is False:
+        print ("you must provide an ID column in the config file!")
+        sys.exit()
+
     output_file_suffix = ''
     if key_not_none(config, 'output_file_suffix'):
         output_file_suffix = config['output_file_suffix']
@@ -313,7 +334,7 @@ def main(args):
     #load redshift bins
     z_bins = np.arange(config['redshift_bins'][0], config['redshift_bins'][1] + config['redshift_bins'][2], config['redshift_bins'][2])
 
-    #load filters. Direct copy past from bpz.py
+    #load filters.
     filters = config['filters'].keys()
 
     MAG_OR_FLUX = [config['filters'][i]['MAG_OR_FLUX'] for i in filters]
@@ -335,6 +356,10 @@ def main(args):
 
         config['sed_list'] = spectra
         config['sed_type'] = sed
+
+    #each sed (in order) is a number between 1 -> Num seds.
+    #interpolatated sed are fractional quantites between, e.g. 1.4 = 0.6 of sed1 and 0.4 of sed2 
+    sed_float_list = ((np.arange(len(config['sed_list'])) + 1.0) / len(config['sed_list'])) * len(config['sed_list'])
 
     #identify the filter we will normalise to.
     ind_norm = np.where(np.array(filters) == config['normalisation_filter'])[0][0]
@@ -392,6 +417,8 @@ def main(args):
         #generate values between dummy indicies. These will be interpolated
         ind_int = np.arange(num_interps + 1)
 
+        sed_float_list = np.interp(ind_int, index, sed_float_list)
+
         #Frist interpolate the galaxy SED types. E.g.
         #{'E/S0': 1 'Spiral': 0 'Irr': 0} -> {'E/S0': 0.5 'Spiral': 0.5 'Irr': 0}
         #->{'E/S0': 0 'Spiral': 1 'Irr': 0}
@@ -420,6 +447,15 @@ def main(args):
         f_mod = copy.copy(f_mod_iterp)
         del f_mod_iterp
 
+    if key_not_none(config, 'save_template_fluxes'):
+        import cPickle as pickle
+        pickle.dump(
+                    {'fluxes': f_mod, 'template_type': template_type_dict,
+                    'filter_order': filters,
+                    'filters_dict': config['filters'], 'z_bins': z_bins
+                    }, open('template_fluxes.p', 'w')
+                    )
+        print ("template fluxes written to template_fluxes.p")
     #fast access to prior dictionary
     gal_mag_type_prior = GALPRIOR.prepare_prior_dictionary_types(template_type_dict)
     mags_bins = np.array(gal_mag_type_prior.keys(), dtype=float)
@@ -432,6 +468,7 @@ def main(args):
         orig_cols = orig_table.columns
         n_gals = len(orig_table[orig_cols.names[0]])
         prior_mag = np.array(orig_table[config['PRIOR_MAGNITUDE']]*100, dtype=int)
+        ID = np.array(orig_table[config['ID']])
 
         ADDITIONAL_OUTPUT_COLUMNS = []
 
@@ -518,7 +555,8 @@ def main(args):
         mc = np.zeros(n_gals) + np.nan
         sig68 = np.zeros(n_gals) + np.nan
         KL_post_prior = np.zeros(n_gals) + np.nan
-
+        min_chi2 = np.zeros(n_gals) + np.nan
+        template_type = np.zeros(n_gals, dtype=float) + np.nan
         if key_not_none(config, 'output_pdfs'):
             pdfs_ = np.zeros((n_gals, len(z_bins))) + np.nan
 
@@ -532,6 +570,8 @@ def main(args):
             mc[ind_] = res['mc']
             sig68[ind_] = res['sig68']
             KL_post_prior[ind_] = res['KL_post_prior']
+            min_chi2[ind_] = res['min_chi2']
+            template_type[ind_] = sed_float_list[res['maxL_template_ind']]
             if key_not_none(config, 'output_pdfs'):
                 pdfs_[ind_] = res['pdfs_']
 
@@ -541,15 +581,18 @@ def main(args):
 
         #saving point predictions as .fits files
         cols = {'MEAN_Z': mean, 'Z_SIGMA': sigma, 'MEDIAN_Z': median,
-                'Z_MC': mc, 'Z_SIGMA68': sig68, 'KL_POST_PRIOR': KL_post_prior}
+                'Z_MC': mc, 'Z_SIGMA68': sig68, 'KL_POST_PRIOR': KL_post_prior,
+                'TEMPLATE_TYPE': template_type, 'MINCHI2': min_chi2}
 
         new_cols = pyfits.ColDefs([pyfits.Column(name=col_name, array=cols[col_name], format='D') for col_name in cols.keys()])
 
+        id_cols = pyfits.ColDefs([pyfits.Column(name='ID', array=ID, format='K')])
+
         if len(ADDITIONAL_OUTPUT_COLUMNS) > 0:
             add_cols = pyfits.ColDefs([pyfits.Column(name=col_name, array=orig_table[col_name], format='D') for col_name in ADDITIONAL_OUTPUT_COLUMNS])
-            hdu = pyfits.BinTableHDU.from_columns(add_cols + new_cols)
+            hdu = pyfits.BinTableHDU.from_columns(id_cols + add_cols + new_cols)
         else:
-            hdu = pyfits.BinTableHDU.from_columns(new_cols)
+            hdu = pyfits.BinTableHDU.from_columns(id_cols + new_cols)
 
         fname = fil.replace('.fits', '.BPZ' + output_file_suffix + '.fits')
         hdu.writeto(fname)
@@ -567,7 +610,7 @@ def main(args):
             #split into manageable write chunks to save RAM [otherwise blows up with >1M rows!]
             inds = np.array_split(np.arange(n_gals), int(n_gals/200000) + 2)
             for ind in inds:
-                cols_ = {}
+                cols_ = {'ID': ID[ind]}
                 for j in cols.keys():
                     cols_[j] = cols[j][ind]
 
@@ -579,7 +622,7 @@ def main(args):
                 del df2
                 if verbose:
                     print 'entering pdf'
-                post_dict = {'KL_POST_PRIOR': KL_post_prior[ind], 'MEAN_Z': mean[ind]}
+                post_dict = {'KL_POST_PRIOR': KL_post_prior[ind], 'MEAN_Z': mean[ind], 'ID': ID[ind]}
 
                 for ii in np.arange(len(z_bins)):
                     post_dict['pdf_{:0.4}'.format(z_bins[ii] + (z_bins[0]+z_bins[1])/2.0)] = pdfs_[ind, ii]

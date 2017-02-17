@@ -7,7 +7,10 @@ Authors: Ben Hoyle
 
 2) Example
 
-3) Output
+3) Output 
+
+3.1) point prediction files
+3.2) pdf prediction files
 
 4) comparison with old BPZv1.99.3
 
@@ -67,9 +70,30 @@ where PathToConfig.yaml is a configuration file, that defines how to run the cod
 
 3) Output
 
+3.1) point predictions: the output file has the same name as the input fits file, with .BPZ.fits at the end.
+
 The code generates a output fits files, which contain 'MEAN_Z'  'Z_SIGMA' 'MEDIAN_Z': 'Z_MC': 'Z_SIGMA68': and any additional columns e.g. REDSHIFT or MAG_I or COADDED_OBJECTS_ID that you asked for within the config.yaml file.
 
-the file has the same name as the input fits file, with .BPZ.fits at the end.
+Additional outputs are: 
+KL_POST_PRIOR - the information gain (Kullbeck Leibler divergence) between prior and posterior
+chi2 - the minimum \Chi^2 to the closest template synthetic example
+template_type - the maximum posterior template type, as defined as a linear combination of input templates! 
+    e.g {0: 0.5, 1: 0.5} = 0.5 of template 0 and 0.5 of template 1
+    e.g {0: 0.25, 1: 0.75} = 0.25 of template 0 and 0.75 of template 1
+
+3.2) pdf prediction files: the output file has the same name as the input fits file, with .h5 at the end
+
+Various extensions:
+/point_predictions/ table extension
+    -- all info that is stored in .fits files, can be found here
+    -- the ID specified in the config file
+
+/info/ table extension
+    -- z_bin_centers: bin centers (also written as the column names. This is an easy access)
+
+/point_predictions/ table extension
+    -- the pdfs labelled like "pdf_{:0.4}.format(bin_center)"
+    -- the ID specified in the config file
 
 4) Comparison with older BPZ
 In the test/ directory there is .cat file and a .fits file of the same data. 

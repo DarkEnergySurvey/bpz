@@ -252,13 +252,12 @@ def parr_loop(lst):
         posterior = prior * likelihood
 
         #get the maximum posterior, and determine which template this is
-        ind_max = np.where(posterior == np.amax(posterior))
+        ind_max = np.where(posterior == np.amax(posterior))[1]
 
-        #if many choose one!
-        #if len(ind_max) > 1:
-        #    ind_max = np.random.choose(ind_max)
-
-        maxL_template_ind[i] = ind_max[1]
+        #if many "best maf posteriors" then choose one at random.
+        if len(ind_max) > 1:
+            ind_max = np.random.choice(ind_max)
+        maxL_template_ind[i] = ind_max
 
         #margenalise over Templates in Prior and posterior:
         marg_post = np.sum(posterior, axis=1)

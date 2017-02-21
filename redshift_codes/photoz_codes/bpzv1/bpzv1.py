@@ -210,7 +210,7 @@ def parr_loop(lst):
     sig68 = np.zeros(n_gals) + np.nan
     KL_post_prior = np.zeros(n_gals) + np.nan
     min_chi2_arr = np.zeros(n_gals) + np.nan
-    maxL_template_ind = np.zeros(n_gals, dtype=int) -1000
+    maxL_template_ind = np.zeros(n_gals, dtype=int) - 1000
     pdfs_ = np.zeros((n_gals, len(z_bins))) + np.nan
 
     for i in np.arange(n_gals):
@@ -279,6 +279,7 @@ def parr_loop(lst):
 
         if key_not_none(config, 'output_pdfs'):
             pdfs_[i] = marg_post
+
     verbose = key_not_none(config, 'verbose')
     if verbose:
         print ('loop complete', config['n_jobs'])
@@ -495,7 +496,6 @@ def main(args):
         else:
             #we are dealing with FLUXEs
             for i in np.arange(len(MAG_OR_FLUX)):
-                ind_process *= (f_obs[:, i] > 0)
                 ind_process *= (ef_obs[:, i] > 0)
 
         #add photoemtric offset error
@@ -527,7 +527,8 @@ def main(args):
 
         #prepare for trivial parralisation using job_lib see  Parrallelise
         #above for an example. Split into 50k chunks
-        ind = np.arange(n_gals)
+        ind = np.arange(n_gals)[ind_process]
+
         parr_lsts = []
         if key_not_none(config, 'n_jobs'):
             parr_lsts = []

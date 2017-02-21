@@ -50,10 +50,10 @@ This script shows how to sample a random point from a pdf.
 
 
 --------- Validation_metric_values_resampled_data.ipynb
-This script reads in the validation file output from the ReSampled Alhambra data, and determines the metric values and errors, and also adds the error component from Cosmic variance.
+This script reads in the validation file output from the ReSampled cosmos data, and determines the metric values and errors, and also adds the error component from cosmic variance, and the SLR corrections.
 
 
---------- Validation_metric_values_resampled_datav1.ipynb
+--------- Validation_metric_values_resampled_data.v1.ipynb
 This script reads in the validation file output from singular Dec ReSampled COSMOS data file, and determines the metric values and errors, and also adds the error component from Cosmic variance.
 
 

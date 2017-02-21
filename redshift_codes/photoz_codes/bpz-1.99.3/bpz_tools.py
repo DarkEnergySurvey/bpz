@@ -34,10 +34,12 @@ ab_clip = 1e-6
 
 # Initialize path info
 bpz_dir = os.getenv('BPZPATH')
+bpz_dir = '/' + '/'.join([i for i in os.path.realpath(__file__).split('/')[0:-1]]) + '/'
+
+
 fil_dir = bpz_dir + '/FILTER/'
 sed_dir = bpz_dir + '/SED/'
 ab_dir = bpz_dir + '/AB/'
-
 
 # Auxiliary synthetic photometry functions
 

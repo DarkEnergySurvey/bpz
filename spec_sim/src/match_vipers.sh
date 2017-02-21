@@ -1,0 +1,8 @@
+# example...
+python match_flag_to_features.py vipers_sim_field0_CLi.mz vipers_sim_field0.fits vipers_sim_features.fits
+python match_flag_to_features.py vipers_sim_field1_CLi.mz vipers_sim_field1.fits vipers_sim_features.fits
+python match_flag_to_features.py vipers_sim_field2_CLi.mz vipers_sim_field2.fits vipers_sim_features.fits
+python match_flag_to_features.py vipers_sim_field3_CLi.mz vipers_sim_field3.fits vipers_sim_features.fits
+python match_flag_to_features.py vipers_sim_field4_acr.mz vipers_sim_field4.fits vipers_sim_features.fits
+python match_flag_to_features.py vipers_sim_field10_acr.mz vipers_sim_field10.fits vipers_sim_features.fits
+python match_flag_to_features.py vipers_sim_field6_wgh.mz vipers_sim_field6.fits vipers_sim_features.fits

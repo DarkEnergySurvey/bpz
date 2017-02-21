@@ -1,0 +1,7 @@
+VIPERS, main VVDS field, almost co-located. tile 69
+
+VVDS deep, both well separated - tiles 85, 88
+
+zCOS, minor vvds field, adjoined - tile 309
+
+vvds f14, well separated - tile 304

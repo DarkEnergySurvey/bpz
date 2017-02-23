@@ -1,0 +1,61 @@
+Directory structure:
+data_files: dependent data files (sky etc.) for simulating, measuring features.
+info: survey info, location on sky, BCC tile, selection etc.
+src: the python source codes
+test: some intermediate or WIP data files for testing the pipeline - please don't modify these without notifying other uses first.
+
+
+
+Description of pipeline:
+
+Sample contruction
+==================
+
+The file info/survey_locs.txt describes the chosen BCC tiles for the simulated spectroscopic datasets that we will use in this first pass. 
+The files are not included (too big).
+Download:
+http://www.slac.stanford.edu/~jderose/buzzard/buzzard_v1.1/truth_rotated/Buzzard_v1.1_truth.***.fit
+
+VIPERS needs U-band in addition to the truth file.
+
+The main VVDS wide field is included in the test directory:
+test/Buzzard_v1.1_truth_vvds_wide1.fit
+
+Sample construction should be such that the BCC sample is reduced to something that can be randomly sampled up to the required number. So all mag-dependent selection functions and the ra, dec limits of the sample need to be applied at this stage.
+
+
+Spectra simulation
+==================
+
+Simulation depends on a set of files describing the sky background, instrument response etc. and some constants (primary mirror) etc.
+These are contained in a dictionary of dictionaries (dict.py).
+Code is invoked as so:
+python simspec.py <survey handle>
+
+Code assumes that all relevant files are in the same directory as the code - this could be changed. My solution is to softlink to a separate working directory for running the code.
+
+
+OzDES MARZ tool formatting
+==========================
+
+The file that is produced by simspec cannot be used in the MARZ tool. reform_spec_file.py does this, but needs to re-read in the skyfile. Currently this is not generalised and the VIMOS LRred sky (4 hours?) is hard-coded in - needs fixing.
+
+
+Feature measurement
+===================
+
+Simple routines to read in the spectra (currently hard-coded filename) and measure the S/N of various features.
+src/get_conf_pars.py
+src/det_feature.py
+src/cap_mpfit.py
+data_files/features.dat
+
+
+Machine learning
+================
+
+The final part has not been started yet, but should use a machine learning approach (e.g. random forest) to estimate the confidence in getting a redshift for the objects that have not been viewed by OzDES.
+test/sim_bcc_vvds_deep_features.fits
+test/sim_bcc_vvds_deep_ozdesform_CLi.mz
+test/sim_bcc_vvds_deep_ozdesform.fits
+test/simulated_bcc_vvds.fits

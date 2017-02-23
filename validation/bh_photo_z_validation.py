@@ -306,21 +306,32 @@ def wl_metric(z1, z2):
 def delta_sigma_crit(z1, z2, z2weight, z_lens):
     """Determine the int{P_w(photz) * Dds/Ds(z)  dz }
     Where P_w(photz) = sum(z_mc_i * weight_i), and Dds, Ds are angular diam distances
-    p_w_phot = sum of weight in eahc 
+    p_w_phot = sum of weight in each
+    z1 = true-zdistribution [N-element array]
+    z2 = Z_MC from photo-z code [N-element array]
+    z2weight = weight associated to each z2 object [N-element array]
+    z_lens = the z_lens redshift [float]
     """
     binCenters = np.linspace(0, 3, 300)
     p_w_phot = np.zeros_like(binCenters)
+    p_w_true = np.zeros_like(binCenters)
     for i in range(len(binCenters)-1):
         ind = (z2 > binCenters[i]) * (z2 < binCenters[i+1])
         p_w_phot[i] = np.sum(z2weight[ind])*1.0
+        ind = (z1 > binCenters[i]) * (z1 < binCenters[i+1])
+        p_w_true[i] = np.sum(z2weight[ind])*1.0
 
     p_w_phot[p_w_phot < 0] = 0
-
+    
     int_ = np.trapz(p_w_phot, x=binCenters)
 
     p_w_phot = p_w_phot/int_
 
-    p_w_true = gaussian_kde(z1).evaluate(binCenters)
+    int_ = np.trapz(p_w_true, x=binCenters)
+
+    p_w_true = p_w_true/int_
+
+    #p_w_true = gaussian_kde(z1).evaluate(binCenters)
 
     cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
 
@@ -527,7 +538,7 @@ def integrate_dist_bin(dfs, x, minval, maxval):
 
 def cumaltive_to_point(dfs, bincenter, points):
     """
-    Expected shape: numpy dfs shape (galaxy, bins), x begins at 0, ends at just before 2 """
+    Expected shape: numpy dfs shape (galaxy, bins),  """
 
     """Note: all points < x[0]-dx are set to x[0] - dx"""
     """Note: all points > x[-1]+dx are set to x[-1] + dx"""
@@ -717,14 +728,19 @@ def binned_statistic_dist1_dist2(arr_, bin_vals_, truths_, pdf_, pdf_z_center_, 
 
 
 """ --- tools for extracting properties from pdfs ----"""
-import random as rdm
-def get_mc(pdf, zarr):
+def get_mc(pdf_, zarr):
+    import random as rdm
     # renorm incase there is probability at higher-z that we've cut, or some error.
-    if np.sum(pdf) > 0:
-        targ_prob = rdm.random()
-        return xval_cumaltive_at_ypoint(pdf, zarr, targ_prob)
+    if np.sum(pdf_) > 0:
+        pdf = pdf_ / np.sum(pdf_)
+        #print pdf
+        rnd = int(rdm.random() * (np.power(2, 31)))
+        np.random.seed(rnd)
+        zbn_center = np.random.choice(zarr, p=pdf, size=1)[0]
+        dz = (zarr[1]-zarr[0])/0.5
+        return zbn_center + (rdm.random() - 0.5) * dz
     else:
-        return -1.
+        return  np.nan
 
 def get_mean(pdf, zarr):
     if np.sum(pdf) > 0:

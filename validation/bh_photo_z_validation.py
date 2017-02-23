@@ -362,6 +362,7 @@ def sigma_68(arr, axis=None):
     Outputs: the 68% spread of data about the median value of the array
     """
     upper, lower = np.percentile(arr, [84.075, 15.825], axis=axis)
+
     return (upper - lower) / 2.0
 
 
@@ -540,8 +541,8 @@ def cumaltive_to_point(dfs, bincenter, points):
     """
     Expected shape: numpy dfs shape (galaxy, bins),  """
 
-    """Note: all points < x[0]-dx are set to x[0] - dx"""
-    """Note: all points > x[-1]+dx are set to x[-1] + dx"""
+    """Note: all points < x[0]-dx/2 are set to x[0] - dx/2"""
+    """Note: all points > x[-1]+dx/2 are set to x[-1] + dx/2"""
 
     if len(np.shape(dfs)) > 1:
         point_ = points
@@ -554,27 +555,28 @@ def cumaltive_to_point(dfs, bincenter, points):
 
         #df value sits in a bin, with a given bin center.
         #append to first and last bin a df value to encompass the bin
-        delta_bin0 = (bincenter[1] - bincenter[0]) / 2.0
-        delta_binN = (bincenter[-1] - bincenter[-2]) / 2.0
+        delta_bin0 = (bincenter[1] - bincenter[0]) / 2
+        delta_binN = (bincenter[-1] - bincenter[-2]) / 2
 
         binEdges = np.append(bincenter[0] - delta_bin0, bincenter)
-        binEdges = np.append(binEdges, bincenter[-1] + delta_binN)
+        binEdges = np.append(binEdges, np.amax(binEdges) + delta_binN)
 
-        #print 'point b4', points
-        point_ = np.amin((points, np.amax(binEdges)))
-        point_ = np.amax((point_, np.amin(binEdges)))
+        dfs_bins = np.append(np.append(0, dfs), 0)
 
-        cum = np.cumsum(dfs)
+        if len(points) > 0:
+            point_ = np.amin((points, [np.amax(bincenter)]*len(points)), axis=0)
+            point_ = np.amax((point_, [np.amin(bincenter)]*len(points)), axis=0)
+        else:
+            point_ = np.amin((points, np.amax(bincenter)))
+            point_ = np.amax((point_, np.amin(bincenter)))
+
+        cum = np.cumsum(dfs_bins)
 
         #ensure cum==1 at end
         cum = cum / float(cum[-1])
 
         #fix endpoints for the CDF to be [0, 1)
-        cum = np.append(np.append(0, cum), 1)
-
-        #note spline interpolation has crazy results!
-        return interpolate.interp1d(binEdges, cum, kind='linear')(point_)
-
+        return np.interp(points, binEdges + delta_bin0, cum)
 
 
 def xval_cumaltive_at_ypoint(dfs, bincenter, point, k=3):
@@ -598,20 +600,18 @@ def xval_cumaltive_at_ypoint(dfs, bincenter, point, k=3):
         binEdges = np.append(bincenter[0] - delta_bin, bincenter)
         binEdges = np.append(binEdges, bincenter[-1] + delta_bin)
 
-        dfs_bins = np.append(np.append(dfs[0], dfs), dfs[-1])
+        dfs_bins = np.append(np.append(0, dfs), 0)
 
         point = np.amin((point, np.amax(binEdges)))
         point = np.amax((point, np.amin(binEdges)))
 
-        cum = np.cumsum(dfs)
-        #fix so that cum==0 at beginning
-        cum -= cum[0]
+        cum = np.cumsum(dfs_bins)
 
         #ensure cum==1 at end
         cum = cum / float(cum[-1])
 
         #note spline interpolation has crazy results!
-        return interpolate.interp1d(cum, bincenter)(point)
+        return interpolate.interp1d(cum, binEdges)(point)
 
 
 def gini(sorted_list):
@@ -728,19 +728,19 @@ def binned_statistic_dist1_dist2(arr_, bin_vals_, truths_, pdf_, pdf_z_center_, 
 
 
 """ --- tools for extracting properties from pdfs ----"""
-def get_mc(pdf_, zarr):
+def get_mc(pdf_, zarr, N=1):
     import random as rdm
     # renorm incase there is probability at higher-z that we've cut, or some error.
     if np.sum(pdf_) > 0:
         pdf = pdf_ / np.sum(pdf_)
         #print pdf
-        rnd = int(rdm.random() * (np.power(2, 31)))
-        np.random.seed(rnd)
-        zbn_center = np.random.choice(zarr, p=pdf, size=1)[0]
-        dz = (zarr[1]-zarr[0])/0.5
-        return zbn_center + (rdm.random() - 0.5) * dz
+        #rnd = int(rdm.random() * (np.power(2, 31)))
+        #np.random.seed(rnd)
+        zbn_center = np.random.choice(zarr, p=pdf, size=N)
+        dz = (zarr[1]-zarr[0])
+        return zbn_center + (np.random.uniform(size=N) - 0.5) * dz
     else:
-        return  np.nan
+        return np.nan
 
 def get_mean(pdf, zarr):
     if np.sum(pdf) > 0:

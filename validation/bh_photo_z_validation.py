@@ -537,14 +537,14 @@ def integrate_dist_bin(dfs, x, minval, maxval):
     return smm
 
 from statsmodels.distributions.empirical_distribution import ECDF
-def cumaltive_to_point(dfs, bincenter, points):
+def cumaltive_to_point(dfs, bincenter, points, N=10000):
+
+    """ Determines the y-axis value (between 0-1) of a CDF determined from a pdf (df) evaluated at the x-axis values given by points
+    Expected shape: numpy dfs shape (galaxy, z-bins),  
+    bincenter center of dfs bins!
 
     """
-    Expected shape: numpy dfs shape (galaxy, bins),  """
 
-    """Note: all points < x[0]-dx/2 are set to x[0] - dx/2"""
-    """Note: all points > x[-1]+dx/2 are set to x[-1] + dx/2"""
-    from statsmodels.distributions.empirical_distribution import ECDF
 
     if len(np.shape(dfs)) > 1:
         point_ = points
@@ -555,7 +555,7 @@ def cumaltive_to_point(dfs, bincenter, points):
         return xarr
     else:
 
-        z_mc = get_mc(dfs, bincenter, N=10000)
+        z_mc = get_mc(dfs, bincenter, N=N)
         ec = ECDF(z_mc)
         c = ec(points)
         return c

@@ -15,31 +15,77 @@ Tests on distributions ==
 """
 import matplotlib.mlab as mlab
 
-
-def test_cumaltive_to_point0():
+def test_cumaltive_to_point02():
     """check we can we draw a set of z_mc from a pdf, that are flat in histogram heights <h>
-    e.g. Bordoloi test"""
+    e.g. Bordoloi test for sets of pdfs with 3 bins values """
     from scipy.stats import entropy
-    ngals = 1
-    sigs = np.random.uniform(size=ngals) * 0.5 + 0.6
+
     x = np.arange(0.01, 3.01, 0.01)
     dx = (x[1]-x[0]) / 2.0
 
-    for i in range(ngals):
-        pdf = mlab.normpdf(x, sigs[i],  0.02)
-        z_mc = pval.get_mc(pdf, x, N=100000)
+    for i in range(len(x)-3):
+        pdf = np.zeros_like(x)
+        pdf[i:i+3] = [0.1, 0.2, 0.1]
+        z_mc = pval.get_mc(pdf, x, N=1000000)
         c = pval.cumaltive_to_point(pdf, x, z_mc)
+     
         h = np.histogram(c, bins=np.arange(0, 1.05, 0.05))
         print h
         print len(h), 'len(h)'
         h = h[0]
         res = entropy(h, [np.mean(h)]*len(h))
         print 'res', res
-        np.testing.assert_almost_equal(res, 0, decimal=3)
+        np.testing.assert_array_less(res, 0.005)
+
+
+def test_cumaltive_to_point01():
+    """check we can we draw a set of z_mc from a pdf, that are flat in histogram heights <h>
+    e.g. Bordoloi test for sets of pdfs with 2 bins values """
+    from scipy.stats import entropy
+
+    x = np.arange(0.01, 3.01, 0.01)
+    dx = (x[1]-x[0]) / 2.0
+
+    for i in range(len(x)-2):
+        pdf = np.zeros_like(x)
+        pdf[i:i+2] = [0.1, 0.2]
+        z_mc = pval.get_mc(pdf, x, N=100000)
+        c = pval.cumaltive_to_point(pdf, x, z_mc)
+     
+        h = np.histogram(c, bins=np.arange(0, 1.05, 0.05))
+        print h
+        print len(h), 'len(h)'
+        h = h[0]
+        res = entropy(h, [np.mean(h)]*len(h))
+        print 'res', res
+        np.testing.assert_array_less(res, 0.005)
+
+
+def test_cumaltive_to_point0():
+    """check we can we draw a set of z_mc from a pdf, that are flat in histogram heights <h>
+    e.g. Bordoloi test"""
+    from scipy.stats import entropy
+    ngals = 20
+    sigs = np.random.uniform(size=ngals) * 0.5 + 0.1
+    x = np.arange(0.01, 3.01, 0.01)
+    dx = (x[1]-x[0]) / 2.0
+    print 'sigs', sigs
+    
+    for i in range(ngals):
+        pdf = mlab.normpdf(x, sigs[i],  0.02)
+        z_mc = pval.get_mc(pdf, x, N=100000)
+        c=pval.cumaltive_to_point(pdf, x, z_mc)
+        h = np.histogram(c, bins=np.arange(0, 1.05, 0.05))
+        print h
+        print len(h), 'len(h)'
+        h = h[0]
+        res = entropy(h, [np.mean(h)]*len(h))
+        print 'res', res
+        np.testing.assert_array_less(res, 0.005)
 
 
 def test_xval_cumaltive_at_ypoint():
-    """check we can correctly identify the x-axis values at a y-axis point on nD-cdf 1
+    """check we can correctly identify the x-axis values at a y-axis point on nD-cdf 1"""
 
     ngals = 1
     sigs = np.random.uniform(size=ngals) * 0.1 + 0.4
@@ -56,7 +102,7 @@ def test_xval_cumaltive_at_ypoint():
         print 'values here', i, median[i], s68[i]/0.02, sigs[i], dx
         np.testing.assert_almost_equal(median[i], sigs[i], decimal=4)
         np.testing.assert_almost_equal(s68[i]/0.02, sigs[i], decimal=4)
-    """
+
 
 
 def test_xval_cumaltive_at_ypoint1():

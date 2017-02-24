@@ -536,13 +536,15 @@ def integrate_dist_bin(dfs, x, minval, maxval):
 
     return smm
 
-
+from statsmodels.distributions.empirical_distribution import ECDF
 def cumaltive_to_point(dfs, bincenter, points):
+
     """
     Expected shape: numpy dfs shape (galaxy, bins),  """
 
     """Note: all points < x[0]-dx/2 are set to x[0] - dx/2"""
     """Note: all points > x[-1]+dx/2 are set to x[-1] + dx/2"""
+    from statsmodels.distributions.empirical_distribution import ECDF
 
     if len(np.shape(dfs)) > 1:
         point_ = points
@@ -553,31 +555,10 @@ def cumaltive_to_point(dfs, bincenter, points):
         return xarr
     else:
 
-        #df value sits in a bin, with a given bin center.
-        #append to first and last bin a df value to encompass the bin
-        delta_bin0 = (bincenter[1] - bincenter[0]) / 2
-        delta_binN = (bincenter[-1] - bincenter[-2]) / 2
-
-        binEdges = np.append(bincenter[0] - delta_bin0, bincenter)
-        binEdges = np.append(binEdges, np.amax(binEdges) + delta_binN)
-
-        dfs_bins = np.append(np.append(0, dfs), 0)
-
-        if len(points) > 0:
-            point_ = np.amin((points, [np.amax(bincenter)]*len(points)), axis=0)
-            point_ = np.amax((point_, [np.amin(bincenter)]*len(points)), axis=0)
-        else:
-            point_ = np.amin((points, np.amax(bincenter)))
-            point_ = np.amax((point_, np.amin(bincenter)))
-
-        cum = np.cumsum(dfs_bins)
-
-        #ensure cum==1 at end
-        cum = cum / float(cum[-1])
-
-        #fix endpoints for the CDF to be [0, 1)
-        return np.interp(points, binEdges + delta_bin0, cum)
-
+        z_mc = get_mc(dfs, bincenter, N=10000)
+        ec = ECDF(z_mc)
+        c = ec(points)
+        return c
 
 def xval_cumaltive_at_ypoint(dfs, bincenter, point, k=3):
     """returns the xvals of dfs(ngal, nxbins), x(bins in xdir) point(1), for a point
@@ -728,7 +709,7 @@ def binned_statistic_dist1_dist2(arr_, bin_vals_, truths_, pdf_, pdf_z_center_, 
 
 
 """ --- tools for extracting properties from pdfs ----"""
-def get_mc(pdf_, zarr, N=1):
+def get_mc(pdf_, binCenter, N=1):
     import random as rdm
     # renorm incase there is probability at higher-z that we've cut, or some error.
     if np.sum(pdf_) > 0:
@@ -736,8 +717,8 @@ def get_mc(pdf_, zarr, N=1):
         #print pdf
         #rnd = int(rdm.random() * (np.power(2, 31)))
         #np.random.seed(rnd)
-        zbn_center = np.random.choice(zarr, p=pdf, size=N)
-        dz = (zarr[1]-zarr[0])
+        zbn_center = np.random.choice(binCenter, p=pdf, size=N)
+        dz = (binCenter[1] - binCenter[0])
         return zbn_center + (np.random.uniform(size=N) - 0.5) * dz
     else:
         return np.nan

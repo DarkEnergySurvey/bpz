@@ -82,8 +82,8 @@ def test_cumaltive_to_point1():
     """ can we determine cumulative 1-d pdf at a set of points"""
 
     #generate a fake df, flat across the 500 bins
-    pdf = np.ones(500)
-
+    pdf = np.ones(500, dtype=float)
+    pdf = pdf/np.sum(pdf)
     #calcalate cumulative df of this, up to 0, 1, 2, 3,.. ngals etc
     for i in np.arange(40)+1:
         res = pval.cumaltive_to_point(pdf, np.arange(500)+0.5, i)
@@ -97,14 +97,14 @@ def test_cumaltive_to_point2():
     #generate a fake df, flat across the 500 bins
     ngals = 56
     pdfs = np.zeros((ngals, 500))
-
+    binCenters = np.arange(500)+0.5
     for i in np.arange(ngals):
         pdfs[i, :] = i + 1
 
-    npfds = pval.normalisepdfs(pdfs, np.arange(500))
+    #npfds = pval.normalisepdfs(pdfs, binCenters)
 
     #calcalate cumulative df of this, up to 0, 1, 2, 3,.. ngals etc
-    res = pval.cumaltive_to_point(npfds, np.arange(500), np.arange(ngals))
+    res = pval.cumaltive_to_point(npfds, binCenters, np.arange(ngals)+0.5)
 
     for i in np.arange(ngals-1) + 1:
         print i, res[i], np.sum(npfds[i, 0:i+1])

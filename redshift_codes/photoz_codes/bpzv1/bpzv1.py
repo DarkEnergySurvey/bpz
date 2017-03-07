@@ -211,7 +211,10 @@ def parr_loop(lst):
     KL_post_prior = np.zeros(n_gals) + np.nan
     min_chi2_arr = np.zeros(n_gals) + np.nan
     maxL_template_ind = np.zeros(n_gals, dtype=int) - 1000
-    pdfs_ = np.zeros((n_gals, len(z_bins))) + np.nan
+    pdfs_ = None
+    if key_not_none(config, 'output_pdfs'):
+        if config['output_pdfs']:
+            pdfs_ = np.zeros((n_gals, len(z_bins))) + np.nan
 
     for i in np.arange(n_gals):
 
@@ -278,9 +281,13 @@ def parr_loop(lst):
         z_max_post[i] = z_bins[ind_max_marg]
 
         if key_not_none(config, 'output_pdfs'):
-            pdfs_[i] = marg_post
+            if config['output_pdfs']:
+                pdfs_[i] = marg_post
 
-    verbose = key_not_none(config, 'verbose')
+    verbose = False:
+    if key_not_none(config, 'verbose'):
+        verbose = config['verbose']
+
     if verbose:
         print ('loop complete', config['n_jobs'])
 
@@ -514,14 +521,15 @@ def main(args):
             sys.exit()
 
         if key_not_none(config, 'output_pdfs'):
-            pdf_file = fil.split('.fits')[0] + '.pdf.h5'
-            df = pd.DataFrame()
-            df.to_hdf(pdf_file, 'pdf_predictions', append=True)
-            df.to_hdf(pdf_file, 'point_predictions', append=True)
-            df.to_hdf(pdf_file, 'info', append=True)
-            df2 = pd.DataFrame({'z_bin_centers': z_bins})
-            df2.to_hdf(pdf_file, key='info', append=True)
-            store = pd.HDFStore(pdf_file)
+            if config['output_pdfs']:
+                pdf_file = fil.split('.fits')[0] + '.pdf.h5'
+                df = pd.DataFrame()
+                df.to_hdf(pdf_file, 'pdf_predictions', append=True)
+                df.to_hdf(pdf_file, 'point_predictions', append=True)
+                df.to_hdf(pdf_file, 'info', append=True)
+                df2 = pd.DataFrame({'z_bin_centers': z_bins})
+                df2.to_hdf(pdf_file, key='info', append=True)
+                store = pd.HDFStore(pdf_file)
 
         nf = len(filters)
 
@@ -558,7 +566,8 @@ def main(args):
         min_chi2 = np.zeros(n_gals) + np.nan
         template_type = np.zeros(n_gals, dtype=float) + np.nan
         if key_not_none(config, 'output_pdfs'):
-            pdfs_ = np.zeros((n_gals, len(z_bins))) + np.nan
+            if config['output_pdfs']:
+                pdfs_ = np.zeros((n_gals, len(z_bins))) + np.nan
 
         #let's combine all the results from the parrallel (or not) jobs
         for res in res1:
@@ -573,7 +582,8 @@ def main(args):
             min_chi2[ind_] = res['min_chi2']
             template_type[ind_] = sed_float_list[res['maxL_template_ind']]
             if key_not_none(config, 'output_pdfs'):
-                pdfs_[ind_] = res['pdfs_']
+                if config['output_pdfs']:
+                    pdfs_[ind_] = res['pdfs_']
 
         #free up space
         del res1
@@ -602,53 +612,52 @@ def main(args):
 
         #save pdf files
         if key_not_none(config, 'output_pdfs'):
+            if config['output_pdfs']:
 
-            if len(ADDITIONAL_OUTPUT_COLUMNS) > 0:
-                for col_name in ADDITIONAL_OUTPUT_COLUMNS:
-                    cols[col_name] = np.array(orig_table[col_name])
+                if len(ADDITIONAL_OUTPUT_COLUMNS) > 0:
+                    for col_name in ADDITIONAL_OUTPUT_COLUMNS:
+                        cols[col_name] = np.array(orig_table[col_name])
 
-            #split into manageable write chunks to save RAM [otherwise blows up with >1M rows!]
-            inds = np.array_split(np.arange(n_gals), int(n_gals/200000) + 2)
-            for ind in inds:
-                cols_ = {'ID': ID[ind]}
-                for j in cols.keys():
-                    cols_[j] = cols[j][ind]
+                #split into manageable write chunks to save RAM [otherwise blows up with >1M rows!]
+                inds = np.array_split(np.arange(n_gals), int(n_gals/200000) + 2)
+                for ind in inds:
+                    cols_ = {'ID': ID[ind]}
+                    for j in cols.keys():
+                        cols_[j] = cols[j][ind]
 
-                df2 = pd.DataFrame(cols_)
-                df2.to_hdf(pdf_file, key='point_predictions', format='table', append=True, complevel=5, complib='blosc')
+                    df2 = pd.DataFrame(cols_)
+                    df2.to_hdf(pdf_file, key='point_predictions', format='table', append=True, complevel=5, complib='blosc')
 
-                #free memory
-                del cols_
-                del df2
-                if verbose:
-                    print 'entering pdf'
-                post_dict = {'KL_POST_PRIOR': KL_post_prior[ind], 'MEAN_Z': mean[ind], 'ID': ID[ind]}
+                    #free memory
+                    del cols_
+                    del df2
+                    if verbose:
+                        print 'entering pdf'
+                    post_dict = {'KL_POST_PRIOR': KL_post_prior[ind], 'MEAN_Z': mean[ind], 'ID': ID[ind]}
 
-                for ii in np.arange(len(z_bins)):
-                    post_dict['pdf_{:0.4}'.format(z_bins[ii] + (z_bins[0]+z_bins[1])/2.0)] = pdfs_[ind, ii]
-                if verbose:
-                    print 'generating DataFrame'
+                    for ii in np.arange(len(z_bins)):
+                        post_dict['pdf_{:0.4}'.format(z_bins[ii] + (z_bins[0]+z_bins[1])/2.0)] = pdfs_[ind, ii]
+                    if verbose:
+                        print 'generating DataFrame'
 
-                df2 = pd.DataFrame(post_dict)
+                    df2 = pd.DataFrame(post_dict)
 
-                if verbose:
-                    print 'writing pdf'
+                    if verbose:
+                        print 'writing pdf'
 
-                df2.to_hdf(pdf_file, key='pdf_predictions', format='table', append=True, complevel=5, complib='blosc')
+                    df2.to_hdf(pdf_file, key='pdf_predictions', format='table', append=True, complevel=5, complib='blosc')
 
-                #free memory
-                del df2
-                del post_dict
-                if verbose:
-                    print 'leaving pdf'
-            del inds
+                    #free memory
+                    del df2
+                    del post_dict
+                    if verbose:
+                        print 'leaving pdf'
+                del inds
+            #free space
             del cols
             
 if __name__ == '__main__':
     args = sys.argv[1:]
     if len(args) < 2 or 'help' in args or '-h' in args:
         _help()
-
-    #args = ['bpzConfig.yaml', 'WL_CLASS.METACAL.rescaled.slr.cosmos.v2._96_200_sampled.fits']
     main(args)
-#    """

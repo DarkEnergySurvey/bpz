@@ -72,7 +72,7 @@ sed_type: [E/S0, Spiral, Spiral, Irr, Irr, Irr]
 rearrange_spectra: False
 
 # prior name, any set you like. See sed_proir_file.py for details.
-#for SV use sed_prior_file.des_sva_prior
+#for SV use sed_prior_file.des_sva1_prior
 prior_name: sed_prior_file.des_y1_prior
 
 #expect i-band mag. e.g. MAG_AUTO_I

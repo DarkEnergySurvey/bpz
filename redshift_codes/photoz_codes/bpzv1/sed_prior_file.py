@@ -2,7 +2,7 @@
 """Below are functions encoding different priors we may have or want to have """
 
 
-def des_sva_prior():
+def des_sva1_prior():
     """   See Carles Sanchez bpz_session.tgz from will  bpz_session/prior_sva1_weights.py
     """
     a = {'E/S0': 2.370, 'Spiral': 1.977, 'Irr': 1.222}

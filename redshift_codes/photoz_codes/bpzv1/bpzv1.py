@@ -50,16 +50,22 @@ redshift_bins: [0.01, 3.5, 0.01]
 BPZ_BASE_DIR:
 #for SV this is %s../../templates/AB_BPZ_ORIG/
 #for Y1 this is %s../../templates/AB_BPZ_HIZ/
-AB_DIR:
+AB_DIR: %s../../templates/AB_BPZ_HIZ/
 
-#Where do the spectra live? The default location is %s../../templates/SED/
-SED_DIR:
+#--------for Y1 this is----------
+#spectra list. This *must* match the sed_type below. They must exist as expected in AB_DIR/*.AB
+sed_list: [El_B2004a.sed, Sbc_B2004a.sed, Scd_B2004a.sed,Im_B2004a.sed, SB3_B2004a.sed, SB2_B2004a.sed]
 
-#spectra list. This *must* match the sed_type below.
-sed_list: [El_B2004a.sed, Sbc_B2004a.sed, Scd_B2004a.sed, El_B2004a.sed, Im_B2004a.sed, SB3_B2004a.sed, El_B2004a.sed, SB2_B2004a.sed]
+#Either E/S0 Spiral or Irr (elliptical/Spherical, spiral, Irregular). The SEDs will be interpolated in the order of the list. They *should* be interpolated as E/S0->Spiral->Irr
+sed_type: [E/S0, Spiral, Spiral, Irr, Irr, Irr]
 
-#Either E/S0 Spiral or Irr (elliptical, spiral, Irregular). The SEDs will be rearranged such that their is exact ascending order E/S0->Spiral->Irr
-sed_type: [E/S0, Spiral, Spiral, E/S0, Irr, Irr, E/S0, Irr]
+#--------for SV this is----------
+#spectra list. This *must* match the sed_type below. They must exist as expected in AB_DIR/*.AB
+#sed_list: [El_B2004a.sed, Sbc_B2004a.sed, Scd_B2004a.sed, Im_B2004a.sed, SB3_B2004a.sed, SB2_B2004a.sed, ssp_25Myr_z008.sed,ssp_5Myr_z008.sed]
+
+#Either E/S0 Spiral or Irr (elliptical, spiral, Irregular). The SEDs will be interpolated in the order of the list. They *should* be interpolated as E/S0->Spiral->Irr
+#sed_type: [E/S0, Spiral, Spiral, Irr, Irr, Irr, Irr, Irr]
+
 
 #go crazy and reorder all spectra types? Note: this is properly unphysical,
 #due to interpolation reordering above!
@@ -74,7 +80,7 @@ PRIOR_MAGNITUDE: MAG_I
 
 #work with MAGS [True] or FLUX [False]. If left blank [default] the code infers this 
 #from the presence of MAG or mag in the XXX of filters: ky: {MAG_OR_FLUX: 'XXX'}
-INPUT_MAGS: 
+INPUT_MAGS:
 
 #minimum magnitude error
 MIN_MAGERR: 0.001
@@ -127,7 +133,7 @@ INTERP: 8
 n_jobs: 5
 
 #print some information to screen
-verbose: True 
+verbose: True
 """ % (bpz_path, bpz_path, bpz_path))
         f.write(txt)
         print ("An example file exampleBPZConfig.yaml has been written to disk")
@@ -157,7 +163,7 @@ class Parrallelise:
     Exampe call:
 
     #load all the files
-    files = glob.glob('/Volumes/Untitled/DES/Y1_GOLD_V1_0_1/*.csv')
+    files = glob.glob('*.csv')
 
     arr = []
     for n, f in enumerate(files):
@@ -212,10 +218,10 @@ def parr_loop(lst):
     eeps = np.log(eps)
 
     #results arrays for this loop
-    z_max_post = np.zeros(n_gals) + np.nan
     mean = np.zeros(n_gals) + np.nan
     sigma = np.zeros(n_gals) + np.nan
     median = np.zeros(n_gals) + np.nan
+    mode = np.zeros(n_gals) + np.nan
     mc = np.zeros(n_gals) + np.nan
     sig68 = np.zeros(n_gals) + np.nan
     KL_post_prior = np.zeros(n_gals) + np.nan
@@ -288,20 +294,20 @@ def parr_loop(lst):
         median[i] = pval.get_median(marg_post, z_bins)
         mc[i] = pval.get_mc(marg_post, z_bins)
         sig68[i] = pval.get_sig68(marg_post, z_bins)
-        z_max_post[i] = z_bins[ind_max_marg]
+        mode[i] = z_bins[ind_max_marg]
 
         if key_not_none(config, 'output_pdfs'):
             if config['output_pdfs']:
                 pdfs_[i] = marg_post
 
-    verbose = False:
+    verbose = False
     if key_not_none(config, 'verbose'):
         verbose = config['verbose']
 
     if verbose:
         print ('loop complete', config['n_jobs'])
 
-    return {'ind': ind_, 'mean': mean, 'sigma': sigma, 'median': median, 'sig68': sig68, 'z_max_post': z_max_post,
+    return {'ind': ind_, 'mean': mean, 'sigma': sigma, 'median': median, 'sig68': sig68, 'mode': mode,
             'KL_post_prior': KL_post_prior, 'pdfs_': pdfs_, 'mc': mc,
             'min_chi2': min_chi2_arr, 'maxL_template_ind': maxL_template_ind}
 
@@ -332,10 +338,11 @@ def main(args):
         config['BPZ_BASE_DIR'] = '/' + '/'.join([i for i in os.path.realpath(__file__).split('/')[0:-1]]) + '/'
 
     if key_not_none(config, 'AB_DIR') is False:
-        config['AB_DIR'] = config['BPZ_BASE_DIR'] + '../../templates/ABcorr/'
+        print ("define AB_DIR in input file".format(args[0]))
+        sys.exit()
 
     if key_not_none(config, 'ID') is False:
-        print ("you must provide an ID column in the config file!")
+        print ("you must provide an ID column in the config file!: ".format(args[0]))
         sys.exit()
 
     output_file_suffix = ''
@@ -560,7 +567,7 @@ def main(args):
         del parr_lsts
 
         #results files
-        z_max_post = np.zeros(n_gals) + np.nan
+        mode = np.zeros(n_gals) + np.nan
         mean = np.zeros(n_gals) + np.nan
         sigma = np.zeros(n_gals) + np.nan
         median = np.zeros(n_gals) + np.nan
@@ -576,7 +583,7 @@ def main(args):
         #let's combine all the results from the parrallel (or not) jobs
         for res in res1:
             ind_ = res['ind']
-            z_max_post[ind_] = res['z_max_post']
+            mode[ind_] = res['mode']
             mean[ind_] = res['mean']
             sigma[ind_] = res['sigma']
             median[ind_] = res['median']
@@ -596,11 +603,11 @@ def main(args):
         #saving point predictions as .fits files
         cols = {'MEAN_Z': mean, 'Z_SIGMA': sigma, 'MEDIAN_Z': median,
                 'Z_MC': mc, 'Z_SIGMA68': sig68, 'KL_POST_PRIOR': KL_post_prior,
-                'TEMPLATE_TYPE': template_type, 'MINCHI2': min_chi2}
+                'TEMPLATE_TYPE': template_type, 'MINCHI2': min_chi2, 'MODE_Z': mode}
 
         new_cols = pyfits.ColDefs([pyfits.Column(name=col_name, array=cols[col_name], format='D') for col_name in cols.keys()])
 
-        id_cols = pyfits.ColDefs([pyfits.Column(name='ID', array=ID, format='K')])
+        id_cols = pyfits.ColDefs([pyfits.Column(name=config['ID'], array=ID, format='K')])
 
         if len(ADDITIONAL_OUTPUT_COLUMNS) > 0:
             add_cols = pyfits.ColDefs([pyfits.Column(name=col_name, array=orig_table[col_name], format='D') for col_name in ADDITIONAL_OUTPUT_COLUMNS])
@@ -625,7 +632,7 @@ def main(args):
                 #split into manageable write chunks to save RAM [otherwise blows up with >1M rows!]
                 inds = np.array_split(np.arange(n_gals), int(n_gals/200000) + 2)
                 for ind in inds:
-                    cols_ = {'ID': ID[ind]}
+                    cols_ = {config['ID']: ID[ind]}
                     for j in cols.keys():
                         cols_[j] = cols[j][ind]
 
@@ -637,7 +644,7 @@ def main(args):
                     del df2
                     if verbose:
                         print 'entering pdf'
-                    post_dict = {'KL_POST_PRIOR': KL_post_prior[ind], 'MEAN_Z': mean[ind], 'ID': ID[ind]}
+                    post_dict = {'KL_POST_PRIOR': KL_post_prior[ind], 'MEAN_Z': mean[ind], config['ID']: ID[ind]}
 
                     for ii in np.arange(len(z_bins)):
                         post_dict['pdf_{:0.4}'.format(z_bins[ii] + (z_bins[0]+z_bins[1])/2.0)] = pdfs_[ind, ii]

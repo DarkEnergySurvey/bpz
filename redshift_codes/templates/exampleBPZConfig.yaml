@@ -1,0 +1,87 @@
+
+#redshift bins min, max, width
+redshift_bins: [0.01, 3.5, 0.01]
+
+#either set here, or we will determine this from the code.
+#Default: determine from code
+BPZ_BASE_DIR:
+#for SV this is //Users/hoyleb/Documents/python/modules/photoz-wg/redshift_codes/photoz_codes/bpzv1/../../templates/AB_BPZ_ORIG/
+#for Y1 this is //Users/hoyleb/Documents/python/modules/photoz-wg/redshift_codes/photoz_codes/bpzv1/../../templates/AB_BPZ_HIZ/
+AB_DIR:
+
+#Where do the spectra live? The default location is //Users/hoyleb/Documents/python/modules/photoz-wg/redshift_codes/photoz_codes/bpzv1/../../templates/SED/
+SED_DIR:
+
+#spectra list. This *must* match the sed_type below.
+sed_list: [El_B2004a.sed, Sbc_B2004a.sed, Scd_B2004a.sed, El_B2004a.sed, Im_B2004a.sed, SB3_B2004a.sed, El_B2004a.sed, SB2_B2004a.sed]
+
+#Either E/S0 Spiral or Irr (elliptical, spiral, Irregular). The SEDs will be rearranged such that their is exact ascending order E/S0->Spiral->Irr
+sed_type: [E/S0, Spiral, Spiral, E/S0, Irr, Irr, E/S0, Irr]
+
+#go crazy and reorder all spectra types? Note: this is properly unphysical,
+#due to interpolation reordering above!
+rearrange_spectra: False
+
+# prior name, any set you like. See sed_proir_file.py for details.
+#for SV use sed_prior_file.des_sva_prior
+prior_name: sed_prior_file.des_y1_prior
+
+#expect i-band mag. e.g. MAG_AUTO_I
+PRIOR_MAGNITUDE: MAG_I
+
+#work with MAGS [True] or FLUX [False]. If left blank [default] the code infers this 
+#from the presence of MAG or mag in the XXX of filters: ky: {MAG_OR_FLUX: 'XXX'}
+INPUT_MAGS: 
+
+#minimum magnitude error
+MIN_MAGERR: 0.001
+
+# Objects not observed
+mag_unobs: -99 
+
+#Objects not detected 
+mag_undet: 99
+
+#this construct which magnitudes / or FLUXES map to which filters
+filters: {
+    DECam_2014_g.res: {MAG_OR_FLUX: MAG_G, ERR: MAGERR_G, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
+    DECam_2014_r.res: {MAG_OR_FLUX: MAG_R, ERR: MAGERR_R, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
+    DECam_2014_i.res: {MAG_OR_FLUX: MAG_I, ERR: MAGERR_I, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
+    DECam_2014_z.res: {MAG_OR_FLUX: MAG_Z, ERR: MAGERR_Z, AB_V: AB, zp_error: 0.02, zp_offset: 0.0}
+    #DECam_2014_Y.res: {MAG: MAG_MOF_Y, ERR: MAGERR_MOF_Y, AB_V: AB, zp_error: 0.02, zp_offset: 0.0}
+    }
+
+
+#this construct which magnitudes / or FLUXES map to which filters
+filters: {
+    DECam_2014_g.res: {MAG_OR_FLUX: FLUX_G, ERR: FLUX_ERR_G, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
+    DECam_2014_r.res: {MAG_OR_FLUX: FLUX_R, ERR: FLUX_ERR_R, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
+    DECam_2014_i.res: {MAG_OR_FLUX: FLUX_I, ERR: FLUX_ERR_I, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
+    DECam_2014_z.res: {MAG_OR_FLUX: FLUX_Z, ERR: FLUX_ERR_Z, AB_V: AB, zp_error: 0.02, zp_offset: 0.0}
+    #DECam_2014_Y.res: {MAG: MAG_MOF_Y, ERR: MAGERR_MOF_Y, AB_V: AB, zp_error: 0.02, zp_offset: 0.0}
+    }
+
+
+#which magnitude will we use for flux normalisation?
+normalisation_filter: DECam_2014_i.res
+
+#this is the id column. Don't mess around! use it.
+ID: COADD_OBJECTS_ID
+
+#if these columns [in the stated case] don't exist a warning will be made, but the code will run.
+ADDITIONAL_OUTPUT_COLUMNS: [REDSHIFT, R11, R22, MAG_I, MAGERR_I]
+
+#do you wanna output a suffix for a filename
+output_file_suffix:
+
+#do we also want pdfs to be produced?
+output_pdfs:
+
+#N_INTERPOLATE_TEMPLATES: Blank means No
+INTERP: 8
+
+#should we parralise the loops?
+n_jobs: 5
+
+#print some information to screen
+verbose: True 

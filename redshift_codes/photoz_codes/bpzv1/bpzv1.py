@@ -33,19 +33,27 @@ def writeExampleConfig():
     import os.path
     import os
     import textwrap
+
     path = os.getcwd() + '/'
+    bpz_path = '/' + '/'.join([i for i in os.path.realpath(__file__).split('/')[0:-1]]) + '/'
+
     if os.path.isfile(path + 'exampleBPZConfig.yaml') is False:
         f = open(path + 'exampleBPZConfig.yaml', 'w')
-        txt = textwrap.dedent("""
+
+        txt = textwrap.dedent(
+"""
 #redshift bins min, max, width
 redshift_bins: [0.01, 3.5, 0.01]
 
 #either set here, or we will determine this from the code.
 #Default: determine from code
-BPZ_BASE_DIR: 
-AB_DIR: 
-SED_DIR: 
-FILTER_DIR: 
+BPZ_BASE_DIR:
+#for SV this is %s../../templates/AB_BPZ_ORIG/
+#for Y1 this is %s../../templates/AB_BPZ_HIZ/
+AB_DIR:
+
+#Where do the spectra live? The default location is %s../../templates/SED/
+SED_DIR:
 
 #spectra list. This *must* match the sed_type below.
 sed_list: [El_B2004a.sed, Sbc_B2004a.sed, Scd_B2004a.sed, El_B2004a.sed, Im_B2004a.sed, SB3_B2004a.sed, El_B2004a.sed, SB2_B2004a.sed]
@@ -58,7 +66,8 @@ sed_type: [E/S0, Spiral, Spiral, E/S0, Irr, Irr, E/S0, Irr]
 rearrange_spectra: False
 
 # prior name, any set you like. See sed_proir_file.py for details.
-prior_name: sed_prior_file.cosmos_Laigle
+#for SV use sed_prior_file.des_sva_prior
+prior_name: sed_prior_file.des_y1_prior
 
 #expect i-band mag. e.g. MAG_AUTO_I
 PRIOR_MAGNITUDE: MAG_I
@@ -107,8 +116,9 @@ ADDITIONAL_OUTPUT_COLUMNS: [REDSHIFT, R11, R22, MAG_I, MAGERR_I]
 
 #do you wanna output a suffix for a filename
 output_file_suffix:
+
 #do we also want pdfs to be produced?
-output_pdfs: True
+output_pdfs:
 
 #N_INTERPOLATE_TEMPLATES: Blank means No
 INTERP: 8
@@ -118,7 +128,7 @@ n_jobs: 5
 
 #print some information to screen
 verbose: True 
-""")
+""" % (bpz_path, bpz_path, bpz_path))
         f.write(txt)
         print ("An example file exampleBPZConfig.yaml has been written to disk")
 
@@ -316,12 +326,6 @@ def main(args):
 
     if key_not_none(config, 'AB_DIR') is False:
         config['AB_DIR'] = config['BPZ_BASE_DIR'] + '../../templates/ABcorr/'
-
-    if key_not_none(config, 'FILTER_DIR') is False:
-        config['FILTER_DIR'] = config['BPZ_BASE_DIR'] + 'FILTER/'
-
-    if key_not_none(config, 'SED_DIR') is False:
-        config['SED_DIR'] = config['BPZ_BASE_DIR'] + 'SED/'
 
     if key_not_none(config, 'ID') is False:
         print ("you must provide an ID column in the config file!")

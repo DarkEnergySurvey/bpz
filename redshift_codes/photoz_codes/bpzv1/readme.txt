@@ -114,6 +114,9 @@ The .cat file works with older version of bpz
 cd ../bpz-1.99.3/
 %> python bpz_tcorrv1.py ../bpzv1/test/WL_CLASS.METACAL.rescaled.slr.cosmos.v2._96_200_sampled.fits.cat  -COLUMNS columns/y1a1_final_spec_valid.columns  -INTERP 8 -VERBOSE 0
 
+then back in the ../bpzv1/test/
+%>markus_bpz_out_fits.py WL_CLASS.METACAL.rescaled.slr.cosmos.v2._96_200_sampled.fits.bpz
+
 And for comparison the newer version 
 %>./bpzv1.py test/bpzConfig.yaml test/WL_CLASS.METACAL.rescaled.slr.cosmos.v2._96_200_sampled.fits
 
@@ -149,6 +152,8 @@ intpolate x3 all template types with each other
 
 intpolate x5 all template types with each other
 0.019447923890760777, -0.018850748000445672, 0.55952095548652392, 30.00600
+
+
 
 ================================
 5) To do

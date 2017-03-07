@@ -73,14 +73,16 @@ def lensing_weight_cosmic_shear(obj):
 
     print ('error calculating weights')
     sys.exit()
+
+
 def lensing_weight_stacked_shear(obj, zlens):
     """Calculate the lengin weight for different zlens"""
     from astropy.cosmology import FlatLambdaCDM
     cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
-    
+
     Ds = cosmo.angular_diameter_distance(obj['MEAN_Z'])
     Dds = cosmo.angular_diameter_distance_z1z2(zlens, obj['MEAN_Z'])
-    
+
     return lensing_weight_cosmic_shear(obj) * Dds / Ds
 
 
@@ -94,7 +96,10 @@ def apply_cuts(d, sample):
     if sample == 'LSS':
         #LSS sample defintion
         cols['IN_LSS_SAMPLE'] = np.array((d['MEAN_Z'] < 1.0) * (d['MEAN_Z'] > 0.6))
-
+        if ('MAG_AUTO_I' in d.columns.names):
+            cols['IN_LSS_SAMPLE'] *= remove_crazy_colors(d, 'COADD', indicies=True)
+        if ('MAG_MOF_I' in d.columns.names):
+            cols['IN_LSS_SAMPLE'] *= remove_crazy_colors(d, 'MOF', indicies=True)
     elif sample == 'WL':
         #WL weights
         fntz = np.isfinite(d['MEAN_Z'])

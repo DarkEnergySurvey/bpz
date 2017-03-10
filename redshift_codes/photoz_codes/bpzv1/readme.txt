@@ -14,7 +14,9 @@ Authors: Ben Hoyle
 
 4) comparison with old BPZv1.99.3
 
-5) To do
+5) Saving and recovering the best fitting templates, and synthetic fluxes
+
+6) To do
 
 ================================
 1) About
@@ -153,7 +155,43 @@ intpolate x3 all template types with each other
 intpolate x5 all template types with each other
 0.019447923890760777, -0.018850748000445672, 0.55952095548652392, 30.00600
 
+================================
+6) Saving and recovering the best fitting templates, and synthetic fluxes
+================================
 
+6.1 -- first run bpzv1.py with a .yaml file with the path to the SED_DIR set (default used), and provide an output pickle file name
+e.g. 
+output_sed_lookup_file: BPZ_templates.p
+SED_DIR: %s../../templates/SED/
+
+-- to save trouble, bpz will stop if the output file already exists!
+
+6.2) read in resulting .fits files (or hdf5) and pickle file: 
+e.g.
+%>cd photoz-wg/redshift_codes/photoz_codes/bpzv1/test/
+In python 2.7 
+
+import cPickle as pickle
+from astropy.table import Table
+
+sed_file = pickle.load(open('BPZ_templates.p', 'r'))
+print sed_file.keys()
+data = Table.read('WL_CLASS.METACAL.rescaled.slr.cosmos.v2._96_200_sampled.BPZ.fits')
+print data.keys()
+
+#now get the template for the first galaxy:
+template_id = data['TEMPLATE_ID'][0]
+
+#access the lambda wavelength range, and get the SED of that (composite galaxy)
+lamb, sed = sed_file['SED'][template_id]
+
+
+#FYI the other keys in the output pickle file may also be useful.
+#['template_type', 'flux_per_z_template_band', 'filters_dict', 'SED', 'z_bins', 'filter_order']
+flux_per_z_template_band: the flux array of the synthetic "data" array(redshiftbins, template_type, band)
+filter_order: describing the order of the template_type
+filters_dict: describing what mags/fluxes/errors and offsets were applied to each filter
+template_type: what fraction of one galaxy type or another the template consists of
 
 ================================
 5) To do

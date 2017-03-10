@@ -129,6 +129,13 @@ output_pdfs:
 #N_INTERPOLATE_TEMPLATES: Blank means No
 INTERP: 8
 
+#Should we output the templates as a dictionary:
+#if yes, provide a pickle file path.
+#if this file aleady exists, the code will stop.
+output_sed_lookup_file:
+
+SED_DIR: %s../../templates/SED/
+
 #should we parralise the loops?
 n_jobs: 5
 
@@ -376,8 +383,8 @@ def main(args):
         config['sed_type'] = sed
 
     #each sed (in order) is a number between 1 -> Num seds.
-    #interpolatated sed are fractional quantites between, e.g. 1.4 = 0.6 of sed1 and 0.4 of sed2 
-    sed_float_list = ((np.arange(len(config['sed_list'])) + 1.0) / len(config['sed_list'])) * len(config['sed_list'])
+    sed_float_list = np.arange(len(config['sed_list']), dtype=float)
+    ind_sed_int = np.arange(len(config['sed_list']), dtype=int)
 
     #identify the filter we will normalise to.
     ind_norm = np.where(np.array(filters) == config['normalisation_filter'])[0][0]
@@ -389,7 +396,18 @@ def main(args):
     zp_error = np.array([config['filters'][i]['zp_error'] for i in filters])
     zp_frac = e_mag2frac(zp_error)
 
+    if key_not_none(config, 'output_sed_lookup_file'):
+        if os.path.isfile(config['output_sed_lookup_file']):
+            print (config['output_sed_lookup_file'], ' already exists! remove this file')
+            print ('before continuing!')
+            sys.exit()
 
+        if key_not_none(config, 'SED_DIR') is False:
+            print ("define SED_DIR in input file".format(args[0]))
+            sys.exit()
+        full_sed = {}
+        for i, sed in enumerate(config['sed_list']):
+            full_sed[i] = np.genfromtxt(config['SED_DIR'] + '/' + sed)
     #prepare the prior
     GALPRIOR = GALAXYTYPE_PRIOR(z=z_bins, tipo_prior=config['prior_name'],
                     mag_bins=np.arange(18, 24.1, 0.1),
@@ -433,21 +451,62 @@ def main(args):
         index = np.linspace(0, num_interps, len(config['sed_list']), endpoint=True, dtype=int)
 
         #generate values between dummy indicies. These will be interpolated
-        ind_int = np.arange(num_interps + 1)
+        ind_sed_int_orig = copy.copy(ind_sed_int)
+        ind_sed_int = np.arange(num_interps + 1)
 
-        sed_float_list = np.interp(ind_int, index, sed_float_list)
+        sed_float_list = np.interp(ind_sed_int, index, sed_float_list)
+
+        #should we interpolate between the SEDs also?
+        if key_not_none(config, 'output_sed_lookup_file'):
+            
+            full_sed_ = copy.copy(full_sed)
+            #for each interpolated index
+            for i in ind_sed_int:
+                #if at limits, no interpolation
+                if i == 0:
+                    full_sed_[i] = full_sed[0]
+                elif i == np.amax(ind_sed_int):
+                    full_sed_[i] = full_sed[ind_sed_int_orig[-1]]
+                else:
+                    #interpolate between SEDs
+                    #get index of SED1 we will interpolate from
+                    #we will interpolate to indexI +1  -> SED2
+                    indexI = int(np.floor(sed_float_list[i]))
+
+                    #get fraction of weight for this SED1
+                    fractI = sed_float_list[i] - indexI
+
+                    #identify overlapping Lambda ranges! these *maybe* different!
+                    L1 = full_sed[ind_sed_int_orig[indexI]][:, 0]
+                    L2 = full_sed[ind_sed_int_orig[indexI + 1]][:, 0]
+
+                    lrange0in1 = (L1 >= np.amin(L2)) * (L1 <= np.amax(L2))
+                    lrange1in0 = (L2 >= np.amin(L1)) * (L2 <= np.amax(L1))
+
+                    #generate a common set of lamdas
+                    delta_l = L2[lrange1in0][1] - L2[lrange1in0][0]
+
+                    common_lrange = np.arange(np.amin(L2[lrange1in0]), np.amax(L2[lrange1in0]) + delta_l, delta_l)
+
+                    #interpolate to this new grid
+                    interp1 = np.interp(common_lrange, L1[lrange0in1], full_sed[ind_sed_int_orig[indexI]][lrange0in1, 1])
+                    interp2 = np.interp(common_lrange, L2[lrange1in0], full_sed[ind_sed_int_orig[indexI + 1]][lrange1in0, 1])
+                    #finally make a linear combination of SED1 + SED2
+                    full_sed_[i] = [common_lrange, interp1 * fractI + (1.0 - fractI) * interp2]
+            full_sed = copy.copy(full_sed_)
+            del full_sed_
 
         #Frist interpolate the galaxy SED types. E.g.
         #{'E/S0': 1 'Spiral': 0 'Irr': 0} -> {'E/S0': 0.5 'Spiral': 0.5 'Irr': 0}
         #->{'E/S0': 0 'Spiral': 1 'Irr': 0}
         template_type_dict_interp_ = {}
-        for i in ind_int:
+        for i in ind_sed_int:
             template_type_dict_interp_[i] = copy.copy(template_type_dict[0])
 
         for gal_typ in np.unique(config['sed_type']):
             vals = np.array([template_type_dict[i][gal_typ] for i in range(len(config['sed_type']))])
-            intp_vals = np.interp(ind_int, index, vals)
-            for i in ind_int:
+            intp_vals = np.interp(ind_sed_int, index, vals)
+            for i in ind_sed_int:
                 template_type_dict_interp_[i][gal_typ] = intp_vals[i]
 
         #save as original template_type_dict
@@ -455,25 +514,27 @@ def main(args):
         del template_type_dict_interp_
 
         #Iterpolate the fluxes, between the templates for each filter
-        f_mod_iterp = np.zeros((len(z_bins), len(ind_int), len(filters)), dtype=float)
+        f_mod_iterp = np.zeros((len(z_bins), len(ind_sed_int), len(filters)), dtype=float)
 
         for i in range(len(z_bins)):
             for j, fltr in enumerate(filters):
-                f_mod_iterp[i, :, j] = np.interp(ind_int, index, f_mod[i, :, j])
+                f_mod_iterp[i, :, j] = np.interp(ind_sed_int, index, f_mod[i, :, j])
 
         #save as original f_mod
         f_mod = copy.copy(f_mod_iterp)
         del f_mod_iterp
 
-    if key_not_none(config, 'save_template_fluxes'):
+    if key_not_none(config, 'output_sed_lookup_file'):
         import cPickle as pickle
         pickle.dump(
-                    {'fluxes': f_mod, 'template_type': template_type_dict,
+                    {'flux_per_z_template_band': f_mod, 'template_type': template_type_dict,
                     'filter_order': filters,
-                    'filters_dict': config['filters'], 'z_bins': z_bins
-                    }, open('template_fluxes.p', 'w')
+                    'filters_dict': config['filters'], 'z_bins': z_bins,
+                    'SED': full_sed,
+                    }, open(config['output_sed_lookup_file'], 'w')
                     )
-        print ("template fluxes written to template_fluxes.p")
+
+        print ("template fluxes written to: ", config['output_sed_lookup_file'])
     #fast access to prior dictionary
     gal_mag_type_prior = GALPRIOR.prepare_prior_dictionary_types(template_type_dict)
     mags_bins = np.array(gal_mag_type_prior.keys(), dtype=float)
@@ -576,6 +637,7 @@ def main(args):
         KL_post_prior = np.zeros(n_gals) + np.nan
         min_chi2 = np.zeros(n_gals) + np.nan
         template_type = np.zeros(n_gals, dtype=float) + np.nan
+        template_int = np.zeros(n_gals, dtype=int) - 999
         if key_not_none(config, 'output_pdfs'):
             if config['output_pdfs']:
                 pdfs_ = np.zeros((n_gals, len(z_bins))) + np.nan
@@ -592,6 +654,7 @@ def main(args):
             KL_post_prior[ind_] = res['KL_post_prior']
             min_chi2[ind_] = res['min_chi2']
             template_type[ind_] = sed_float_list[res['maxL_template_ind']]
+            template_int[ind_] = res['maxL_template_ind']
             if key_not_none(config, 'output_pdfs'):
                 if config['output_pdfs']:
                     pdfs_[ind_] = res['pdfs_']
@@ -608,12 +671,13 @@ def main(args):
         new_cols = pyfits.ColDefs([pyfits.Column(name=col_name, array=cols[col_name], format='D') for col_name in cols.keys()])
 
         id_cols = pyfits.ColDefs([pyfits.Column(name=config['ID'], array=ID, format='K')])
+        template_cols = pyfits.ColDefs([pyfits.Column(name='TEMPLATE_ID', array=template_int, format='K')])
 
         if len(ADDITIONAL_OUTPUT_COLUMNS) > 0:
             add_cols = pyfits.ColDefs([pyfits.Column(name=col_name, array=orig_table[col_name], format='D') for col_name in ADDITIONAL_OUTPUT_COLUMNS])
-            hdu = pyfits.BinTableHDU.from_columns(id_cols + add_cols + new_cols)
+            hdu = pyfits.BinTableHDU.from_columns(template_cols + id_cols + add_cols + new_cols)
         else:
-            hdu = pyfits.BinTableHDU.from_columns(id_cols + new_cols)
+            hdu = pyfits.BinTableHDU.from_columns(template_cols + id_cols + new_cols)
 
         fname = fil.replace('.fits', '.BPZ' + output_file_suffix + '.fits')
         hdu.writeto(fname)
@@ -644,7 +708,8 @@ def main(args):
                     del df2
                     if verbose:
                         print 'entering pdf'
-                    post_dict = {'KL_POST_PRIOR': KL_post_prior[ind], 'MEAN_Z': mean[ind], config['ID']: ID[ind]}
+                    post_dict = {'KL_POST_PRIOR': KL_post_prior[ind], 'MEAN_Z': mean[ind], config['ID']: ID[ind],
+                    'TEMPLATE_ID': template_int[ind]}
 
                     for ii in np.arange(len(z_bins)):
                         post_dict['pdf_{:0.4}'.format(z_bins[ii] + (z_bins[0]+z_bins[1])/2.0)] = pdfs_[ind, ii]

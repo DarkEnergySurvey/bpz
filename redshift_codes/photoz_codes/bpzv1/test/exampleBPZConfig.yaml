@@ -86,6 +86,9 @@ output_pdfs:
 #N_INTERPOLATE_TEMPLATES: Blank means No
 INTERP: 8
 
+output_sed_lookup_file: BPZ_templates.p
+
+SED_DIR: /Users/hoyleb/Documents/python/modules/photoz-wg/redshift_codes/templates/SED/
 #should we parralise the loops?
 n_jobs: 5
 

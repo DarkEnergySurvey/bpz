@@ -71,7 +71,7 @@ To run the code
 PathToListofFitsFiles.fits can contain a * so that all files will be processsed separately
 
 
-where PathToConfig.yaml is a configuration file, that defines how to run the code. See bpzConfig.py for an example
+where PathToConfig.yaml is a configuration file, that defines how to run the code. See bpzConfig.yaml for an example
 
 ================================
 3) Output
@@ -88,6 +88,8 @@ TEMPLATE_TYPE - the maximum posterior template type, as defined as a linear comb
     #interpolatated sed are fractional quantites between, 
         e.g. TEMPLATE_TYPE = 1.4  meaning 0.6 of sed1 and 0.4 of sed2 
         e.g. TEMPLATE_TYPE = 3.1  meaning 0.9 of sed3 and 0.1 of sed4
+
+TEMPLATE_ID - the SED ID that corresponds to the best fitting template.
 
 3.2) pdf prediction files: the output file has the same name as the input fits file, with .h5 at the end
 

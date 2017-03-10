@@ -141,7 +141,7 @@ n_jobs: 5
 
 #print some information to screen
 verbose: True
-""" % (bpz_path, bpz_path, bpz_path))
+""" % (bpz_path, bpz_path, bpz_path, bpz_path))
         f.write(txt)
         print ("An example file exampleBPZConfig.yaml has been written to disk")
 

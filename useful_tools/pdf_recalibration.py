@@ -316,7 +316,6 @@ if __name__ == '__main__':
     import cPickle as pickle
     import pandas as pd
 
-
     if len(inArgs.keys()) > 0:
         #learn the rescaling and save it to a file.
         if ('true_z' not in inArgs) or ('bin_col' not in inArgs):
@@ -326,7 +325,6 @@ if __name__ == '__main__':
         pickle.dump(result_z, open(inArgs['out'], 'w'))
 
     else:
-
         #apply the rescaling to a set of file[s]
         rescal_file = files[0]
         files = files[1:]
@@ -358,11 +356,10 @@ if __name__ == '__main__':
             #copy the info
             df2 = pd.read_hdf(fil, 'info')
             df2.to_hdf(rs_file, key='info', format='table', append=True, complevel=5, complib='blosc')
-
-
+            
             #now populate the point predictions
             cols = {}
-            point_keys = [j for j in resc_pdfs.keys() if 'pdf' not in j]
+            point_keys = [j for j in resc_pdfs.keys() if j != 'pdf']
             for i in point_keys:
                 cols[i] = resc_pdfs[i]
 
@@ -384,19 +381,21 @@ if __name__ == '__main__':
             post_dict = {'MEAN_Z': resc_pdfs['MEAN_Z']}
 
             df2 = pd.read_hdf(rs_file, 'info')
-            z_bin_centers = df2['z_bin_centers']
+            z_bin_centers = np.array(df2['z_bin_centers'])
 
             for ii in np.arange(len(z_bin_centers)):
                 post_dict['pdf_{:0.4}'.format(z_bin_centers[ii])] = resc_pdfs['pdf'][:, ii]
+            print post_dict.keys()
 
             pdfc = [i for i in old_file.keys() if 'pdf_' not in i]
-            pdfc = [i for i in pdfc if i not in ['MEAN_Z', 'KL_POST_PRIOR', 'TEMPLATE_TYPE', 'MINCHI2']]
+            pdfc = [i for i in pdfc if i not in ['KL_POST_PRIOR', 'TEMPLATE_TYPE', 'MINCHI2']]
 
             #any additional columns
             for i in pdfc:
-                post_dict[i] = old_file[i]
+                if i not in resc_pdfs:
+                    post_dict[i] = old_file[i]
 
-            df2 = pd.DataFrame(cols)
+            df2 = pd.DataFrame(post_dict)
             df2.to_hdf(rs_file, key='pdf_predictions', append=True,
                        complevel=5, complib='blosc')
 

@@ -38,3 +38,9 @@ if true_z and bin_col are given, PathToPDF.h5  must contain /point_predictions/ 
 or
 >pdf_recalibration.py InputRSfile.p PathToPDF*.h5
 --will load InputRSfile.p and apply the pdf rescaling to PathToPDF*.hdf5 and produce a new .h5 files with PathToPDF*.ReScaled.h5
+
+
+point_predictions_from_pdf.py
+-- reads in a pdf file [in the required DES format] and extract point predictions.
+
+

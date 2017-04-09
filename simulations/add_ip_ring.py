@@ -19,13 +19,11 @@ args = sys.argv[1:]
 
 if len(args) < 2:
     print ('add_ip_ring.py Nside PathTo*Files')
-    print ('generates a column IP_RING_XXX and saves to the fits file. It adds .IPXXX.fits to the file name')
+    print ('generates a column IP_RING_XXX and saves to the fits file.')
     sys.exit()
 
-Nside = args[1]
+Nside = int(args[1])
 f = args[2:]
-
-sample = str(Nside)
 
 for i in f:
     fits = FITS(i, 'rw')

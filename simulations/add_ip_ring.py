@@ -4,7 +4,7 @@ import sys
 import fitsio
 from fitsio import FITS, FITSHDR
 import os
-
+import numpy as np
 """
 Written by ben hoyle.
 Add IP_RING_XXX column to files

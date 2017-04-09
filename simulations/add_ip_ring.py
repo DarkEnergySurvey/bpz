@@ -1,7 +1,8 @@
 import healpy as hp
 import math
 import sys
-from astropy.io import fits as pyfits
+import fitsio
+from fitsio import FITS, FITSHDR
 import os
 
 """
@@ -27,18 +28,12 @@ f = args[2:]
 sample = str(Nside)
 
 for i in f:
-    orig_table = pyfits.open(i)[1].data
-    orig_cols = orig_table.columns
+    fits = FITS(i, 'rw')
 
-    cols = {}
-    cols['IP_RING_{:}'.format(Nside)] = hp.ang2pix(int(Nside), (90.0 - orig_table['DEC']) * math.pi / 180.0, orig_table['RA'] * math.pi / 180.0, nest=0)
+    ip = hp.ang2pix(int(Nside), (90.0 - np.array(fits[-1]['DEC'][:])) * math.pi / 180.0, np.array(fits[-1]['RA'][:])* math.pi / 180.0, nest=0)
+    
+    col = 'IP_RING_{:}'.format(Nside)
+    fits[-1].insert_column(col, ip)
 
-    new_cols = pyfits.ColDefs([pyfits.Column(name=col_name, array=cols[col_name], format='D') for col_name in cols.keys()])
-
-    hdu = pyfits.BinTableHDU.from_columns(orig_cols + new_cols)
-
-    fname = i.replace('.fits', '.IP{:}.fits'.format(Nside))
-    hdu.writeto(fname)
-    print ("Saving to {:} with new column names {:}".format(i, cols.keys()))
-    import os
-    os.rename(fname, i)
+      
+    print ("Saving to {:} with new column names {:}".format(i, col)

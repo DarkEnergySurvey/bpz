@@ -22,8 +22,8 @@ if len(args) < 2:
     print ('generates a column IP_RING_XXX and saves to the fits file.')
     sys.exit()
 
-Nside = int(args[1])
-f = args[2:]
+Nside = int(args[0])
+f = args[1:]
 
 for i in f:
     fits = FITS(i, 'rw')

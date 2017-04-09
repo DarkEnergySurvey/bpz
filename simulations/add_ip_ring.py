@@ -30,10 +30,9 @@ sample = str(Nside)
 for i in f:
     fits = FITS(i, 'rw')
 
-    ip = hp.ang2pix(int(Nside), (90.0 - np.array(fits[-1]['DEC'][:])) * math.pi / 180.0, np.array(fits[-1]['RA'][:])* math.pi / 180.0, nest=0)
-    
+    ip = hp.ang2pix(int(Nside), (90.0 - np.array(fits[-1]['DEC'][:])) * math.pi / 180.0, np.array(fits[-1]['RA'][:]) * math.pi / 180.0, nest=0)
+
     col = 'IP_RING_{:}'.format(Nside)
     fits[-1].insert_column(col, ip)
 
-      
-    print ("Saving to {:} with new column names {:}".format(i, col)
+    print ("Saving to {:} with new column names {:}".format(i, col))

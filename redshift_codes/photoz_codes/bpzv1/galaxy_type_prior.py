@@ -79,7 +79,7 @@ class GALAXYTYPE_PRIOR:
         self.z = z
 
         #Extract our priors for a file, here.:
-        self.a, self.zo, self.km, self.k_t, self.fo_t, self.momin_hdf = get_function(tipo_prior)()
+        self.a, self.zo, self.km, self.k_t, self.fo_t, self.momin_hdf, self.minmag = get_function(tipo_prior)()
 
         #mag bins to evaluate proir
         self.mag_bins = mag_bins
@@ -121,7 +121,10 @@ class GALAXYTYPE_PRIOR:
             if gal_type not in ['E/S0', 'Spiral', 'Irr']:
                 print ("galaxy type is not known. Must be 'E/S0', 'Spiral', 'Irr'")
                 sys.exit()
-
+        
+        #CLIP THE MAGNITUDE?
+        if imag < self.minmag:
+            imag = self.minmag
         #which Galaxy types do we have
         mag_keys = self.prior.keys()
 
@@ -154,6 +157,10 @@ class GALAXYTYPE_PRIOR:
         Returns an array pi[z[:],:nt]
         The input magnitude is F814W AB ~= i mag
         """ 
+
+        #don't allow mags less than the 
+        if mag < self.minmag:
+            mag = self.minmag
 
         momin_hdf = copy.copy(self.momin_hdf)
         m = np.clip(np.round(mag, decimals=1), 18, 24)

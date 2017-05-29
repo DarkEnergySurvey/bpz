@@ -210,7 +210,7 @@ def parr_loop(lst):
     f_mod = tempalate fluxes [redshift, template, band]
 
     returns a dictionary with
-    {'ind': ind_, 'mean': mean, 'sigma': sigma, 'median': median, 'sig68': sig68, 'z_max_post': z_max_post,
+    {'ind': ind_, 'mean': mean, 'sigma': sigma, 'median': median, 'sig68': sig68, 'z_max_post': z_max_post,'z_minchi2': z_minchi2,
             'KL_post_prior': KL_post_prior, 'pdfs_': pdfs_}
     for later combination
     """
@@ -226,8 +226,10 @@ def parr_loop(lst):
 
     #results arrays for this loop
     mean = np.zeros(n_gals) + np.nan
+    z_minchi2 = np.zeros(n_gals) + np.nan
     sigma = np.zeros(n_gals) + np.nan
     median = np.zeros(n_gals) + np.nan
+    max_z_marg_likelihood = np.zeros(n_gals) + np.nan
     mode = np.zeros(n_gals) + np.nan
     mc = np.zeros(n_gals) + np.nan
     sig68 = np.zeros(n_gals) + np.nan
@@ -262,6 +264,7 @@ def parr_loop(lst):
         min_chi2_arr[i] = min_chi2
 
         z_min_chi2 = z_bins[ind_mchi2[0]][0]
+        z_minchi2[i] = z_min_chi2
 
         likelihood = np.exp(-0.5 * np.clip(chi2 - min_chi2, 0., -2 * eeps))
 
@@ -275,6 +278,7 @@ def parr_loop(lst):
 
         #posterior is prior * Likelihood
         posterior = prior * likelihood
+        #posterior = likelihood
 
         #get the maximum posterior, and determine which template this is
         ind_max = np.where(posterior == np.amax(posterior))[1]
@@ -289,6 +293,10 @@ def parr_loop(lst):
         marg_post /= np.sum(marg_post)
         marg_prior = np.sum(prior, axis=1)
         marg_prior /= np.sum(marg_prior)
+
+        marg_likelihood = np.sum(likelihood, axis=1)
+        marg_likelihood /= np.sum(marg_likelihood)
+        max_z_marg_likelihood[i] = z_bins[np.where(marg_likelihood == np.amax(marg_likelihood))[0][0]]
 
         KL_post_prior[i] = entropy(marg_post, marg_prior)
 
@@ -312,9 +320,9 @@ def parr_loop(lst):
     if verbose:
         print ('loop complete', config['n_jobs'])
 
-    return {'ind': ind_, 'mean': mean, 'sigma': sigma, 'median': median, 'sig68': sig68, 'mode': mode,
+    return {'ind': ind_, 'mean': mean, 'sigma': sigma, 'median': median, 'sig68': sig68, 'mode': mode, 'z_minchi2': z_minchi2,
             'KL_post_prior': KL_post_prior, 'pdfs_': pdfs_, 'mc': mc,
-            'min_chi2': min_chi2_arr, 'maxL_template_ind': maxL_template_ind}
+            'min_chi2': min_chi2_arr, 'max_z_marg_likelihood': max_z_marg_likelihood, 'maxL_template_ind': maxL_template_ind}
 
 
 def main(args):
@@ -452,11 +460,11 @@ def main(args):
         num_interps = (len(config['sed_list'])-1) * config['INTERP'] + len(config['sed_list'])
 
         #generate some dummy indicies that are intergers spaced between 0 -- num_interps
-        index = np.linspace(0, num_interps, len(config['sed_list']), endpoint=True, dtype=int)
+        index = np.linspace(1, num_interps, len(config['sed_list']), endpoint=True, dtype=int) - 1
 
         #generate values between dummy indicies. These will be interpolated
         ind_sed_int_orig = copy.copy(ind_sed_int)
-        ind_sed_int = np.arange(num_interps + 1)
+        ind_sed_int = np.arange(num_interps)
 
         sed_float_list = np.interp(ind_sed_int, index, sed_float_list)
 
@@ -535,10 +543,10 @@ def main(args):
                     'filter_order': filters,
                     'filters_dict': config['filters'], 'z_bins': z_bins,
                     'SED': full_sed,
-                    }, open(config['output_sed_lookup_file'], 'w')
+                    }, open(output_file_suffix + config['output_sed_lookup_file'], 'w')
                     )
 
-        print ("template fluxes written to: ", config['output_sed_lookup_file'])
+        print ("template fluxes written to: ", output_file_suffix + config['output_sed_lookup_file'])
     #fast access to prior dictionary
     gal_mag_type_prior = GALPRIOR.prepare_prior_dictionary_types(template_type_dict)
     mags_bins = np.array(gal_mag_type_prior.keys(), dtype=float)
@@ -598,7 +606,7 @@ def main(args):
 
         if key_not_none(config, 'output_pdfs'):
             if config['output_pdfs']:
-                pdf_file = fil.split('.fits')[0] + '.pdf.h5'
+                pdf_file = fil.split('.fits')[0] + output_file_suffix + '.pdf.h5'
                 df = pd.DataFrame()
                 df.to_hdf(pdf_file, 'pdf_predictions', append=True)
                 df.to_hdf(pdf_file, 'point_predictions', append=True)
@@ -634,6 +642,8 @@ def main(args):
         
         #results arrays for point predictions
         mode = np.zeros(n_gals) + np.nan
+        z_minchi2 = np.zeros(n_gals) + np.nan
+        z_max_marg_like = np.zeros(n_gals) + np.nan
         mean = np.zeros(n_gals) + np.nan
         sigma = np.zeros(n_gals) + np.nan
         median = np.zeros(n_gals) + np.nan
@@ -655,6 +665,8 @@ def main(args):
             sigma[ind_] = res['sigma']
             median[ind_] = res['median']
             mc[ind_] = res['mc']
+            z_minchi2[ind_] = res['z_minchi2']
+            z_max_marg_like[ind_] = res['max_z_marg_likelihood']
             sig68[ind_] = res['sig68']
             KL_post_prior[ind_] = res['KL_post_prior']
             min_chi2[ind_] = res['min_chi2']
@@ -670,7 +682,8 @@ def main(args):
         #saving point predictions as .fits files
         cols = {'MEAN_Z': mean, 'Z_SIGMA': sigma, 'MEDIAN_Z': median,
                 'Z_MC': mc, 'Z_SIGMA68': sig68, 'KL_POST_PRIOR': KL_post_prior,
-                'TEMPLATE_TYPE': template_type, 'MINCHI2': min_chi2, 'MODE_Z': mode}
+                'TEMPLATE_TYPE': template_type, 'MINCHI2': min_chi2, 'MODE_Z': mode,
+                'Z_MINCHI2': z_minchi2, 'Z_MAXMARG_LIKE': z_max_marg_like}
 
         new_cols = pyfits.ColDefs([pyfits.Column(name=col_name, array=cols[col_name], format='D') for col_name in cols.keys()])
 

@@ -11,8 +11,9 @@ def des_sva1_prior():
     k_t = {'E/S0': 0.300, 'Spiral': 0.097}
     fo_t = {'E/S0': 0.34, 'Spiral': 0.27}
     momin_hdf = 19
+    minmag = 19
 
-    return a, zo, km, k_t, fo_t, momin_hdf
+    return a, zo, km, k_t, fo_t, momin_hdf, minmag
 
 
 def des_y1_prior():
@@ -30,8 +31,9 @@ def des_y1_prior():
     k_t = {'E/S0': 0.296, 'Spiral': 0.156}
     fo_t = {'E/S0': 0.291, 'Spiral': 0.550}
     momin_hdf = 20
+    minmag = 18
 
-    return a, zo, km, k_t, fo_t, momin_hdf
+    return a, zo, km, k_t, fo_t, momin_hdf, minmag
 
 
 #Add any new priors here. Or we could BHM over them.
@@ -51,8 +53,10 @@ def new_priors():
     k_t = {'E/S0': 0., 'Spiral': 0.}
     fo_t = {'E/S0': 0., 'Spiral': 0.}
     momin_hdf = 20
-
-    return a, zo, km, k_t, fo_t, momin_hdf
+    #what is the minimum magnitude that we will allow
+    #clip all other values to this.
+    minmag = 18
+    return a, zo, km, k_t, fo_t, momin_hdf, minmag
 
 
 

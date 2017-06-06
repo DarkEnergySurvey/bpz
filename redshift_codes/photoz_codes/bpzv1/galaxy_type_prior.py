@@ -130,7 +130,7 @@ class GALAXYTYPE_PRIOR:
 
         #which is the nearest i-mag that we have calucalted a prior
         near_key = np.argmin(np.abs(np.array(mag_keys) - imag))
-       
+
         #store priors in a tempory array
         priors = self.prior[mag_keys[near_key]]
 
@@ -144,7 +144,7 @@ class GALAXYTYPE_PRIOR:
             final_prior += priors[gal_typ] * frac_types[gal_typ]
 
         #renormalise prior
-        final_prior /= np.sum(final_prior)
+        final_prior /= np.trapz(final_prior, self.z)
 
         return final_prior
 
@@ -221,9 +221,8 @@ class GALAXYTYPE_PRIOR:
                 print 'f_t', f_t
                 print p_z_tmo[gal_typ][0:50]
 
-            p_z_tmo[gal_typ] /= np.sum(p_z_tmo[gal_typ])
             p_z_tmo[gal_typ] *= f_t[gal_typ]
-            p_z_tmo[gal_typ] /= np.sum(p_z_tmo[gal_typ])
+            p_z_tmo[gal_typ] /= np.trapz(p_z_tmo[gal_typ], self.z)
 
         #exact with BPZ to here [if we renormalise BPZ output]
         return p_z_tmo

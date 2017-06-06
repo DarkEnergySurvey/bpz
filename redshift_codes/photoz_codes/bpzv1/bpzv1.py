@@ -17,6 +17,9 @@ import sys
 from joblib import Parallel, delayed
 import numpy as np
 import inspect
+import os
+bpz_path = '/' + '/'.join([i for i in os.path.realpath(__file__).split('/')[0:-1]]) + '/'
+sys.path.append(bpz_path + '../../../validation/')
 import bh_photo_z_validation as pval
 import random as rdm
 

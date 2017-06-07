@@ -160,7 +160,7 @@ class GALAXYTYPE_PRIOR:
             mag = self.minmag
 
         momin_hdf = copy.copy(self.momin_hdf)
-        m = np.clip(np.round(mag, decimals=1), 18, 24)
+        m = np.clip(np.round(mag, decimals=1), momin_hdf, 24)
 
         # See Table 1 of Benitez00 https://arxiv.org/pdf/astro-ph/9811189v1.pdf
         #and eq 29 /30
@@ -186,8 +186,7 @@ class GALAXYTYPE_PRIOR:
             f_t[gal_typ] = fo_t[gal_typ] * np.exp(-1.0 * k_t[gal_typ] * (m - momin_hdf))
 
         #the remaining fraction  are Irr, again / # of Irr SED types
-        #clip to 0 if there are no Irrs
-        f_t['Irr'] = np.clip(np.round(1.0 - np.sum([f_t[gal_typ] * self.num_tmp_type[gal_typ] for gal_typ in f_t.keys()]), decimals=4) / self.num_tmp_type['Irr'], 0, 1)
+        f_t['Irr'] = np.round(1.0 - np.sum([f_t[gal_typ] * self.num_tmp_type[gal_typ] for gal_typ in f_t.keys()]), decimals=4) / self.num_tmp_type['Irr']
 
         #calculate probs P(T|mag)
         p_T_m0 = {}

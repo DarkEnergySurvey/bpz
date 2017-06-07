@@ -143,9 +143,6 @@ class GALAXYTYPE_PRIOR:
             frac_types[gal_typ] /= norm
             final_prior += priors[gal_typ] * frac_types[gal_typ]
 
-        #renormalise prior
-        final_prior /= np.trapz(final_prior, self.z)
-
         return final_prior
 
 
@@ -189,7 +186,8 @@ class GALAXYTYPE_PRIOR:
             f_t[gal_typ] = fo_t[gal_typ] * np.exp(-1.0 * k_t[gal_typ] * (m - momin_hdf))
 
         #the remaining fraction  are Irr, again / # of Irr SED types
-        f_t['Irr'] = np.round(1.0 - np.sum([f_t[gal_typ] * self.num_tmp_type[gal_typ] for gal_typ in f_t.keys()]), decimals=4) / self.num_tmp_type['Irr']
+        #clip to 0 if there are no Irrs
+        f_t['Irr'] = np.clip(np.round(1.0 - np.sum([f_t[gal_typ] * self.num_tmp_type[gal_typ] for gal_typ in f_t.keys()]), decimals=4) / self.num_tmp_type['Irr'], 0, 1)
 
         #calculate probs P(T|mag)
         p_T_m0 = {}
@@ -220,19 +218,12 @@ class GALAXYTYPE_PRIOR:
                 print 'm',m
                 print 'f_t', f_t
                 print p_z_tmo[gal_typ][0:50]
-
+            p_z_tmo[gal_typ] /= np.sum(p_z_tmo[gal_typ])
             p_z_tmo[gal_typ] *= f_t[gal_typ]
-
-        int_ = 0.0
-        for gal_typ in p_z_tmo:
-            int_ += np.trapz(p_z_tmo[gal_typ], self.z)
-        for gal_typ in p_z_tmo:
-            p_z_tmo[gal_typ] /= int_
-
         return p_z_tmo
 
 if __name__ == '__main__':
-    mag = 22.343
+    mag = 18
     GALPROIR = GALAXYTYPE_PRIOR(
                     z=np.arange(0.01, 3.5, 0.01),
                     tipo_prior='sed_prior_file.des_y1_prior',

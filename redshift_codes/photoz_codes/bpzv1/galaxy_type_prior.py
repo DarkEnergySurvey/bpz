@@ -158,7 +158,7 @@ class GALAXYTYPE_PRIOR:
         The input magnitude is F814W AB ~= i mag
         """ 
 
-        #don't allow mags less than the 
+        #don't allow mags less than the limit
         if mag < self.minmag:
             mag = self.minmag
 
@@ -222,17 +222,21 @@ class GALAXYTYPE_PRIOR:
                 print p_z_tmo[gal_typ][0:50]
 
             p_z_tmo[gal_typ] *= f_t[gal_typ]
-            p_z_tmo[gal_typ] /= np.trapz(p_z_tmo[gal_typ], self.z)
 
-        #exact with BPZ to here [if we renormalise BPZ output]
+        int_ = 0.0
+        for gal_typ in p_z_tmo:
+            int_ += np.trapz(p_z_tmo[gal_typ], self.z)
+        for gal_typ in p_z_tmo:
+            p_z_tmo[gal_typ] /= int_
+
         return p_z_tmo
 
 if __name__ == '__main__':
     mag = 22.343
     GALPROIR = GALAXYTYPE_PRIOR(
                     z=np.arange(0.01, 3.5, 0.01),
-                    tipo_prior='sed_prior_file.cosmos_Laigle',
-                    mag_bins=np.arange(18, 24.1, 0.1),
+                    tipo_prior='sed_prior_file.des_y1_prior',
+                    mag_bins=np.arange(18, 24.1, 1),
                     template_type_list=['E/S0', 'Spiral', 'Spiral', 'Irr','Irr','Irr']
                     )
 

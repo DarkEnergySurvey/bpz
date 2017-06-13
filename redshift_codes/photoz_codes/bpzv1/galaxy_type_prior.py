@@ -101,7 +101,7 @@ class GALAXYTYPE_PRIOR:
         for  a faster look-up. Magbins are stored as int(mag*100)"""
         dic = {}
         for m in self.mag_bins:
-            ky = int(m*100)
+            ky = int(np.round(m*100))
             dic[ky] = {}
             for i in template_type_dict.keys():
                 dic[ky][i] = self.evaluate(m, frac_prior_from_types=template_type_dict[i])

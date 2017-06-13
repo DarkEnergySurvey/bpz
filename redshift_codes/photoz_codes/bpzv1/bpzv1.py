@@ -18,8 +18,10 @@ from joblib import Parallel, delayed
 import numpy as np
 import inspect
 import os
+
 bpz_path = '/' + '/'.join([i for i in os.path.realpath(__file__).split('/')[0:-1]]) + '/'
 sys.path.append(bpz_path + '../../../validation/')
+
 import bh_photo_z_validation as pval
 import random as rdm
 
@@ -561,8 +563,7 @@ def main(args):
         orig_table = pyfits.open(fil)[1].data
         orig_cols = orig_table.columns
         n_gals = len(orig_table[orig_cols.names[0]])
-        prior_mag = np.array(orig_table[config['PRIOR_MAGNITUDE']]*100, dtype=int)
-        ID = np.array(orig_table[config['ID']])
+        prior_mag = np.array(np.round(orig_table[config['PRIOR_MAGNITUDE']], 1) * 100).astype(np.int)
 
         ADDITIONAL_OUTPUT_COLUMNS = []
 

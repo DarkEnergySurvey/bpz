@@ -1,9 +1,0 @@
-# Filter            columns  AB/Vega  zp_error  zp_offset
-DECam_2014_g.res	    2,6	     AB	      0.02	0.0
-DECam_2014_r.res	    3,7	     AB	      0.02	0.0
-DECam_2014_i.res	    4,8	     AB	      0.02	0.0
-DECam_2014_z.res	    5,9     AB	      0.02	0.0
-#DECam_2014_Y.res	    5,10     AB	      0.05	0.0
-M_0                   4
-Z_S 		     10
-ID                    1

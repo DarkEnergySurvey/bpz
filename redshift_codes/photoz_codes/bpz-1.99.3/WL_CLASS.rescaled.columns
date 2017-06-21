@@ -1,9 +1,0 @@
-# Filter            columns  AB/Vega  zp_error  zp_offset
-DECam_2014_g.res	    MAG_MOF_G,MAGERR_MOF_G	     AB	      0.02	0.0
-DECam_2014_r.res	    MAG_MOF_R,MAGERR_MOF_R	     AB	      0.02	0.0
-DECam_2014_i.res	    MAG_MOF_I,MAGERR_MOF_I	     AB	      0.02	0.0
-DECam_2014_z.res	    MAG_MOF_Z,MAGERR_MOF_Z     AB	      0.02	0.0
-#DECam_2014_Y.res	    MAG_MOF_Y,MAGERR_MOF_Y     AB	      0.05	0.0
-M_0                   MAG_MOF_I
-Z_S 		     REDSHIFT
-ID                    COADD_OBJECTS_ID

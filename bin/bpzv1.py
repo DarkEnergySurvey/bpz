@@ -630,8 +630,6 @@ def main(args):
         #above for an example. Split into 50k chunks
         ind = np.arange(n_gals)[ind_process]
 
-        print config['n_jobs']
-        exit()
         parr_lsts = []
         if key_not_none(config, 'n_jobs'):
             parr_lsts = []

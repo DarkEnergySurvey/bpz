@@ -1,0 +1,10 @@
+setupRequired(astropy 1.1.2+3)
+setupRequired(pandas 0.15.2+4)
+setupRequired(joblib 0.8.4+3)
+setupRequired(scipy 0.14.0+9)
+setupRequired(pyyaml 3.11+2)
+
+envPrepend(SED_DIR, ${PRODUCT_DIR}/etc/SED_DIR)
+envPrepend(AB_DIR, ${PRODUCT_DIR}/etc/AB_DIR)
+envPrepend(PYTHONPATH, ${PRODUCT_DIR}/python)
+envPrepend(PATH, ${PRODUCT_DIR}/bin)

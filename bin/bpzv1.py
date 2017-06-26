@@ -22,7 +22,6 @@ import sys
 import os
 import numpy as np
 import time
-import yaml
 import copy
 import pandas as pd
 import cPickle as pickle
@@ -36,34 +35,37 @@ key_not_none = bpz_utils.key_not_none
 if __name__ == '__main__':
 
     t0 = time.time()
-    args = sys.argv[1:]
-    if len(args) < 2 or 'help' in args or '-h' in args:
-        bpz_utils.help()
 
-    #some timing tests
-    t = time.time()
-    config = yaml.load(open(args[0]))
+    # Get the configuration 
+    args = bpz_utils.cmdline()
+    config = vars(args)
+    
+    #args = sys.argv[1:]
+    #if len(args) < 2 or 'help' in args or '-h' in args:
+    #    bpz_utils.help()
+    #config = yaml.load(open(args[0]))
 
     verbose = key_not_none(config, 'verbose')
 
-    files = args[1:]
-    if isinstance(files, list) is False:
-        files = [files]
+    #files = args[1:]
+    #if isinstance(files, list) is False:
+    #    files = [files]
+    
+    files = args.files
 
     #Set up bpz paths, or infer them from the location of this script.
-    if key_not_none(config, 'BPZ_BASE_DIR') is False:
-        config['BPZ_BASE_DIR'] = '/' + '/'.join([i for i in os.path.realpath(__file__).split('/')[0:-1]]) + '/'
+    #if key_not_none(config, 'BPZ_BASE_DIR') is False:
+    #    config['BPZ_BASE_DIR'] = '/' + '/'.join([i for i in os.path.realpath(__file__).split('/')[0:-1]]) + '/'
+    #if key_not_none(config, 'AB_DIR') is False:
+    #    try:
+    #        config['AB_DIR'] = os.environ['AB_DIR']
+    #    except:
+    #        print ("define AB_DIR in input file".format(args[0]))
+    #        sys.exit()
 
-    if key_not_none(config, 'AB_DIR') is False:
-        try:
-            config['AB_DIR'] = os.environ['AB_DIR']
-        except:
-            print ("define AB_DIR in input file".format(args[0]))
-            sys.exit()
-
-    if key_not_none(config, 'ID') is False:
-        print ("you must provide an ID column in the config file!: ".format(args[0]))
-        sys.exit()
+    #if key_not_none(config, 'ID') is False:
+    #    print ("you must provide an ID column in the config file!: ".format(args[0]))
+    #    sys.exit()
 
     output_file_suffix = ''
     if key_not_none(config, 'output_file_suffix'):

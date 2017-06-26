@@ -12,6 +12,75 @@ import sys
 from joblib import Parallel, delayed
 import numpy as np
 
+# Setting paths
+try:
+    BPZ_PATH = os.environ['BPZ_DIR']
+except:
+    print "Cannot find BPZ_DIR on environment, will guess the path"
+    BPZ_PATH = os.path.dirname(os.path.realpath(__file__)).split('python')[0]
+
+try:
+    AB_DIR = os.environ['AB_DIR']
+except:
+    print "Cannot find AB_DIR on environment, will guess the path"
+    AB_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)).split('python')[0],'etc/AB_DIR')
+
+
+def cmdline():
+
+    import argparse
+    import yaml
+
+    # 1. We make a proto-parse use to read in the default yaml
+    # configuration file, Turn off help, so we print all options in response to -h
+    conf_parser = argparse.ArgumentParser(add_help=False)
+    conf_parser.add_argument("-c", "--config",help="Specify config file")
+    args, remaining_argv = conf_parser.parse_known_args()
+    conf_defaults = yaml.load(open(args.config))
+
+    # 2. This is the main parser
+    parser = argparse.ArgumentParser(description="Run BPZv1 over an input catalog",
+                                     # Inherit options from config_parser
+                                     parents=[conf_parser])
+    parser.add_argument("--files", action="store",nargs='+',default=None,required=True,
+                        help="Name of input fits catalog(s)")
+    parser.add_argument("--outbpz", action="store",default=None,required=True,
+                        help="Name of output bpz fits catalog")
+    # The positional arguments
+    parser.add_argument("--prior_name", action="store",default=None,
+                        help="prior name, any set you like (i.e.: bpz.sed_prior_file.des_y1_prior). See sed_proir_file.py for details")
+    parser.add_argument("--n_jobs", action="store", default=1, type=int,
+                        help="Number of jobs/cpu per run")
+    parser.add_argument("--gal_chunk_size:", action="store", default=0, type=int,
+                        help="Number of galaxies per loop (0=auto)")
+    parser.add_argument("--AB_DIR", action="store",default=AB_DIR,
+                        help="Location of AB files")
+    parser.add_argument("--ID", action="store",default='NUMBER',
+                        help="ID column to use from input catalog")
+    
+    # Set the defaults of argparse using the values in the yaml config file
+    parser.set_defaults(**conf_defaults)
+    args = parser.parse_args(args=remaining_argv)
+
+    
+    # Update keys in case these were undefined
+    #if not args.BPZ_BASE_DIR:
+    #    try:
+    #        args.BPZ_BASE_DIR = os.environ['BPZ_DIR']
+    #    except:
+    #        print "Cannot find BPZ_DIR on environment, will guess the path"
+    #        args.BPZ_BASE_DIR = os.path.dirname(os.path.realpath(__file__)).split('python')[0]
+    #    print "# Will set BPZ_BASE_DIR to %s" % args.BPZ_BASE_DIR
+
+    print vars(args)
+    print "----"
+    for k, v in vars(args).iteritems():
+        print k, v
+    return args
+
+
+
+
 def key_not_none(d, ky):
     if ky in d:
         return d[ky] is not None

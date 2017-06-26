@@ -11,10 +11,16 @@ transparent user interface, and the native .fits support.
 The original BPZ is still very useful. e.g determining photometric
 offsets is not implemented
 
+Re-organization, clean-up and new I/O to make it DESDM useful by F. Menanteau (June 2017)
+
 To do:
 Deal with missing / unseen data properly
 
-Re-organization and some clean-up to make it DESDM production by F. Menanteau
+To do DESDEM:
+
+- Change pyfits to fitsio
+- Add all options of yaml file argparse
+- Clean up hd5 files I/O interface
 
 """
 
@@ -29,53 +35,14 @@ import bpz.bpz_utils as bpz_utils
 import bpz.bh_photo_z_validation as pval
 from bpz.galaxy_type_prior import GALAXYTYPE_PRIOR
 from astropy.io import fits as pyfits
-# Shortcut
-key_not_none = bpz_utils.key_not_none
 
 if __name__ == '__main__':
 
     t0 = time.time()
 
-    # Get the configuration 
+    # Get the configuration and get it into a config dictionary 
     args = bpz_utils.cmdline()
     config = vars(args)
-    
-    #args = sys.argv[1:]
-    #if len(args) < 2 or 'help' in args or '-h' in args:
-    #    bpz_utils.help()
-    #config = yaml.load(open(args[0]))
-
-    verbose = key_not_none(config, 'verbose')
-
-    #files = args[1:]
-    #if isinstance(files, list) is False:
-    #    files = [files]
-    
-    files = args.files
-
-    #Set up bpz paths, or infer them from the location of this script.
-    #if key_not_none(config, 'BPZ_BASE_DIR') is False:
-    #    config['BPZ_BASE_DIR'] = '/' + '/'.join([i for i in os.path.realpath(__file__).split('/')[0:-1]]) + '/'
-    #if key_not_none(config, 'AB_DIR') is False:
-    #    try:
-    #        config['AB_DIR'] = os.environ['AB_DIR']
-    #    except:
-    #        print ("define AB_DIR in input file".format(args[0]))
-    #        sys.exit()
-
-    #if key_not_none(config, 'ID') is False:
-    #    print ("you must provide an ID column in the config file!: ".format(args[0]))
-    #    sys.exit()
-
-    output_file_suffix = ''
-    if key_not_none(config, 'output_file_suffix'):
-        output_file_suffix = config['output_file_suffix']
-
-    output_pdfs = False
-    if key_not_none(config, 'output_pdfs'):
-        output_pdfs = config['output_pdfs']
-    config['output_pdfs'] = output_pdfs
-
 
     #load redshift bins
     z_bins = np.arange(config['redshift_bins'][0], config['redshift_bins'][1] + config['redshift_bins'][2], config['redshift_bins'][2])
@@ -116,19 +83,17 @@ if __name__ == '__main__':
 
     zp_error = np.array([config['filters'][i]['zp_error'] for i in filters])
     zp_frac = bpz_utils.e_mag2frac(zp_error)
-
-    if key_not_none(config, 'output_sed_lookup_file'):
+    
+    if config['output_sed_lookup_file']:        
         if os.path.isfile(config['output_sed_lookup_file']):
-            print (config['output_sed_lookup_file'], ' already exists! remove this file')
-            print ('before continuing!')
-            sys.exit()
-
-        if key_not_none(config, 'SED_DIR') is False:
-            print ("define SED_DIR in input file".format(args[0]))
-            sys.exit()
+            msg = config['output_sed_lookup_file'], ' already exists! remove this file before continuing'
+            sys.exit("ERROR: %s" % msg)
+        if config['SED_DIR'] is False:
+            sys.exit("ERROR: define SED_DIR in input file")
         full_sed = {}
         for i, sed in enumerate(config['sed_list']):
             full_sed[i] = np.genfromtxt(config['SED_DIR'] + '/' + sed)
+            print i,sed, full_sed[i]
     #prepare the prior
     GALPRIOR = GALAXYTYPE_PRIOR(z=z_bins, tipo_prior=config['prior_name'],
                     mag_bins=np.arange(18, 24.1, 0.1),
@@ -164,7 +129,7 @@ if __name__ == '__main__':
             f_mod[:, i, j] = np.clip(f_mod[:, i, j], 0, 1e300)
 
     #interp between SEDs
-    if key_not_none(config, 'INTERP'):
+    if config['INTERP']:
 
         #how many interpolated points?
         num_interps = (len(config['sed_list'])-1) * config['INTERP'] + len(config['sed_list'])
@@ -179,7 +144,7 @@ if __name__ == '__main__':
         sed_float_list = np.interp(ind_sed_int, index, sed_float_list)
 
         #should we interpolate between the SEDs also?
-        if key_not_none(config, 'output_sed_lookup_file'):
+        if config['output_sed_lookup_file']:
             
             full_sed_ = copy.copy(full_sed)
             #for each interpolated index
@@ -246,22 +211,22 @@ if __name__ == '__main__':
         f_mod = copy.copy(f_mod_iterp)
         del f_mod_iterp
 
-    if key_not_none(config, 'output_sed_lookup_file'):
+    if config['output_sed_lookup_file']:
         pickle.dump(
                     {'flux_per_z_template_band': f_mod, 'template_type': template_type_dict,
                     'filter_order': filters,
                     'filters_dict': config['filters'], 'z_bins': z_bins,
                     'SED': full_sed,
-                    }, open(output_file_suffix + config['output_sed_lookup_file'], 'w')
+                    }, open(config['output_file_suffix'] + config['output_sed_lookup_file'], 'w')
                     )
 
-        print ("template fluxes written to: ", output_file_suffix + config['output_sed_lookup_file'])
+        print ("template fluxes written to: ", config['output_file_suffix'] + config['output_sed_lookup_file'])
     #fast access to prior dictionary
     gal_mag_type_prior = GALPRIOR.prepare_prior_dictionary_types(template_type_dict)
     mags_bins = np.array(gal_mag_type_prior.keys(), dtype=float)
 
     #now load each file in turn.
-    for fil in files:
+    for fil in config['files']:
 
         #get corresponding magnitudes
         orig_table = pyfits.open(fil)[1].data
@@ -272,7 +237,7 @@ if __name__ == '__main__':
 
         ADDITIONAL_OUTPUT_COLUMNS = []
 
-        if key_not_none(config, 'ADDITIONAL_OUTPUT_COLUMNS'):
+        if config['ADDITIONAL_OUTPUT_COLUMNS']:
 
             #warn if all other requested columns are not in table
             for i, cl in enumerate(config['ADDITIONAL_OUTPUT_COLUMNS']):
@@ -310,24 +275,23 @@ if __name__ == '__main__':
         ind_norm_flux = np.where([i == norm_col for i in MAG_OR_FLUX])[0][0]
 
         if ind_norm != ind_norm_flux:
-            print ("problem the template and real fluxes are out of order!: != ", ind_norm, ind_norm_flux)
-            sys.exit()
+            sys.exit("ERROR:problem the template and real fluxes are out of order!: != ", ind_norm, ind_norm_flux)
 
-        if key_not_none(config, 'output_pdfs'):
-            if config['output_pdfs']:
-                pdf_file = fil.split('.fits')[0] + output_file_suffix + '.pdf.h5'
-                df = pd.DataFrame()
-                df.to_hdf(pdf_file, 'pdf_predictions', append=True)
-                df.to_hdf(pdf_file, 'point_predictions', append=True)
-                df.to_hdf(pdf_file, 'info', append=True)
-                df2 = pd.DataFrame({'z_bin_centers': z_bins})
-                df2.to_hdf(pdf_file, key='info', append=True)
-                store = pd.HDFStore(pdf_file)
+        if config['output_pdfs']:
+            #pdf_file = fil.split('.fits')[0] + config['output_file_suffix'] + '.pdf.h5'
+            pdf_file = config['output_pdfs']
+            if args.verbose: print "# Will write pdfs to file: %s" % pdf_file
+            df = pd.DataFrame()
+            df.to_hdf(pdf_file, 'pdf_predictions', append=True)
+            df.to_hdf(pdf_file, 'point_predictions', append=True)
+            df.to_hdf(pdf_file, 'info', append=True)
+            df2 = pd.DataFrame({'z_bin_centers': z_bins})
+            df2.to_hdf(pdf_file, key='info', append=True)
+            store = pd.HDFStore(pdf_file)
 
         nf = len(filters)
 
-        #prepare for trivial parralisation using job_lib see  Parrallelise
-        #above for an example. Split into 50k chunks
+        #prepare for trivial parralisation using job_lib see  Parrallelise above for an example. 
         ind = np.arange(n_gals)[ind_process]
 
         # Define chunk size
@@ -335,10 +299,10 @@ if __name__ == '__main__':
             gal_chunk_size = config['gal_chunk_size']
         else:
             gal_chunk_size = int(len(ind)/config['n_jobs'])
-        print "# Will use chunk_size=%s" % gal_chunk_size
+        print "# Will use auto chunk_size=%s" % gal_chunk_size
         
         parr_lsts = []
-        if key_not_none(config, 'n_jobs'):
+        if config['n_jobs']:
             parr_lsts = []
             ind_ = np.array_split(ind, int(len(ind) / gal_chunk_size))
             k = 1
@@ -373,7 +337,7 @@ if __name__ == '__main__':
         template_type = np.zeros(n_gals, dtype=float) + np.nan
         template_int = np.zeros(n_gals, dtype=int) - 999
     
-        if output_pdfs:
+        if config['output_pdfs']:
             pdfs_ = np.zeros((n_gals, len(z_bins))) + np.nan
 
         #let's combine all the results from the parrallel (or not) jobs
@@ -391,7 +355,7 @@ if __name__ == '__main__':
             min_chi2[ind_] = res['min_chi2']
             template_type[ind_] = sed_float_list[res['maxL_template_ind']]
             template_int[ind_] = res['maxL_template_ind']
-            if output_pdfs:
+            if config['output_pdfs']:
                 pdfs_[ind_] = res['pdfs_']
 
         #free up space
@@ -415,14 +379,15 @@ if __name__ == '__main__':
         else:
             hdu = pyfits.BinTableHDU.from_columns(template_cols + id_cols + new_cols)
 
-        fname = fil.replace('.fits', '.BPZ' + output_file_suffix + '.fits')
-        hdu.writeto(fname,clobber=True)
+        hdu.writeto(config['outbpz'],clobber=True)
+        if args.verbose:
+            print "# Wrote output to file: %s" % config['outbpz']
 
         #free memory
         del new_cols, add_cols
 
         #save pdf files
-        if output_pdfs:
+        if config['output_pdfs']:
 
             if len(ADDITIONAL_OUTPUT_COLUMNS) > 0:
                 for col_name in ADDITIONAL_OUTPUT_COLUMNS:
@@ -441,19 +406,19 @@ if __name__ == '__main__':
                 #free memory
                 del cols_
                 del df2
-                if verbose:
+                if args.verbose:
                     print 'entering pdf'
                 post_dict = {'KL_POST_PRIOR': KL_post_prior[ind], 'MEAN_Z': mean[ind], config['ID']: ID[ind],
                 'TEMPLATE_ID': template_int[ind]}
 
                 for ii in np.arange(len(z_bins)):
                     post_dict['pdf_{:0.4}'.format(z_bins[ii])] = pdfs_[ind, ii]
-                if verbose:
+                if args.verbose:
                     print 'generating DataFrame'
 
                 df2 = pd.DataFrame(post_dict)
 
-                if verbose:
+                if args.verbose:
                     print 'writing pdf'
 
                 df2.to_hdf(pdf_file, key='pdf_predictions', format='table', append=True, complevel=5, complib='blosc')
@@ -461,13 +426,16 @@ if __name__ == '__main__':
                 #free memory
                 del df2
                 del post_dict
-                if verbose:
+                if args.verbose:
                     print 'leaving pdf'
             del inds
         #free space
         del cols
 
     # Done
+
+    # Close the h5 file store
+    store.close()
     print "# Total BPZ time %s" % bpz_utils.elapsed_time(t0)
 
 

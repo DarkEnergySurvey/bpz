@@ -25,6 +25,12 @@ except:
     print "Cannot find AB_DIR on environment, will guess the path"
     AB_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)).split('python')[0],'etc/AB_DIR')
 
+try:
+    SED_DIR = os.environ['SED_DIR']
+except:
+    print "Cannot find SED_DIR on environment, will guess the path"
+    SED_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)).split('python')[0],'etc/SED_DIR')
+
 
 def cmdline():
 
@@ -47,44 +53,62 @@ def cmdline():
     parser.add_argument("--outbpz", action="store",default=None,required=True,
                         help="Name of output bpz fits catalog")
     # The positional arguments
+    parser.add_argument("--redshift_bins", action="store",nargs='+',default=None,type=float,
+                        help="Redshift bins: min, max and width")
+    parser.add_argument("--rearrange_spectra", action="store_true", default=False,
+                        help="Go crazy and reorder all spectra types")
     parser.add_argument("--prior_name", action="store",default=None,
                         help="prior name, any set you like (i.e.: bpz.sed_prior_file.des_y1_prior). See sed_proir_file.py for details")
     parser.add_argument("--n_jobs", action="store", default=1, type=int,
                         help="Number of jobs/cpu per run")
-    parser.add_argument("--gal_chunk_size:", action="store", default=0, type=int,
+    parser.add_argument("--gal_chunk_size", action="store", default=0, type=int,
                         help="Number of galaxies per loop (0=auto)")
+    parser.add_argument("--mag_unobs", action="store", default=-99, type=float,
+                        help="Objects not observed (default=-99)")
+    parser.add_argument("--mag_undet", action="store", default=99, type=float,
+                        help="Objects not detected (default=99)")
+    parser.add_argument("--normalisation_filter", action="store", default='DECam_2014_i.res',
+                        help="Filter name we use for flux normalisation")
+    parser.add_argument("--INPUT_MAGS",action="store_true", default=False,
+                        help="Work with MAGS [True] or FLUX [False]")
     parser.add_argument("--AB_DIR", action="store",default=AB_DIR,
                         help="Location of AB files")
+    parser.add_argument("--PRIOR_MAGNITUDE", action="store",default=None,
+                        help="Column Identifier for PRIOR_MAGNITUDE")
+    parser.add_argument("--SED_DIR", action="store",default=SED_DIR,
+                        help="Path to SED Directory")
     parser.add_argument("--ID", action="store",default='NUMBER',
                         help="ID column to use from input catalog")
+    parser.add_argument("--INTERP", action="store",type=int, default=8,
+                        help="Interpolate templates")
+    parser.add_argument("--output_pdfs", action="store",default=None,
+                        help="Name of output pdf/h5 file to be produced (Default=None)")
+    # We need to remobe this option
+    parser.add_argument("--output_file_suffix", action="store",default='',
+                        help="Want output a suffix for a filename")
+    parser.add_argument("--output_sed_lookup_file", action="store",default=None,
+                        help="Want output the templates as a dictionary")
     
     # Set the defaults of argparse using the values in the yaml config file
     parser.set_defaults(**conf_defaults)
     args = parser.parse_args(args=remaining_argv)
-
     
-    # Update keys in case these were undefined
-    #if not args.BPZ_BASE_DIR:
-    #    try:
-    #        args.BPZ_BASE_DIR = os.environ['BPZ_DIR']
-    #    except:
-    #        print "Cannot find BPZ_DIR on environment, will guess the path"
-    #        args.BPZ_BASE_DIR = os.path.dirname(os.path.realpath(__file__)).split('python')[0]
-    #    print "# Will set BPZ_BASE_DIR to %s" % args.BPZ_BASE_DIR
+    # Update keys/options in case these were not properly undefined
+    if not args.output_file_suffix:
+        args.output_file_suffix = ''
 
-    print vars(args)
-    print "----"
+    print "Will use:"
     for k, v in vars(args).iteritems():
-        print k, v
+        print "%s: %s" % (k, v)
+
     return args
 
 
-
-
-def key_not_none(d, ky):
-    if ky in d:
-        return d[ky] is not None
-    return False
+# No longer needed
+#def key_not_none(d, ky):
+#    if ky in d:
+#        return d[ky] is not None
+#    return False
 
 def load_file(file_name):
     z, f = [], []
@@ -269,7 +293,6 @@ class Parrallelise:
 
 def photoz_loop(lst):
 
-    #import bpz.bpz_utils as bpz_utils
     import bpz.bh_photo_z_validation as pval
     from scipy.stats import entropy
     import time
@@ -380,12 +403,7 @@ def photoz_loop(lst):
         if config['output_pdfs']:
             pdfs_[i] = marg_post
 
-    verbose = False
-    if key_not_none(config, 'verbose'):
-        verbose = config['verbose']
-
-    if verbose:
-        #print 'loop %s complete' % loop_number
+    if config['verbose']:
         print "# Total loop %s time: %s" % (loop_number, elapsed_time(t0))
 
     return {'ind': ind_, 'mean': mean, 'sigma': sigma, 'median': median, 'sig68': sig68, 'mode': mode, 'z_minchi2': z_minchi2,

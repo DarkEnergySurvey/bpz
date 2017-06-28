@@ -1,0 +1,29 @@
+#!/usr/bin/env python
+
+"""BPZ in 2017
+
+author: benhoyle1212@gmail.com
+
+about: This codes implements some of the key features in the original
+Bayesean Probability Redshift BPZ (Benitez 200X), with a more
+transparent user interface, and the native .fits support.
+
+The original BPZ is still very useful. e.g determining photometric
+offsets is not implemented
+
+Re-organization, clean-up and new I/O to make it DESDM useful by F. Menanteau (June 2017)
+
+To do:
+Deal with missing / unseen data properly
+"""
+
+import time
+import bpz.bpz_utils as bpz_utils
+            
+if __name__ == '__main__':
+    t0 = time.time()
+    # Get the configuration and get it into a config dictionary 
+    args = bpz_utils.cmdline()
+    bpz_utils.bpz_main(args)
+    if args.verbose:
+        print "# Total BPZ time %s" % bpz_utils.elapsed_time(t0)

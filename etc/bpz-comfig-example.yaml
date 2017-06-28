@@ -1,0 +1,84 @@
+# BPZv1 configuration file example for bpz-DESDM
+# F.Menanteau June 2017
+
+# Optionally, we can defined inputs and outputs in the config file (not recommended)
+files: DES2246-4457_r2583p01_griz.fits 
+
+# redshift bins min, max, width
+redshift_bins: [0.01, 3.5, 0.01]
+
+# Either set here, or we will determine this from the code.
+# If left empty (default), will be determined automatically
+AB_DIR:
+SED_DIR:
+
+# spectra list.
+# NOTE: This *must* match the sed_type below and hey must exist as expected in AB_DIR/*.AB
+sed_list: [El_B2004a.sed, Sbc_B2004a.sed, Scd_B2004a.sed,Im_B2004a.sed, SB3_B2004a.sed, SB2_B2004a.sed]
+
+# Either E/S0 Spiral or Irr (elliptical/Spherical, spiral, Irregular).
+# The SEDs will be interpolated in the order of the list. They *should* be interpolated as E/S0->Spiral->Irr
+sed_type: [E/S0, Spiral, Spiral, Irr, Irr, Irr]
+
+# Go crazy and reorder all spectra types? Note: this is properly unphysical, due to interpolation reordering above!
+rearrange_spectra: False
+
+# The  prior name, any set you like. See sed_proir_file.py for details.
+prior_name: bpz.sed_prior_file.des_y1_prior
+
+# Expect i-band mag. e.g. MAG_AUTO_I
+PRIOR_MAGNITUDE: MAG_AUTO_i
+
+# Work with MAGS [True] or FLUX [False].
+# If left blank [default] the code infers this from the presence of MAG or mag in the XXX of filters: ky: {MAG_OR_FLUX: 'XXX'}
+INPUT_MAGS: False
+
+#minimum magnitude error
+MIN_MAGERR: 0.001
+
+# Objects not observed
+mag_unobs: -99 
+
+#Objects not detected 
+mag_undet: 99
+
+# *** This option is not implemented on the command-line with argparse ***
+# This construct which magnitudes / or FLUXES map to which filters
+filters: {
+    DECam_2014_g.res: {MAG_OR_FLUX: FLUX_AUTO_g, ERR: FLUXERR_AUTO_g, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
+    DECam_2014_r.res: {MAG_OR_FLUX: FLUX_AUTO_r, ERR: FLUXERR_AUTO_r, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
+    DECam_2014_i.res: {MAG_OR_FLUX: FLUX_AUTO_i, ERR: FLUXERR_AUTO_i, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
+    DECam_2014_z.res: {MAG_OR_FLUX: FLUX_AUTO_z, ERR: FLUXERR_AUTO_z, AB_V: AB, zp_error: 0.02, zp_offset: 0.0}
+    #DECam_2014_Y.res: {MAG: MAG_MOF_Y, ERR: MAGERR_MOF_Y, AB_V: AB, zp_error: 0.02, zp_offset: 0.0}
+    }
+
+# Which magnitude will we use for flux normalisation?
+normalisation_filter: DECam_2014_i.res
+
+# This is the id column. Don't mess around! use it.
+ID: NUMBER
+
+# If these columns [in the stated case] don't exist a warning will be made, but the code will run.
+ADDITIONAL_OUTPUT_COLUMNS: [MAG_AUTO_i]
+
+# Do you wanna output a suffix for a filename -- should be deprecated
+output_file_suffix:
+
+# Do we also want pdfs to be produced?
+output_pdfs: False
+
+# N_INTERPOLATE_TEMPLATES: Blank means No
+INTERP: 8
+
+# Should we output the templates as a dictionary:
+# if yes, provide a pickle file path. if this file aleady exists, the code will stop.
+output_sed_lookup_file:
+
+# Should we parralise the loops?
+n_jobs: 8
+
+# Define gal_huck_size? 0/False automatic value
+gal_chunk_size: False
+
+#print some information to screen
+verbose: True

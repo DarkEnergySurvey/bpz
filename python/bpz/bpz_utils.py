@@ -1,9 +1,9 @@
 """
-A series of utility function and classes needed to run BPZ. These used
+A series of utility functions and classes needed to run BPZ. These used
 to live on the main executable code, but I've moved them here for
-simplicity.
+simplicity and make them more easy to maintain.
 
-FM
+FM, June 2017
 
 """
 
@@ -11,8 +11,23 @@ import os
 import sys
 from joblib import Parallel, delayed
 import numpy as np
+import time
+import copy
+import pandas as pd
+import cPickle as pickle
+import bpz.bh_photo_z_validation as pval
+from bpz.galaxy_type_prior import GALAXYTYPE_PRIOR
+import fitsio
+import collections
 
 # Setting paths
+try:
+    SED_DIR = os.environ['SED_DIR']
+    print "SED_DIR:", SED_DIR
+except:
+    print "Cannot find SED_DIR on environment, will guess the path"
+    SED_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)).split('python')[0],'etc/SED_DIR')
+
 try:
     BPZ_PATH = os.environ['BPZ_DIR']
 except:
@@ -24,12 +39,6 @@ try:
 except:
     print "Cannot find AB_DIR on environment, will guess the path"
     AB_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)).split('python')[0],'etc/AB_DIR')
-
-try:
-    SED_DIR = os.environ['SED_DIR']
-except:
-    print "Cannot find SED_DIR on environment, will guess the path"
-    SED_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)).split('python')[0],'etc/SED_DIR')
 
 
 def cmdline():
@@ -48,8 +57,8 @@ def cmdline():
     parser = argparse.ArgumentParser(description="Run BPZv1 over an input catalog",
                                      # Inherit options from config_parser
                                      parents=[conf_parser])
-    parser.add_argument("--files", action="store",nargs='+',default=None,required=True,
-                        help="Name of input fits catalog(s)")
+    parser.add_argument("--incat", action="store",default=None,required=True,
+                        help="Name of input fits catalog")
     parser.add_argument("--outbpz", action="store",default=None,required=True,
                         help="Name of output bpz fits catalog")
     # The positional arguments
@@ -81,6 +90,10 @@ def cmdline():
                         help="ID column to use from input catalog")
     parser.add_argument("--INTERP", action="store",type=int, default=8,
                         help="Interpolate templates")
+    parser.add_argument("--MIN_MAGERR", action="store",type=float, default=0.001,
+                        help="The minimum magnitude error")
+    parser.add_argument("--ADDITIONAL_OUTPUT_COLUMNS", action="store",nargs='+',default=None,
+                        help="List of additional output columns")
     parser.add_argument("--output_pdfs", action="store",default=None,
                         help="Name of output pdf/h5 file to be produced (Default=None)")
     # We need to remobe this option
@@ -97,18 +110,18 @@ def cmdline():
     if not args.output_file_suffix:
         args.output_file_suffix = ''
 
-    print "Will use:"
-    for k, v in vars(args).iteritems():
-        print "%s: %s" % (k, v)
+    # Make sure default paths are not None
+    if not args.AB_DIR:
+        args.AB_DIR = AB_DIR
+
+    if not args.SED_DIR:
+        args.SED_DIR = SED_DIR
+
+    #print "Will use:"
+    #for k, v in vars(args).iteritems():
+    #    print "%s: %s" % (k, v)
 
     return args
-
-
-# No longer needed
-#def key_not_none(d, ky):
-#    if ky in d:
-#        return d[ky] is not None
-#    return False
 
 def load_file(file_name):
     z, f = [], []
@@ -122,13 +135,6 @@ def e_mag2frac(errmag):
     """Convert mag error to fractionary flux error"""
     return 10. ** (.4 * errmag) - 1.
 
-def help():
-    print "new version BPZ"
-    print "call like"
-    print "bpzv1.py pathToConfigFile.yaml pathTofits*.fits"
-    writeExampleConfig()
-    sys.exit()
-
 # Format time
 def elapsed_time(t1,verb=False):
     import time
@@ -138,125 +144,6 @@ def elapsed_time(t1,verb=False):
         print >>sys.stderr,"Elapsed time: %s" % stime
     return stime
 
-def writeExampleConfig():
-    import textwrap
-
-    example_yaml = os.path.join(os.getcwd(),'exampleBPZConfig.yaml')
-    if os.path.isfile(example_yaml) is False:
-
-        try:
-            BPZ_PATH = os.environ['BPZ_DIR']
-        except:
-            print "Cannot find BPZ_DIR on environment, will guess the path"
-            BPZ_PATH = os.path.dirname(os.path.realpath(__file__)).split('python')[0]
-        f = open(example_yaml, 'w')
-        txt = textwrap.dedent(
-"""
-#redshift bins min, max, width
-redshift_bins: [0.01, 3.5, 0.01]
-
-#either set here, or we will determine this from the code.
-#Default: determine from code
-BPZ_BASE_DIR:
-#for SV this is %s/etc/AB_BPZ_ORIG
-#for Y1 this is %s/etc/AB_BPZ_HIZ
-AB_DIR: %s/etc/AB_BPZ_HIZ
-
-#--------for Y1 this is----------
-#spectra list. This *must* match the sed_type below. They must exist as expected in AB_DIR/*.AB
-sed_list: [El_B2004a.sed, Sbc_B2004a.sed, Scd_B2004a.sed,Im_B2004a.sed, SB3_B2004a.sed, SB2_B2004a.sed]
-
-#Either E/S0 Spiral or Irr (elliptical/Spherical, spiral, Irregular). The SEDs will be interpolated in the order of the list. They *should* be interpolated as E/S0->Spiral->Irr
-sed_type: [E/S0, Spiral, Spiral, Irr, Irr, Irr]
-
-#--------for SV this is----------
-#spectra list. This *must* match the sed_type below. They must exist as expected in AB_DIR/*.AB
-#sed_list: [El_B2004a.sed, Sbc_B2004a.sed, Scd_B2004a.sed, Im_B2004a.sed, SB3_B2004a.sed, SB2_B2004a.sed, ssp_25Myr_z008.sed,ssp_5Myr_z008.sed]
-
-#Either E/S0 Spiral or Irr (elliptical, spiral, Irregular). The SEDs will be interpolated in the order of the list. They *should* be interpolated as E/S0->Spiral->Irr
-#sed_type: [E/S0, Spiral, Spiral, Irr, Irr, Irr, Irr, Irr]
-
-
-#go crazy and reorder all spectra types? Note: this is properly unphysical,
-#due to interpolation reordering above!
-rearrange_spectra: False
-
-# prior name, any set you like. See sed_proir_file.py for details.
-#for SV use sed_prior_file.des_sva1_prior
-prior_name: sed_prior_file.des_y1_prior
-
-#expect i-band mag. e.g. MAG_AUTO_I
-PRIOR_MAGNITUDE: MAG_I
-
-#work with MAGS [True] or FLUX [False]. If left blank [default] the code infers this 
-#from the presence of MAG or mag in the XXX of filters: ky: {MAG_OR_FLUX: 'XXX'}
-INPUT_MAGS:
-
-#minimum magnitude error
-MIN_MAGERR: 0.001
-
-# Objects not observed
-mag_unobs: -99 
-
-#Objects not detected 
-mag_undet: 99
-
-#this construct which magnitudes / or FLUXES map to which filters
-filters: {
-    DECam_2014_g.res: {MAG_OR_FLUX: MAG_G, ERR: MAGERR_G, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
-    DECam_2014_r.res: {MAG_OR_FLUX: MAG_R, ERR: MAGERR_R, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
-    DECam_2014_i.res: {MAG_OR_FLUX: MAG_I, ERR: MAGERR_I, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
-    DECam_2014_z.res: {MAG_OR_FLUX: MAG_Z, ERR: MAGERR_Z, AB_V: AB, zp_error: 0.02, zp_offset: 0.0}
-    #DECam_2014_Y.res: {MAG: MAG_MOF_Y, ERR: MAGERR_MOF_Y, AB_V: AB, zp_error: 0.02, zp_offset: 0.0}
-    }
-
-
-#this construct which magnitudes / or FLUXES map to which filters
-filters: {
-    DECam_2014_g.res: {MAG_OR_FLUX: FLUX_G, ERR: FLUX_ERR_G, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
-    DECam_2014_r.res: {MAG_OR_FLUX: FLUX_R, ERR: FLUX_ERR_R, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
-    DECam_2014_i.res: {MAG_OR_FLUX: FLUX_I, ERR: FLUX_ERR_I, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
-    DECam_2014_z.res: {MAG_OR_FLUX: FLUX_Z, ERR: FLUX_ERR_Z, AB_V: AB, zp_error: 0.02, zp_offset: 0.0}
-    #DECam_2014_Y.res: {MAG: MAG_MOF_Y, ERR: MAGERR_MOF_Y, AB_V: AB, zp_error: 0.02, zp_offset: 0.0}
-    }
-
-
-#which magnitude will we use for flux normalisation?
-normalisation_filter: DECam_2014_i.res
-
-#this is the id column. Don't mess around! use it.
-ID: COADD_OBJECTS_ID
-
-#if these columns [in the stated case] don't exist a warning will be made, but the code will run.
-ADDITIONAL_OUTPUT_COLUMNS: [REDSHIFT, R11, R22, MAG_I, MAGERR_I]
-
-#do you wanna output a suffix for a filename
-output_file_suffix:
-
-#do we also want pdfs to be produced?
-output_pdfs:
-
-#N_INTERPOLATE_TEMPLATES: Blank means No
-INTERP: 8
-
-#Should we output the templates as a dictionary:
-#if yes, provide a pickle file path.
-#if this file aleady exists, the code will stop.
-output_sed_lookup_file:
-
-SED_DIR: %s/etc/SED
-
-#should we parralise the loops?
-n_jobs: 5
-
-#print some information to screen
-verbose: True
-""" % tuple([BPZ_PATH]*4))
-        f.write(txt)
-        print "An example file exampleBPZConfig.yaml has been written to disk"
-    else:
-        print "Example file already exists"
-    return
     
 class Parrallelise:
     
@@ -278,7 +165,6 @@ class Parrallelise:
         arr.append(['ALL_DES_SPECTRA.fits', f])
 
     res1 = Parrallelise(n_jobs=5, method=stiltsMatch, loop=arr).run()
-
     """
 
     def __init__(self, n_jobs=-1, method=None, loop=None):
@@ -290,12 +176,9 @@ class Parrallelise:
         results = Parallel(n_jobs=self._n_jobs)(delayed(self._method)(l) for l in self._loop)
         return results
 
-
 def photoz_loop(lst):
 
-    import bpz.bh_photo_z_validation as pval
     from scipy.stats import entropy
-    import time
     
     """parralisation loop for joblib
     lst is a [] containing ind, f_obs_, ef_obs_, prior_mag_, f_mod, gal_mag_type_prior, z_bins, config 
@@ -411,3 +294,414 @@ def photoz_loop(lst):
             'min_chi2': min_chi2_arr, 'max_z_marg_likelihood': max_z_marg_likelihood, 'maxL_template_ind': maxL_template_ind}
 
 
+
+def bpz_main(args):
+
+    # Into a config dictionary
+    config = vars(args)
+    
+    # Load redshift bins
+    z_bins = np.arange(config['redshift_bins'][0], config['redshift_bins'][1] + config['redshift_bins'][2], config['redshift_bins'][2])
+
+    # Load filters.
+    filters = config['filters'].keys()
+
+    MAG_OR_FLUX = [config['filters'][i]['MAG_OR_FLUX'] for i in filters]
+    MAG_OR_FLUXERR = [config['filters'][i]['ERR'] for i in filters]
+
+    if config['INPUT_MAGS'] is None:
+        config['INPUT_MAGS'] = ('mag' in MAG_OR_FLUX[0]) or ('MAG' in MAG_OR_FLUX[0])
+
+    # Jazz with spectra_list. Make all combinations of everything
+    if config['rearrange_spectra']:
+        spectra = []
+        sed = []
+        for i, s1 in enumerate(config['sed_list']):
+            for j, s2 in enumerate(config['sed_list']):
+                spectra.append(s1)
+                spectra.append(s2)
+                sed.append(config['sed_type'][i])
+                sed.append(config['sed_type'][j])
+
+        config['sed_list'] = spectra
+        config['sed_type'] = sed
+
+    # Each sed (in order) is a number between 1 -> Num seds.
+    sed_float_list = np.arange(len(config['sed_list']), dtype=float)
+    ind_sed_int = np.arange(len(config['sed_list']), dtype=int)
+
+    # Identify the filter we will normalise to.
+    ind_norm = np.where(np.array(filters) == config['normalisation_filter'])[0][0]
+
+    # Get flux offsets, and errors.
+    zp_offsets = np.array([config['filters'][i]['zp_offset'] for i in filters])
+    zp_offsets = np.power(10, -.4 * zp_offsets)
+
+    zp_error = np.array([config['filters'][i]['zp_error'] for i in filters])
+    zp_frac = e_mag2frac(zp_error)
+    
+    if config['output_sed_lookup_file']:        
+        if os.path.isfile(config['output_sed_lookup_file']):
+            msg = config['output_sed_lookup_file'], ' already exists! remove this file before continuing'
+            sys.exit("ERROR: %s" % msg)
+        if config['SED_DIR'] is False:
+            sys.exit("ERROR: define SED_DIR in input file")
+        full_sed = {}
+        for i, sed in enumerate(config['sed_list']):
+            full_sed[i] = np.genfromtxt(config['SED_DIR'] + '/' + sed)
+            print i,sed, full_sed[i]
+    # Prepare the prior
+    GALPRIOR = GALAXYTYPE_PRIOR(z=z_bins, tipo_prior=config['prior_name'],
+                    mag_bins=np.arange(18, 24.1, 0.1),
+                    template_type_list=config['sed_type'])
+
+    """Populate the model fluxes here """
+    # Prepare to populate the model fluxes
+    f_mod = np.zeros((len(z_bins), len(config['sed_list']), len(filters)), dtype=float)
+
+    # Which template types does each SED correspond to
+    template_type_dict = {}
+    for i, sed in enumerate(config['sed_list']):
+        sed_ = sed.replace('.sed', '')
+
+        # This dummy dictionary allows for new "galaxy SED types" to be defined in the future.
+        dict_ = {}
+        for gal_typ in np.unique(config['sed_type']):
+            dict_[gal_typ] = 0.0
+        dict_[config['sed_type'][i]] = 1.0
+        template_type_dict[i] = copy.copy(dict_)
+
+        for j, fltr in enumerate(filters):
+            fltr_ = fltr.replace('.res', '')
+            file_name = os.path.join(config['AB_DIR'], '.'.join([sed_, fltr_, 'AB']))
+            z_, f_ = load_file(file_name)
+
+            # Interpolate to the exact redshifts we care about
+            f_mod[:, i, j] = np.interp(z_bins, z_, f_)
+
+            # Clip, following original bpz
+            f_mod[:, i, j] = np.clip(f_mod[:, i, j], 0, 1e300)
+
+    # Interp between SEDs
+    if config['INTERP']:
+
+        # Wow many interpolated points?
+        num_interps = (len(config['sed_list'])-1) * config['INTERP'] + len(config['sed_list'])
+
+        # Generate some dummy indicies that are intergers spaced between 0 -- num_interps
+        index = np.linspace(1, num_interps, len(config['sed_list']), endpoint=True, dtype=int) - 1
+
+        # Generate values between dummy indicies. These will be interpolated
+        ind_sed_int_orig = copy.copy(ind_sed_int)
+        ind_sed_int = np.arange(num_interps)
+
+        sed_float_list = np.interp(ind_sed_int, index, sed_float_list)
+
+        # Should we interpolate between the SEDs also?
+        if config['output_sed_lookup_file']:
+            
+            full_sed_ = copy.copy(full_sed)
+            # For each interpolated index
+            for i in ind_sed_int:
+                # If at limits, no interpolation
+                if i == 0:
+                    full_sed_[i] = full_sed[0]
+                elif i == np.amax(ind_sed_int):
+                    full_sed_[i] = full_sed[ind_sed_int_orig[-1]]
+                else:
+                    # interpolate between SEDs
+                    # get index of SED1 we will interpolate from
+                    # we will interpolate to indexI +1  -> SED2
+                    indexI = int(np.floor(sed_float_list[i]))
+
+                    # get fraction of weight for this SED1
+                    fractI = sed_float_list[i] - indexI
+
+                    # identify overlapping Lambda ranges! these *maybe* different!
+                    L1 = full_sed[ind_sed_int_orig[indexI]][:, 0]
+                    L2 = full_sed[ind_sed_int_orig[indexI + 1]][:, 0]
+
+                    lrange0in1 = (L1 >= np.amin(L2)) * (L1 <= np.amax(L2))
+                    lrange1in0 = (L2 >= np.amin(L1)) * (L2 <= np.amax(L1))
+
+                    # generate a common set of lamdas
+                    delta_l = L2[lrange1in0][1] - L2[lrange1in0][0]
+
+                    common_lrange = np.arange(np.amin(L2[lrange1in0]), np.amax(L2[lrange1in0]) + delta_l, delta_l)
+
+                    # interpolate to this new grid
+                    interp1 = np.interp(common_lrange, L1[lrange0in1], full_sed[ind_sed_int_orig[indexI]][lrange0in1, 1])
+                    interp2 = np.interp(common_lrange, L2[lrange1in0], full_sed[ind_sed_int_orig[indexI + 1]][lrange1in0, 1])
+                    # finally make a linear combination of SED1 + SED2
+                    full_sed_[i] = [common_lrange, interp1 * fractI + (1.0 - fractI) * interp2]
+            full_sed = copy.copy(full_sed_)
+            del full_sed_
+
+        # Frist interpolate the galaxy SED types. E.g.
+        # {'E/S0': 1 'Spiral': 0 'Irr': 0} -> {'E/S0': 0.5 'Spiral': 0.5 'Irr': 0}
+        # ->{'E/S0': 0 'Spiral': 1 'Irr': 0}
+        template_type_dict_interp_ = {}
+        for i in ind_sed_int:
+            template_type_dict_interp_[i] = copy.copy(template_type_dict[0])
+
+        for gal_typ in np.unique(config['sed_type']):
+            vals = np.array([template_type_dict[i][gal_typ] for i in range(len(config['sed_type']))])
+            intp_vals = np.interp(ind_sed_int, index, vals)
+            for i in ind_sed_int:
+                template_type_dict_interp_[i][gal_typ] = intp_vals[i]
+
+        # Save as original template_type_dict
+        template_type_dict = copy.copy(template_type_dict_interp_)
+        del template_type_dict_interp_
+
+        # Interpolate the fluxes, between the templates for each filter
+        f_mod_iterp = np.zeros((len(z_bins), len(ind_sed_int), len(filters)), dtype=float)
+
+        for i in range(len(z_bins)):
+            for j, fltr in enumerate(filters):
+                f_mod_iterp[i, :, j] = np.interp(ind_sed_int, index, f_mod[i, :, j])
+
+        # save as original f_mod
+        f_mod = copy.copy(f_mod_iterp)
+        del f_mod_iterp
+
+    if config['output_sed_lookup_file']:
+        pickle.dump(
+                    {'flux_per_z_template_band': f_mod, 'template_type': template_type_dict,
+                    'filter_order': filters,
+                    'filters_dict': config['filters'], 'z_bins': z_bins,
+                    'SED': full_sed,
+                    }, open(config['output_file_suffix'] + config['output_sed_lookup_file'], 'w')
+                    )
+
+        print ("template fluxes written to: ", config['output_file_suffix'] + config['output_sed_lookup_file'])
+    #fast access to prior dictionary
+    gal_mag_type_prior = GALPRIOR.prepare_prior_dictionary_types(template_type_dict)
+    mags_bins = np.array(gal_mag_type_prior.keys(), dtype=float)
+
+
+    # Load in the input catalog file get corresponding magnitudes
+    if args.verbose:
+        print "# Reading input catalog: %s" % config['incat']
+    tab = fitsio.FITS(args.incat)
+    orig_table = tab[1].read() # Change to 'OBJECTS' hdu!!!!
+    orig_cols_names = orig_table.dtype.names
+    n_gals = len(orig_table[orig_cols_names[0]])
+    ID = np.array(orig_table[config['ID']])
+    prior_mag = np.array(np.round(orig_table[config['PRIOR_MAGNITUDE']], 1) * 100).astype(np.int)
+
+    ADDITIONAL_OUTPUT_COLUMNS = []
+    if config['ADDITIONAL_OUTPUT_COLUMNS']:
+        # warn if all other requested columns are not in table
+        for i, cl in enumerate(config['ADDITIONAL_OUTPUT_COLUMNS']):
+            if cl not in orig_cols_names:
+                print ('Warning {:} not found in {:}. Continuing'.format(cl, config['incat']))
+            else:
+                ADDITIONAL_OUTPUT_COLUMNS.append(cl)
+
+    f_obs = np.array([np.array(orig_table[i]) for i in MAG_OR_FLUX]).T
+    ef_obs = np.array([np.array(orig_table[i]) for i in MAG_OR_FLUXERR]).T
+
+    ind_process = np.ones(len(f_obs), dtype=bool)
+    if config['INPUT_MAGS']:
+        for i in range(len(MAG_OR_FLUX)):
+            ind_process *= (f_obs[:, i] != config['mag_unobs'])
+
+        # we are dealing with MAGS
+        f_obs = np.power(10, -0.4 * f_obs)
+        ef_obs = (np.power(10, (0.4 * ef_obs)) - 1) * f_obs
+
+    else:
+        # we are dealing with FLUXEs
+        for i in np.arange(len(MAG_OR_FLUX)):
+            ind_process *= (ef_obs[:, i] > 0)
+
+    # add photoemtric offset error
+    ef_obs = np.sqrt(ef_obs * ef_obs + np.power(zp_frac * f_obs, 2))
+
+    # apply photo-z offsets
+    f_obs = f_obs * zp_offsets
+    ef_obs = ef_obs * zp_offsets
+
+    # get normalised flux column
+    norm_col = config['filters'][config['normalisation_filter']]['MAG_OR_FLUX']
+    ind_norm_flux = np.where([i == norm_col for i in MAG_OR_FLUX])[0][0]
+
+    if ind_norm != ind_norm_flux:
+        sys.exit("ERROR:problem the template and real fluxes are out of order!: != ", ind_norm, ind_norm_flux)
+
+    if config['output_pdfs']:
+        pdf_file = config['output_pdfs']
+        # Clobber previous file if exists
+        if os.path.exists(pdf_file):
+            if args.verbose: print "# Removing pdfs file: %s" % pdf_file
+            os.remove(pdf_file)
+        if args.verbose: print "# Will write pdfs to file: %s" % pdf_file
+        df = pd.DataFrame()
+        df.to_hdf(pdf_file, 'pdf_predictions', append=True)
+        df.to_hdf(pdf_file, 'point_predictions', append=True)
+        df.to_hdf(pdf_file, 'info', append=True)
+        df2 = pd.DataFrame({'z_bin_centers': z_bins})
+        df2.to_hdf(pdf_file, key='info', append=True)
+        store = pd.HDFStore(pdf_file)
+
+    # Nuber of filters
+    nf = len(filters)
+
+    # Prepare for trivial parralisation using job_lib see  Parrallelise above for an example. 
+    ind = np.arange(n_gals)[ind_process]
+
+    # Define chunk size
+    if config['gal_chunk_size']:
+        gal_chunk_size = config['gal_chunk_size']
+    else:
+        gal_chunk_size = int(len(ind)/config['n_jobs'])
+    print "# Will use auto chunk_size=%s" % gal_chunk_size
+    
+    parr_lsts = []
+    if config['n_jobs']:
+        parr_lsts = []
+        ind_ = np.array_split(ind, int(len(ind) / gal_chunk_size))
+        k = 1
+        for ind1 in ind_:
+            print "# Preparing loop %s" % k
+            parr_lsts.append([ind1, f_obs[ind1], ef_obs[ind1], prior_mag[ind1], f_mod, gal_mag_type_prior, z_bins, config,k])
+            k =  k + 1
+
+        res1 = Parrallelise(n_jobs=config['n_jobs'], method=photoz_loop, loop=parr_lsts).run()
+    else:
+        # we do not want to parralise. let's send all the data required to the same function in one go.
+        parr_lsts = [ind, f_obs, ef_obs, prior_mag, f_mod, gal_mag_type_prior, z_bins, config]
+
+        # this must be kept as a list, so that we can loop over it, as it it was parrellised
+        res1 = [photoz_loop(parr_lsts)]
+
+    # free space
+    del parr_lsts
+    
+    # results arrays for point predictions
+    mode = np.zeros(n_gals) + np.nan
+    z_minchi2 = np.zeros(n_gals) + np.nan
+    z_max_marg_like = np.zeros(n_gals) + np.nan
+    mean = np.zeros(n_gals) + np.nan
+    sigma = np.zeros(n_gals) + np.nan
+    median = np.zeros(n_gals) + np.nan
+    mc = np.zeros(n_gals) + np.nan
+    sig68 = np.zeros(n_gals) + np.nan
+    KL_post_prior = np.zeros(n_gals) + np.nan
+    min_chi2 = np.zeros(n_gals) + np.nan
+    template_type = np.zeros(n_gals, dtype=float) + np.nan
+    template_int = np.zeros(n_gals, dtype=int) - 999
+    
+    if config['output_pdfs']:
+        pdfs_ = np.zeros((n_gals, len(z_bins))) + np.nan
+
+    # let's combine all the results from the parrallel (or not) jobs
+    for res in res1:
+        ind_ = res['ind']
+        mode[ind_] = res['mode']
+        mean[ind_] = res['mean']
+        sigma[ind_] = res['sigma']
+        median[ind_] = res['median']
+        mc[ind_] = res['mc']
+        z_minchi2[ind_] = res['z_minchi2']
+        z_max_marg_like[ind_] = res['max_z_marg_likelihood']
+        sig68[ind_] = res['sig68']
+        KL_post_prior[ind_] = res['KL_post_prior']
+        min_chi2[ind_] = res['min_chi2']
+        template_type[ind_] = sed_float_list[res['maxL_template_ind']]
+        template_int[ind_] = res['maxL_template_ind']
+        if config['output_pdfs']:
+            pdfs_[ind_] = res['pdfs_']
+
+    # free up space
+    del res1
+    del res
+
+    # ----------------------------------------
+    # Write out_bpz using fitsio instead
+    # Built the array/dtype structure
+    nrows = len(mean)
+    cols = collections.OrderedDict()
+    cols = {'MEAN_Z': mean,
+            'Z_SIGMA': sigma,
+            'MEDIAN_Z': median,
+            'Z_MC': mc,
+            'Z_SIGMA68': sig68,
+            'KL_POST_PRIOR': KL_post_prior,
+            'TEMPLATE_TYPE': template_type,
+            'MINCHI2': min_chi2,
+            'MODE_Z': mode,
+            'Z_MINCHI2': z_minchi2,
+            'Z_MAXMARG_LIKE': z_max_marg_like}
+    dtypes = [(col_name,'f8') for col_name in cols.keys()]
+    # Add 'str' type for these ones separately
+    dtypes.insert(0,('ID','i8'))
+    dtypes.insert(8,('TEMPLATE_ID','i8'))
+
+    # Got Additional columns -- add them as f8
+    if len(ADDITIONAL_OUTPUT_COLUMNS) > 0:
+        for col_name in ADDITIONAL_OUTPUT_COLUMNS:
+            dtypes.append((col_name,'f8'))
+            cols[col_name] = orig_table[col_name]
+
+    data_out = np.zeros(nrows, dtype=dtypes)
+    data_out['ID'] = ID
+    data_out['TEMPLATE_ID'] = template_int
+    for col_name in cols.keys():
+        data_out[col_name] = cols[col_name]
+
+    fitsio.write(config['outbpz'], data_out, extname='OBJECTS', clobber=True)
+    if args.verbose:
+        print "# Wrote output to file: %s" % config['outbpz']
+    # -- End of write  -----
+
+    # free memory
+    del data_out
+
+    # Save pdf files
+    if config['output_pdfs']:
+
+        if len(ADDITIONAL_OUTPUT_COLUMNS) > 0:
+            for col_name in ADDITIONAL_OUTPUT_COLUMNS:
+                cols[col_name] = np.array(orig_table[col_name])
+
+        # split into manageable write chunks to save RAM [otherwise blows up with >1M rows!]
+        inds = np.array_split(np.arange(n_gals), int(n_gals/200000) + 2)
+        for ind in inds:
+            cols_ = {config['ID']: ID[ind]}
+            for j in cols.keys():
+                cols_[j] = cols[j][ind]
+
+            df2 = pd.DataFrame(cols_)
+            df2.to_hdf(pdf_file, key='point_predictions', format='table', append=True, complevel=5, complib='blosc')
+
+            # free memory
+            del cols_
+            del df2
+            if args.verbose:
+                print '# Entering pdf'
+            post_dict = {'KL_POST_PRIOR': KL_post_prior[ind], 'MEAN_Z': mean[ind], config['ID']: ID[ind],
+            'TEMPLATE_ID': template_int[ind]}
+
+            for ii in np.arange(len(z_bins)):
+                post_dict['pdf_{:0.4}'.format(z_bins[ii])] = pdfs_[ind, ii]
+            if args.verbose: print '# Generating DataFrame'
+            df2 = pd.DataFrame(post_dict)
+            if args.verbose: print '# Writing pdf'
+
+            df2.to_hdf(pdf_file, key='pdf_predictions', format='table', append=True, complevel=5, complib='blosc')
+
+            # free memory
+            del df2
+            del post_dict
+            if args.verbose:
+                print '# Leaving pdf'
+        del inds
+    # free space
+    del cols
+
+    # Done
+    # Close the h5 file store
+    store.close()
+    return 

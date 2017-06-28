@@ -5,6 +5,6 @@ setupRequired(scipy 0.14.0+9)
 setupRequired(pyyaml 3.11+2)
 
 envPrepend(SED_DIR, ${PRODUCT_DIR}/etc/SED_DIR)
-envPrepend(AB_DIR, ${PRODUCT_DIR}/etc/AB_DIR)
+envPrepend(AB_DIR, ${PRODUCT_DIR}/etc/AB_BPZ_HIZ)
 envPrepend(PYTHONPATH, ${PRODUCT_DIR}/python)
 envPrepend(PATH, ${PRODUCT_DIR}/bin)

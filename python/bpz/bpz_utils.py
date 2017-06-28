@@ -23,7 +23,6 @@ import collections
 # Setting paths
 try:
     SED_DIR = os.environ['SED_DIR']
-    print "SED_DIR:", SED_DIR
 except:
     print "Cannot find SED_DIR on environment, will guess the path"
     SED_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)).split('python')[0],'etc/SED_DIR')
@@ -49,7 +48,7 @@ def cmdline():
     # 1. We make a proto-parse use to read in the default yaml
     # configuration file, Turn off help, so we print all options in response to -h
     conf_parser = argparse.ArgumentParser(add_help=False)
-    conf_parser.add_argument("-c", "--config",help="Specify config file")
+    conf_parser.add_argument("-c", "--config",help="BPZ yaml config file")
     args, remaining_argv = conf_parser.parse_known_args()
     conf_defaults = yaml.load(open(args.config))
 
@@ -306,8 +305,10 @@ def bpz_main(args):
     # Load filters.
     filters = config['filters'].keys()
 
-    MAG_OR_FLUX = [config['filters'][i]['MAG_OR_FLUX'] for i in filters]
-    MAG_OR_FLUXERR = [config['filters'][i]['ERR'] for i in filters]
+
+    # Adding band 
+    MAG_OR_FLUX = ["%s_%s" % (config['filters'][i]['MAG_OR_FLUX'],config['filters'][i]['band']) for i in filters]
+    MAG_OR_FLUXERR = ["%s_%s" % (config['filters'][i]['ERR'],config['filters'][i]['band']) for i in filters]
 
     if config['INPUT_MAGS'] is None:
         config['INPUT_MAGS'] = ('mag' in MAG_OR_FLUX[0]) or ('MAG' in MAG_OR_FLUX[0])
@@ -524,7 +525,9 @@ def bpz_main(args):
     ef_obs = ef_obs * zp_offsets
 
     # get normalised flux column
-    norm_col = config['filters'][config['normalisation_filter']]['MAG_OR_FLUX']
+    norm_filter = config['normalisation_filter']
+    norm_band = config['filters'][norm_filter]['band']
+    norm_col = "%s_%s" % (config['filters'][norm_filter]['MAG_OR_FLUX'],norm_band)
     ind_norm_flux = np.where([i == norm_col for i in MAG_OR_FLUX])[0][0]
 
     if ind_norm != ind_norm_flux:

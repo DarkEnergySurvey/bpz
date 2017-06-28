@@ -45,11 +45,17 @@ mag_undet: 99
 # *** This option is not implemented on the command-line with argparse ***
 # This construct which magnitudes / or FLUXES map to which filters
 filters: {
-    DECam_2014_g.res: {MAG_OR_FLUX: FLUX_AUTO_g, ERR: FLUXERR_AUTO_g, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
-    DECam_2014_r.res: {MAG_OR_FLUX: FLUX_AUTO_r, ERR: FLUXERR_AUTO_r, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
-    DECam_2014_i.res: {MAG_OR_FLUX: FLUX_AUTO_i, ERR: FLUXERR_AUTO_i, AB_V: AB, zp_error: 0.02, zp_offset: 0.0},
-    DECam_2014_z.res: {MAG_OR_FLUX: FLUX_AUTO_z, ERR: FLUXERR_AUTO_z, AB_V: AB, zp_error: 0.02, zp_offset: 0.0}
-    #DECam_2014_Y.res: {MAG: MAG_MOF_Y, ERR: MAGERR_MOF_Y, AB_V: AB, zp_error: 0.02, zp_offset: 0.0}
+
+    DECam_2014_g.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: g},
+    DECam_2014_r.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: r},
+    DECam_2014_i.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: i},
+    DECam_2014_z.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: z}    
+    #DECam_2014_g.res: {MAG_OR_FLUX: FLUX_AUTO_g, ERR: FLUXERR_AUTO_g, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: g},
+    #DECam_2014_r.res: {MAG_OR_FLUX: FLUX_AUTO_r, ERR: FLUXERR_AUTO_r, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: r},
+    #DECam_2014_i.res: {MAG_OR_FLUX: FLUX_AUTO_i, ERR: FLUXERR_AUTO_i, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: i},
+    #DECam_2014_z.res: {MAG_OR_FLUX: FLUX_AUTO_z, ERR: FLUXERR_AUTO_z, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: z},
+    ##DECam_2014_Y.res: {MAG_OR_FLUX: FLUX_AUTO_Y, ERR: FLUXERR_AUTO_Y, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band:Y},
+    ##DECam_2014_Y.res: {MAG: MAG_MOF_Y, ERR: MAGERR_MOF_Y, AB_V: AB, zp_error: 0.02, zp_offset: 0.0}
     }
 
 # Which magnitude will we use for flux normalisation?

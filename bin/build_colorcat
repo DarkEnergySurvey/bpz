@@ -1,0 +1,5 @@
+#!/usr/bin/env python
+
+import bpz.color_cat as color_cat
+if __name__ == '__main__':
+    color_cat.build()

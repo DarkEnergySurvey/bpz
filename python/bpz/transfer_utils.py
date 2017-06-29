@@ -100,7 +100,7 @@ def get_coadd_cats_from_db(dbh, tagname='Y3A1_COADD',**kwargs):
     """
 
     tilename = kwargs.get('tilename')
-    outpath  = kwargs.get('outpath', "%s_bpzcats" % tilename)
+    outpath  = kwargs.get('outpath')
     verbose  = kwargs.get('verbose')
     
     # Format and get the cat query
@@ -197,7 +197,7 @@ def get_file_des_wget(url,localfile,section='http-desarchive',desfile=None,clobb
     WGET = "wget -q --user {user} --password {password} {url} -O {localfile}"
     kw = {'user':USERNAME, 'password':PASSWORD, 'url':url, 'localfile':localfile}
     cmd = WGET.format(**kw)
-    if clobber:
+    if clobber and os.path.exists(localfile):
         os.remove(localfile)
    
     args = cmd.split()
@@ -211,9 +211,15 @@ def main_transfer():
     t0 = time.time()
     args = cmdline()
     dbh = get_dbh(db_section=args.section,verb=args.verbose)
+
+    # Make sure that outpath exists
+    if not os.path.exists(args.outpath):
+        os.mkdir(args.outpath)
+    
     rec = get_coadd_cats_from_db(dbh,tilename=args.tilename,
                                  tagname=args.tagname,
                                  db_section=args.section,
+                                 outpath=args.outpath,
                                  verbose=args.verbose)
     print "# Total DB Query time %s" % bpz_utils.elapsed_time(t0)
     if args.verbose: "# Will write files to %s" % args.outpath

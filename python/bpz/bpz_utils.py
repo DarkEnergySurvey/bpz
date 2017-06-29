@@ -120,7 +120,7 @@ def cmdline():
     #for k, v in vars(args).iteritems():
     #    print "%s: %s" % (k, v)
 
-    return args
+    return args, parser
 
 def load_file(file_name):
     z, f = [], []

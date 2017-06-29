@@ -1,0 +1,7 @@
+#!/usr/bin/env python
+
+import bpz.transfer_utils as transfer_utils
+if __name__ == "__main__":
+    transfer_utils.main_transfer()
+    
+

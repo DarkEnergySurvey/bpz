@@ -4,6 +4,8 @@ setupRequired(joblib 0.8.4+3)
 setupRequired(scipy 0.14.0+9)
 setupRequired(pyyaml 3.11+2)
 setupRequired(despyastro 0.3.9+1)
+setupRequired(despydb 2.0.2+0)
+setupRequired(despymisc 1.0.4+0)
 
 envPrepend(SED_DIR, ${PRODUCT_DIR}/etc/SED_DIR)
 envPrepend(AB_DIR, ${PRODUCT_DIR}/etc/AB_BPZ_HIZ)

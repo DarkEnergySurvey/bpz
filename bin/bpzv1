@@ -23,7 +23,7 @@ import bpz.bpz_utils as bpz_utils
 if __name__ == '__main__':
     t0 = time.time()
     # Get the configuration and get it into a config dictionary 
-    args = bpz_utils.cmdline()
+    args,parser = bpz_utils.cmdline()
     bpz_utils.bpz_main(args)
     if args.verbose:
         print "# Total BPZ time %s" % bpz_utils.elapsed_time(t0)

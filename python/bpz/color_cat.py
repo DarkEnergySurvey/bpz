@@ -7,12 +7,13 @@ import fitsio
 import numpy
 import bpz.bpz_utils as bpz_utils
 
-def cmdline():
+def cmdline(parent_parser=None):
 
     import argparse
     import yaml
 
-    parser = argparse.ArgumentParser(description="Build the BPZ input catalog")
+    parser = argparse.ArgumentParser(description="Build the BPZ input catalog",
+                                     parents=[conf_parser])
     parser.add_argument("--incats", action="store",default=None,nargs='+',required=True,
                         help="Name of input fits catalog(s)")
     parser.add_argument("-c", "--config",help="BPZ yaml config file")

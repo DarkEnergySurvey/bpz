@@ -706,5 +706,6 @@ def bpz_main(args):
 
     # Done
     # Close the h5 file store
-    store.close()
+    if config['output_pdfs']:
+        store.close()
     return 

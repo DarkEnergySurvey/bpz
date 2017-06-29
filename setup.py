@@ -15,6 +15,7 @@ for root, dirs, files in os.walk("etc", topdown=False):
             etc_files[root] = [os.path.join(root, name)]
 
 data_files = [(k,v) for k, v in etc_files.iteritems()]
+data_files.append(('ups',['ups/bpz.table']))
 
 # The main call
 setup(name='bpz',

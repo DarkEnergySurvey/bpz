@@ -42,6 +42,28 @@ fetch_catalogs  DES2246-4457  --tagname Y3A1_COADD --outpath DES2246-4457_cats -
 
 This will download the coadd catalogs fits files and store them in the directory: DES2246-4457_cats
 
+Note that to connect to the archive, you'll need a $HOME/.desservices.ini file. Here is an example, please update your credentials.
+
+```
+#
+# DES services configuration
+# Please modify the passwords accordingly
+#
+[db-desoper]
+user = your-user-name
+passwd = your-DESDM-Database-passwd
+name = desoper
+server = leovip148.ncsa.uiuc.edu
+port = 1521
+
+[db-dessci]
+user = your-user-name
+passwd = your-DESDM-Database-passwd
+name = dessci
+server = desdb.ncsa.illinois.edu
+port = 1521
+```
+
 2. Using the above inputs, construct a `color` fits catalog. This is the input to run BPZ.
 ```bash
 build_colorcat -c bpz-comfig-example.yaml --incats DES2246-4457_cats/DES2246-4457_r2583p01_*cat.fits  --outcat DES2246-4457_cats/DES2246-4457_r2583p01_color.fits

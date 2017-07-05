@@ -557,14 +557,17 @@ def bpz_main(args):
     # Define chunk size
     if config['gal_chunk_size']:
         gal_chunk_size = config['gal_chunk_size']
+        print "# Will use input chunk_size=%s" % gal_chunk_size
     else:
         gal_chunk_size = int(len(ind)/config['n_jobs'])
-    print "# Will use auto chunk_size=%s" % gal_chunk_size
+        print "# Will use auto chunk_size=%s" % gal_chunk_size
     
     parr_lsts = []
     if config['n_jobs']:
         parr_lsts = []
-        ind_ = np.array_split(ind, int(len(ind) / gal_chunk_size))
+        nloops = int(len(ind) / gal_chunk_size)
+        if nloops < 2:  nloops = 2
+        ind_ = np.array_split(ind, nloops)
         k = 1
         for ind1 in ind_:
             print "# Preparing loop %s" % k

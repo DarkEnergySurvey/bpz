@@ -46,17 +46,17 @@ def write_colorcat(args,data_in):
     # Define dtypes and record array
     dtypes = [('NUMBER','i8')]
     for BAND in args.bands:
-        dtypes.append(("%s_%s" % (args.filters[BAND]['MAG_OR_FLUX'],BAND),'f8'))
-        dtypes.append(("%s_%s" % (args.filters[BAND]['ERR'],BAND),'f8'))
+        dtypes.append(("%s_%s" % (args.filters[BAND]['MAG_OR_FLUX'],BAND),'f4'))
+        dtypes.append(("%s_%s" % (args.filters[BAND]['ERR'],BAND),'f4'))
 
     # Add the prior magnitude, but make sure we do not duplicate
     colnames = [ colname for (colname, format) in dtypes]
     if args.PRIOR_MAGNITUDE not in colnames:
-        dtypes.append((args.PRIOR_MAGNITUDE,'f8'))
+        dtypes.append((args.PRIOR_MAGNITUDE,'f4'))
 
     nrows = len(data_in[args.bands[0]])
     data_out = numpy.zeros(nrows, dtype=dtypes)
-    
+
     # Now we populate the rec array over all bands
     for BAND in args.bands:
         # Loop over all dtypes and insert
@@ -67,10 +67,11 @@ def write_colorcat(args,data_in):
                 outkey = "%s_%s" % (key,BAND)
             data_out[outkey] = data_in[BAND][key] 
 
-    # Add the prior
+    # Add the prior outside the loop
     if args.PRIOR_MAGNITUDE not in colnames:
         BAND = args.PRIOR_MAGNITUDE_BAND
         key  = args.PRIOR_MAGNITUDE_NAME
+        outkey = "%s_%s" % (key,BAND)
         data_out[outkey] = data_in[BAND][key] 
 
     # Now we write the file
@@ -96,13 +97,14 @@ def read_cats(args):
         col_names = [args.filters[BAND]['MAG_OR_FLUX'],
                      args.filters[BAND]['ERR']]
         if not number:
-            col_names.insert(0,'NUMBER')
+            #col_names.insert(0,'NUMBER')
+            col_names.append('NUMBER')
             number = True
 
         # Check if we need to add the PRIOR_MAGNITUDE to the read columns
         if BAND == args.PRIOR_MAGNITUDE_BAND and args.PRIOR_MAGNITUDE_NAME not in col_names:
-            col_names.insert(1,args.PRIOR_MAGNITUDE_NAME)
-
+            col_names.append(args.PRIOR_MAGNITUDE_NAME)
+            
         data_in[BAND] = tab['OBJECTS'].read(columns=col_names)
         format = "%s,"* len(data_in[BAND].dtype.names)
         msg = "# Reading "+ format[:-1] % data_in[BAND].dtype.names

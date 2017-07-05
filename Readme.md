@@ -19,12 +19,12 @@ The recommended method of installation is via the DESDM EUPS software distributi
 To install:
 
 ```bash
-eups distrib install bpz 1.0+1 —nolocks
+eups distrib install bpz 1.1+1 —nolocks
 ```
 
 To setup (i.e. load) the code:
 ```bash
-setup -v bpz 1.0+1
+setup -v bpz 1.1+1
 ```
 
 The quick guide to EUPS can be found [here](https://opensource.ncsa.illinois.edu/confluence/display/DESDM/The+Impatient%27s+Guide+to+DESDM+EUPS+installation)

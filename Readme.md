@@ -19,12 +19,12 @@ The recommended method of installation is via the DESDM EUPS software distributi
 To install:
 
 ```bash
-eups distrib install bpz 1.0+0 —nolocks
+eups distrib install bpz 1.0+1 —nolocks
 ```
 
 To setup (i.e. load) the code:
 ```bash
-setup -v bpz 1.0+0
+setup -v bpz 1.0+1
 ```
 
 The quick guide to EUPS can be found [here](https://opensource.ncsa.illinois.edu/confluence/display/DESDM/The+Impatient%27s+Guide+to+DESDM+EUPS+installation)
@@ -42,9 +42,31 @@ fetch_catalogs  DES2246-4457  --tagname Y3A1_COADD --outpath DES2246-4457_cats -
 
 This will download the coadd catalogs fits files and store them in the directory: DES2246-4457_cats
 
+Note that to connect to the archive, you'll need a $HOME/.desservices.ini file. Here is an example, please update your credentials.
+
+```
+#
+# DES services configuration
+# Please modify the passwords accordingly
+#
+[db-desoper]
+user = your-user-name
+passwd = your-DESDM-Database-passwd
+name = desoper
+server = leovip148.ncsa.uiuc.edu
+port = 1521
+
+[db-dessci]
+user = your-user-name
+passwd = your-DESDM-Database-passwd
+name = dessci
+server = desdb.ncsa.illinois.edu
+port = 1521
+```
+
 2. Using the above inputs, construct a `color` fits catalog. This is the input to run BPZ.
 ```bash
-build_colorcat -c bpz-comfig-example.yaml --incats DES2246-4457_bpzcats/DES2246-4457_r2583p01_*cat.fits  --outcat DES2246-4457_bpzcats/DES2246-4457_r2583p01_color.fits
+build_colorcat -c bpz-comfig-example.yaml --incats DES2246-4457_cats/DES2246-4457_r2583p01_*cat.fits  --outcat DES2246-4457_cats/DES2246-4457_r2583p01_color.fits
 ```
 
 3. Run BPZ using the same config file and the 'color' catalog built in step 2.

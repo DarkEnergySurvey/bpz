@@ -79,6 +79,5 @@ bpzv1  -c bpz-comfig-example.yaml --incat DES2246-4457_cats/DES2246-4457_r2583p0
 To do:
 ------
 
-- Correct input fluxes/magnitudes in the ‘color’ catalogs using SFD98
-- Add mix of MOF/MAG_AUTO quantities using SQL fetch from the DES Database.
+- Add mix of MOF/MAG_AUTO quantities using SQL fetch from the DES Database or MOF files.
 

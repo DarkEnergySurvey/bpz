@@ -5,6 +5,10 @@ import sys
 import subprocess
 import time
 import bpz.bpz_utils as bpz_utils
+import logging
+
+# Create a logger for all functions
+LOGGER = bpz_utils.create_logger(level=logging.NOTSET,name='BPZ')
 
 """DB function helpers"""
 
@@ -58,7 +62,7 @@ def cmdline():
 def get_dbh(db_section='db-desoper',verb=False):
     """ Get a DB handle"""
     from despydb import desdbi
-    if verb: print "# Creating db-handle to section: %s" % db_section
+    if verb: LOGGER.info("Creating db-handle to section: %s" % db_section)
     dbh = desdbi.DesDbi(section=db_section)
     return dbh
 
@@ -68,11 +72,11 @@ def get_root_archive(dbh, archive_name='desar2home',verb=False):
     # Get root_archive
     query = "select root from ops_archive where name='%s'" % archive_name
     if verb:
-        print "# Getting the archive root name for section: %s" % archive_name
-        print "# Will execute the SQL query:\n********\n** %s\n********" % query
+        logger.info("Getting the archive root name for section: %s" % archive_name)
+        logger.info("Will execute the SQL query:\n********\n** %s\n********" % query)
     cur.execute(query)
     root_archive = cur.fetchone()[0]
-    if verb: print "# root_archive: %s" % root_archive
+    if verb: LOGGER.info("root_archive: %s" % root_archive)
     return root_archive
 
 def get_root_https(dbh, archive_name='desar2home', logger=None):
@@ -105,7 +109,7 @@ def get_coadd_cats_from_db(dbh, tagname='Y3A1_COADD',**kwargs):
     
     # Format and get the cat query
     if verbose:
-        print "# Finding coadd catalogs for tilename:%s" % tilename
+        LOGGER.info("Finding coadd catalogs for tilename:%s" % tilename)
     query_coadd_cats = QUERY_COADD_CATS.format(tagname=tagname, **kwargs)
     cats = despyastro.query2dict_of_columns(query_coadd_cats, dbhandle=dbh)
     root_https   = get_root_https(dbh)
@@ -149,7 +153,7 @@ def transfer_input_files(infodict, clobber=False, section='db-desoper', verbose=
         http_requests.download_file_des(url,localfile,section=section)
         use_wget = False
     except:
-        print "WARNING: could not fetch file using Request class. Will try using old fashion wget now"
+        LOGGER.info("WARNING: could not fetch file using Request class. Will try using old fashion wget now")
         use_wget = True
         
     # Now get the files via http
@@ -165,10 +169,8 @@ def transfer_input_files(infodict, clobber=False, section='db-desoper', verbose=
             dirname   = os.path.dirname(localfile)
             if not os.path.exists(dirname):
                 os.makedirs(dirname)
-               
-            sys.stdout.write("\rGetting:  %s (%s/%s)" % (url,k+1,Nfiles))
-            sys.stdout.flush()
 
+            LOGGER.info("Getting: %s (%s/%s)" % (url,k+1,Nfiles))
             if not use_wget:
                 http_requests.download_file_des(url,localfile,section=section)
             else:
@@ -176,11 +178,8 @@ def transfer_input_files(infodict, clobber=False, section='db-desoper', verbose=
                 if status > 0:
                     raise RuntimeError("\n***\nERROR while fetching file: %s\n\n" % url)
         else:
-            sys.stdout.write("\rSkipping: %s (%s/%s) -- file exists" % (url,k+1,Nfiles))
-            sys.stdout.flush()
-
-    print "\nDone"
-       
+            LOGGER.info("Skipping: %s (%s/%s) -- file exists" % (url,k+1,Nfiles))
+    LOGGER.info("Done")
 
 
 def get_file_des_wget(url,localfile,section='http-desarchive',desfile=None,clobber=False):
@@ -221,11 +220,11 @@ def main_transfer():
                                  db_section=args.section,
                                  outpath=args.outpath,
                                  verbose=args.verbose)
-    print "# Total DB Query time %s" % bpz_utils.elapsed_time(t0)
-    if args.verbose: "# Will write files to %s" % args.outpath
-
+    LOGGER.info("Total DB Query time %s" % bpz_utils.elapsed_time(t0))
+    if args.verbose: LOGGER.info("Will write files to %s" % args.outpath)
+    
     t1 = time.time()
     transfer_input_files(rec, clobber=args.clobber, section=args.section)
-    print "# Total Transfer time %s" % bpz_utils.elapsed_time(t1)
-    print "# Grand Total time %s" % bpz_utils.elapsed_time(t0)
+    LOGGER.info("Total Transfer time %s" % bpz_utils.elapsed_time(t1))
+    LOGGER.info("Grand Total time %s" % bpz_utils.elapsed_time(t0))
     

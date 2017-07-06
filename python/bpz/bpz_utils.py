@@ -19,6 +19,7 @@ import bpz.bh_photo_z_validation as pval
 from bpz.galaxy_type_prior import GALAXYTYPE_PRIOR
 import fitsio
 import collections
+import logging
 
 # Setting paths
 try:
@@ -39,6 +40,15 @@ except:
     print "Cannot find AB_DIR on environment, will guess the path"
     AB_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)).split('python')[0],'etc/AB_DIR')
 
+def create_logger(level=logging.NOTSET,name='default'):
+    logging.basicConfig(level=level,
+                        format='[%(asctime)s] [%(levelname)s] %(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S')
+    logger = logging.getLogger(name)
+    return logger
+
+# Create a logger for all functions
+LOGGER = create_logger(level=logging.NOTSET,name='BPZ')
 
 def cmdline():
 
@@ -286,7 +296,7 @@ def photoz_loop(lst):
             pdfs_[i] = marg_post
 
     if config['verbose']:
-        print "# Total loop %s time: %s" % (loop_number, elapsed_time(t0))
+        LOGGER.info("Total loop %s time: %s" % (loop_number, elapsed_time(t0)))
 
     return {'ind': ind_, 'mean': mean, 'sigma': sigma, 'median': median, 'sig68': sig68, 'mode': mode, 'z_minchi2': z_minchi2,
             'KL_post_prior': KL_post_prior, 'pdfs_': pdfs_, 'mc': mc,
@@ -294,9 +304,11 @@ def photoz_loop(lst):
 
 
 
-def bpz_main(args):
+def bpz_main():
 
-    # Into a config dictionary
+    t0 = time.time()
+    # Get the configuration and get it into a config dictionary 
+    args,parser = cmdline()
     config = vars(args)
     
     # Load redshift bins
@@ -483,7 +495,7 @@ def bpz_main(args):
 
     # Load in the input catalog file get corresponding magnitudes
     if args.verbose:
-        print "# Reading input catalog: %s" % config['incat']
+        LOGGER.info("Reading input catalog: %s" % config['incat'])
     tab = fitsio.FITS(args.incat)
     orig_table = tab[1].read() # Change to 'OBJECTS' hdu!!!!
     orig_cols_names = orig_table.dtype.names
@@ -537,9 +549,9 @@ def bpz_main(args):
         pdf_file = config['output_pdfs']
         # Clobber previous file if exists
         if os.path.exists(pdf_file):
-            if args.verbose: print "# Removing pdfs file: %s" % pdf_file
+            if args.verbose: LOGGER.info("Removing pdfs file: %s" % pdf_file)
             os.remove(pdf_file)
-        if args.verbose: print "# Will write pdfs to file: %s" % pdf_file
+        if args.verbose: LOGGER.info("Will write pdfs to file: %s" % pdf_file)
         df = pd.DataFrame()
         df.to_hdf(pdf_file, 'pdf_predictions', append=True)
         df.to_hdf(pdf_file, 'point_predictions', append=True)
@@ -557,10 +569,10 @@ def bpz_main(args):
     # Define chunk size
     if config['gal_chunk_size']:
         gal_chunk_size = config['gal_chunk_size']
-        print "# Will use input chunk_size=%s" % gal_chunk_size
+        LOGGER.info("Will use input chunk_size=%s" % gal_chunk_size)
     else:
         gal_chunk_size = int(len(ind)/config['n_jobs'])
-        print "# Will use auto chunk_size=%s" % gal_chunk_size
+        LOGGER.info("Will use auto chunk_size=%s" % gal_chunk_size)
     
     parr_lsts = []
     if config['n_jobs']:
@@ -570,7 +582,7 @@ def bpz_main(args):
         ind_ = np.array_split(ind, nloops)
         k = 1
         for ind1 in ind_:
-            print "# Preparing loop %s" % k
+            LOGGER.info("Preparing loop %s" % k)
             parr_lsts.append([ind1, f_obs[ind1], ef_obs[ind1], prior_mag[ind1], f_mod, gal_mag_type_prior, z_bins, config,k])
             k =  k + 1
 
@@ -659,7 +671,7 @@ def bpz_main(args):
 
     fitsio.write(config['outbpz'], data_out, extname='OBJECTS', clobber=True)
     if args.verbose:
-        print "# Wrote output to file: %s" % config['outbpz']
+        LOGGER.info("Wrote output to file: %s" % config['outbpz'])
     # -- End of write  -----
 
     # free memory
@@ -686,15 +698,15 @@ def bpz_main(args):
             del cols_
             del df2
             if args.verbose:
-                print '# Entering pdf'
+                LOGGER.info('Entering pdf')
             post_dict = {'KL_POST_PRIOR': KL_post_prior[ind], 'MEAN_Z': mean[ind], config['ID']: ID[ind],
             'TEMPLATE_ID': template_int[ind]}
 
             for ii in np.arange(len(z_bins)):
                 post_dict['pdf_{:0.4}'.format(z_bins[ii])] = pdfs_[ind, ii]
-            if args.verbose: print '# Generating DataFrame'
+            if args.verbose: LOGGER.info('Generating DataFrame')
             df2 = pd.DataFrame(post_dict)
-            if args.verbose: print '# Writing pdf'
+            if args.verbose: LOGGER.info('Writing pdf')
 
             df2.to_hdf(pdf_file, key='pdf_predictions', format='table', append=True, complevel=5, complib='blosc')
 
@@ -702,13 +714,17 @@ def bpz_main(args):
             del df2
             del post_dict
             if args.verbose:
-                print '# Leaving pdf'
+                LOGGER.info('Leaving pdf')
         del inds
     # free space
     del cols
 
-    # Done
     # Close the h5 file store
     if config['output_pdfs']:
         store.close()
+
+    if args.verbose:
+        LOGGER.info("Total BPZ time %s" % elapsed_time(t0))
+
+    # Done
     return 

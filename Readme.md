@@ -19,12 +19,12 @@ The recommended method of installation is via the DESDM EUPS software distributi
 To install:
 
 ```bash
-eups distrib install bpz 1.1+1 —nolocks
+eups distrib install bpz 1.2+1 —nolocks
 ```
 
 To setup (i.e. load) the code:
 ```bash
-setup -v bpz 1.1+1
+setup -v bpz 1.2+1
 ```
 
 The quick guide to EUPS can be found [here](https://opensource.ncsa.illinois.edu/confluence/display/DESDM/The+Impatient%27s+Guide+to+DESDM+EUPS+installation)
@@ -64,7 +64,7 @@ server = desdb.ncsa.illinois.edu
 port = 1521
 ```
 
-2. Using the above inputs, construct a `color` fits catalog. This is the input to run BPZ.
+2. Using the above inputs, construct a `color` fits catalog. This is the input to run BPZ. By default the fluxes/mags will be extinction corrected using E(B-V) user-supplied factor per band. To avoid extinction correction use the option --no-extinction.
 ```bash
 build_colorcat -c bpz-comfig-example.yaml --incats DES2246-4457_cats/DES2246-4457_r2583p01_*cat.fits  --outcat DES2246-4457_cats/DES2246-4457_r2583p01_color.fits
 ```

@@ -45,7 +45,6 @@ mag_undet: 99
 # *** This option is not implemented on the command-line with argparse ***
 # This construct which magnitudes / or FLUXES map to which filters
 filters: {
-
     DECam_2014_g.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: g},
     DECam_2014_r.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: r},
     DECam_2014_i.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: i},
@@ -64,9 +63,11 @@ normalisation_filter: DECam_2014_i.res
 # This is the id column. Don't mess around! use it.
 ID: NUMBER
 
-# RA,DEC to compute extinction, do not change
+# RA,DEC if we compute extinction from catalogs -- otherwise ignored, do not change.
 RA:  ALPHAWIN_J2000
 DEC: DELTAWIN_J2000
+# Extinction factors per band
+efactor: {'g':3.185, 'r':2.140, 'i':1.571, 'z':1.198, 'Y':1.052}
 
 # If these columns [in the stated case] don't exist a warning will be made, but the code will run.
 ADDITIONAL_OUTPUT_COLUMNS: [MAG_AUTO_i]
@@ -93,5 +94,66 @@ gal_chunk_size: False
 #print some information to screen
 verbose: True
 
-# Extinction factors per band
-efactor: {'g':3.185, 'r':2.140, 'i':1.571, 'z':1.198, 'Y':1.052}
+# ---------------------------------------------------------------
+# This section is for building the input BPZ catalogs using SQL
+# Do not edit the querys unless you know what you are doing!!
+# Do we want a mix of MOF and SExtractor fluxes/magnitudes
+MOFMIX: True
+QUERY_MOF: "SELECT
+   coadd_object_id,
+   cm_flux_g, 
+   cm_flux_g/cm_flux_s2n_g as cm_fluxerr_g,
+   cm_flux_r,
+   cm_flux_r/cm_flux_s2n_r as cm_fluxerr_r,
+   cm_flux_i,
+   cm_flux_i/cm_flux_s2n_i as cm_fluxerr_i,
+   cm_flux_z,
+   cm_flux_z/cm_flux_s2n_z as cm_fluxerr_z
+ FROM nsevilla.y3a2_mof_tmp
+ WHERE tilename='{tilename}'
+ ORDER BY coadd_object_id
+"
+
+QUERY_SEX: "
+select
+  COADD_OBJECT_ID,
+  EBV_SFD98,
+  FLUX_AUTO_G,
+  FLUX_AUTO_R,
+  FLUX_AUTO_I,
+  FLUX_AUTO_Z,
+  FLUX_AUTO_Y,
+  FLUXERR_AUTO_G,
+  FLUXERR_AUTO_R,
+  FLUXERR_AUTO_I,
+  FLUXERR_AUTO_Z,
+  FLUXERR_AUTO_Y,
+  MAG_AUTO_G,
+  MAG_AUTO_R,
+  MAG_AUTO_I,
+  MAG_AUTO_Z,
+  MAG_AUTO_Y,
+  MAGERR_AUTO_G,
+  MAGERR_AUTO_R,
+  MAGERR_AUTO_I,
+  MAGERR_AUTO_Z,
+  MAGERR_AUTO_Y
+  FROM Y3A2_COADD_OBJECT_SUMMARY where TILENAME='{tilename}'
+  ORDER BY coadd_object_id
+"
+# SQL build catalog inputs, these need to match the entries in QUERY_MOF and QUERY_SEX
+# The SExtractor flux/mags set we want
+sex_filters: {
+    g: {MAG_OR_FLUX: FLUX_AUTO_G, ERR: FLUXERR_AUTO_G},
+    r: {MAG_OR_FLUX: FLUX_AUTO_R, ERR: FLUXERR_AUTO_R},
+    i: {MAG_OR_FLUX: FLUX_AUTO_I, ERR: FLUXERR_AUTO_I},
+    z: {MAG_OR_FLUX: FLUX_AUTO_Z, ERR: FLUXERR_AUTO_Z},
+    Y: {MAG_OR_FLUX: FLUX_AUTO_Y, ERR: FLUXERR_AUTO_Y},
+}
+# The MOF flux/mags we want
+mof_filters:{
+    g: {MAG_OR_FLUX: CM_FLUX_G, ERR: CM_FLUXERR_G},
+    r: {MAG_OR_FLUX: CM_FLUX_R, ERR: CM_FLUXERR_R},
+    i: {MAG_OR_FLUX: CM_FLUX_I, ERR: CM_FLUXERR_I},
+    z: {MAG_OR_FLUX: CM_FLUX_Z, ERR: CM_FLUXERR_Z},
+}

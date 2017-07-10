@@ -42,20 +42,20 @@ mag_unobs: -99
 #Objects not detected 
 mag_undet: 99
 
-# *** This option is not implemented on the command-line with argparse ***
-# This construct which magnitudes / or FLUXES map to which filters
-filters: {
-    DECam_2014_g.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: g},
-    DECam_2014_r.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: r},
-    DECam_2014_i.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: i},
-    DECam_2014_z.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: z}    
-    #DECam_2014_g.res: {MAG_OR_FLUX: FLUX_AUTO_g, ERR: FLUXERR_AUTO_g, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: g},
-    #DECam_2014_r.res: {MAG_OR_FLUX: FLUX_AUTO_r, ERR: FLUXERR_AUTO_r, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: r},
-    #DECam_2014_i.res: {MAG_OR_FLUX: FLUX_AUTO_i, ERR: FLUXERR_AUTO_i, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: i},
-    #DECam_2014_z.res: {MAG_OR_FLUX: FLUX_AUTO_z, ERR: FLUXERR_AUTO_z, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: z},
-    ##DECam_2014_Y.res: {MAG_OR_FLUX: FLUX_AUTO_Y, ERR: FLUXERR_AUTO_Y, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band:Y},
-    ##DECam_2014_Y.res: {MAG: MAG_MOF_Y, ERR: MAGERR_MOF_Y, AB_V: AB, zp_error: 0.02, zp_offset: 0.0}
-    }
+# # *** This option is not implemented on the command-line with argparse ***
+# # This construct which magnitudes / or FLUXES map to which filters
+# filters: {
+#     DECam_2014_g.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: g},
+#     DECam_2014_r.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: r},
+#     DECam_2014_i.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: i},
+#     DECam_2014_z.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: z}    
+#     #DECam_2014_g.res: {MAG_OR_FLUX: FLUX_AUTO_g, ERR: FLUXERR_AUTO_g, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: g},
+#     #DECam_2014_r.res: {MAG_OR_FLUX: FLUX_AUTO_r, ERR: FLUXERR_AUTO_r, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: r},
+#     #DECam_2014_i.res: {MAG_OR_FLUX: FLUX_AUTO_i, ERR: FLUXERR_AUTO_i, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: i},
+#     #DECam_2014_z.res: {MAG_OR_FLUX: FLUX_AUTO_z, ERR: FLUXERR_AUTO_z, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: z},
+#     ##DECam_2014_Y.res: {MAG_OR_FLUX: FLUX_AUTO_Y, ERR: FLUXERR_AUTO_Y, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band:Y},
+#     ##DECam_2014_Y.res: {MAG: MAG_MOF_Y, ERR: MAGERR_MOF_Y, AB_V: AB, zp_error: 0.02, zp_offset: 0.0}
+#     }
 
 # Which magnitude will we use for flux normalisation?
 normalisation_filter: DECam_2014_i.res
@@ -98,7 +98,13 @@ verbose: True
 # This section is for building the input BPZ catalogs using SQL
 # Do not edit the querys unless you know what you are doing!!
 # Do we want a mix of MOF and SExtractor fluxes/magnitudes
-MOFMIX: True
+
+# Type of output photmetry, it can be:
+# MOF_MIX : MOF/SExtractor
+# MOF_ONLY : MOF only
+# SEX_ONLY : SExtractor only
+PHOTO_TYPE: MOF_MIX
+
 QUERY_MOF: "SELECT
    coadd_object_id,
    cm_flux_g, 
@@ -151,9 +157,19 @@ sex_filters: {
     Y: {MAG_OR_FLUX: FLUX_AUTO_Y, ERR: FLUXERR_AUTO_Y},
 }
 # The MOF flux/mags we want
-mof_filters:{
+mof_filters: {
     g: {MAG_OR_FLUX: CM_FLUX_G, ERR: CM_FLUXERR_G},
     r: {MAG_OR_FLUX: CM_FLUX_R, ERR: CM_FLUXERR_R},
     i: {MAG_OR_FLUX: CM_FLUX_I, ERR: CM_FLUXERR_I},
     z: {MAG_OR_FLUX: CM_FLUX_Z, ERR: CM_FLUXERR_Z},
 }
+
+# *** This option is not implemented on the command-line with argparse ***
+# This construct which magnitudes / or FLUXES map to which filters
+filters: {
+    DECam_2014_g.res: {MAG_OR_FLUX: FLUX_MOFMIX, ERR: FLUXERR_MOFMIX, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: g},
+    DECam_2014_r.res: {MAG_OR_FLUX: FLUX_MOFMIX, ERR: FLUXERR_MOFMIX, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: r},
+    DECam_2014_i.res: {MAG_OR_FLUX: FLUX_MOFMIX, ERR: FLUXERR_MOFMIX, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: i},
+    DECam_2014_z.res: {MAG_OR_FLUX: FLUX_MOFMIX, ERR: FLUXERR_MOFMIX, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: z},
+    DECam_2014_Y.res: {MAG_OR_FLUX: FLUX_MOFMIX, ERR: FLUXERR_MOFMIX, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: Y}    
+    }

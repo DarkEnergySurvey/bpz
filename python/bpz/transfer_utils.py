@@ -5,6 +5,7 @@ import sys
 import subprocess
 import time
 import bpz.bpz_utils as bpz_utils
+import bpz.db_utils as db_utils
 import logging
 
 # Create a logger for all functions
@@ -59,44 +60,6 @@ def cmdline():
     return args
 
 
-def get_dbh(db_section='db-desoper',verb=False):
-    """ Get a DB handle"""
-    from despydb import desdbi
-    if verb: LOGGER.info("Creating db-handle to section: %s" % db_section)
-    dbh = desdbi.DesDbi(section=db_section)
-    return dbh
-
-def get_root_archive(dbh, archive_name='desar2home',verb=False):
-    """ Get the root-archive fron the database"""
-    cur = dbh.cursor()
-    # Get root_archive
-    query = "select root from ops_archive where name='%s'" % archive_name
-    if verb:
-        logger.info("Getting the archive root name for section: %s" % archive_name)
-        logger.info("Will execute the SQL query:\n********\n** %s\n********" % query)
-    cur.execute(query)
-    root_archive = cur.fetchone()[0]
-    if verb: LOGGER.info("root_archive: %s" % root_archive)
-    return root_archive
-
-def get_root_https(dbh, archive_name='desar2home', logger=None):
-    """ Get the root_https fron the database
-    """
-    if archive_name == 'desar2home':
-        root_https = "https://desar2.cosmology.illinois.edu/DESFiles/desarchive"
-        return root_https
-
-    cur = dbh.cursor()
-    query = "SELECT val FROM ops_archive_val WHERE name='%s' AND key='root_https'" % archive_name
-    if logger:
-        logger.debug("Getting root_https for section: %s" % archive_name)
-        logger.debug("Will execute the SQL query:\n********\n** %s\n********" % query)
-    cur.execute(query)
-    root_https = cur.fetchone()[0]
-    if logger: logger.info("root_https:   %s" % root_https)
-    cur.close()
-    return root_https
-
 
 def get_coadd_cats_from_db(dbh, tagname='Y3A1_COADD',**kwargs):
     """
@@ -112,7 +75,7 @@ def get_coadd_cats_from_db(dbh, tagname='Y3A1_COADD',**kwargs):
         LOGGER.info("Finding coadd catalogs for tilename:%s" % tilename)
     query_coadd_cats = QUERY_COADD_CATS.format(tagname=tagname, **kwargs)
     cats = despyastro.query2dict_of_columns(query_coadd_cats, dbhandle=dbh)
-    root_https   = get_root_https(dbh)
+    root_https   = db_utils.get_root_https(dbh)
 
     # Here we fix 'COMPRESSION from None --> '' if present
     cats = fix_DB_None(cats)
@@ -209,7 +172,7 @@ def main_transfer():
 
     t0 = time.time()
     args = cmdline()
-    dbh = get_dbh(db_section=args.section,verb=args.verbose)
+    dbh = db_utils.get_dbh(db_section=args.section,verb=args.verbose)
 
     # Make sure that outpath exists
     if not os.path.exists(args.outpath):

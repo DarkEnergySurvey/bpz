@@ -1,4 +1,4 @@
-__author__  = "Ben Hoyle"
+__author__  = "Ben Hoyle, Felipe Menanteau"
 __version__ = '1.0.0'
 version = __version__
 
@@ -7,3 +7,4 @@ import galaxy_type_prior
 import weighted_kde
 import sed_prior_file
 import bpz_utils
+import db_utils

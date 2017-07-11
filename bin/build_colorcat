@@ -2,4 +2,4 @@
 
 import bpz.color_cat as color_cat
 if __name__ == '__main__':
-    color_cat.build_from_coadd_files()
+    color_cat.build_color_cat_from_coadd_files()

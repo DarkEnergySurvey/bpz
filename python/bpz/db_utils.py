@@ -8,16 +8,17 @@ LOGGER = bpz_utils.create_logger(level=logging.NOTSET,name='BPZ')
 QUERY_MOF = """
 SELECT
    coadd_object_id,
-   cm_flux_g,
-   cm_flux_s2n_g,
+   cm_flux_g, 
+   cm_flux_g/cm_flux_s2n_g as cm_fluxerr_g,
    cm_flux_r,
-   cm_flux_s2n_r,
+   cm_flux_r/cm_flux_s2n_r as cm_fluxerr_r,
    cm_flux_i,
-   cm_flux_s2n_i,
+   cm_flux_i/cm_flux_s2n_i as cm_fluxerr_i,
    cm_flux_z,
-   cm_flux_s2n_z
- FROM nsevilla.y3a2_mof_tmp
+   cm_flux_z/cm_flux_s2n_z as cm_fluxerr_z
+ FROM {tablename}
  WHERE tilename='{tilename}'
+ ORDER BY coadd_object_id
 """
 
 QUERY_SEX = """
@@ -47,8 +48,7 @@ select
   MAGERR_AUTO_Z,
   MAGERR_AUTO_Y
 
-
-  FROM Y3A2_COADD_OBJECT_SUMMARY where TILENAME='{tilename}'
+  FROM {tablename} where TILENAME='{tilename}'
   ORDER BY coadd_object_id
 
 """

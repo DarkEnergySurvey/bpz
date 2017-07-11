@@ -70,7 +70,7 @@ DEC: DELTAWIN_J2000
 efactor: {'g':3.185, 'r':2.140, 'i':1.571, 'z':1.198, 'Y':1.052}
 
 # If these columns [in the stated case] don't exist a warning will be made, but the code will run.
-ADDITIONAL_OUTPUT_COLUMNS: [MAG_AUTO_i]
+ADDITIONAL_OUTPUT_COLUMNS: [MAG_AUTO_i, MOF_MASK]
 
 # Do you wanna output a suffix for a filename -- should be deprecated
 output_file_suffix:
@@ -99,54 +99,20 @@ verbose: True
 # Do not edit the querys unless you know what you are doing!!
 # Do we want a mix of MOF and SExtractor fluxes/magnitudes
 
-# Type of output photmetry, it can be:
-# MOF_MIX : MOF/SExtractor
-# MOF_ONLY : MOF only
-# SEX_ONLY : SExtractor only
-PHOTO_TYPE: MOF_MIX
+# Mode/Type of output photmetry, it can be:
+# - MOF_MIX : MOF/SExtractor mix, use SExtractor MAG/FLUX to fill in the gaps
+# - MOF_ONLY : MOF only MAG/FLUX
+# - SEX_ONLY : SExtractor only MAG/FLUX
+PHOTO_MODE: MOF_ONLY
 
-QUERY_MOF: "SELECT
-   coadd_object_id,
-   cm_flux_g, 
-   cm_flux_g/cm_flux_s2n_g as cm_fluxerr_g,
-   cm_flux_r,
-   cm_flux_r/cm_flux_s2n_r as cm_fluxerr_r,
-   cm_flux_i,
-   cm_flux_i/cm_flux_s2n_i as cm_fluxerr_i,
-   cm_flux_z,
-   cm_flux_z/cm_flux_s2n_z as cm_fluxerr_z
- FROM nsevilla.y3a2_mof_tmp
- WHERE tilename='{tilename}'
- ORDER BY coadd_object_id
-"
+# Leave blank unless you know what you are doing
+QUERY_MOF: 
+QUERY_SEX:
 
-QUERY_SEX: "
-select
-  COADD_OBJECT_ID,
-  EBV_SFD98,
-  FLUX_AUTO_G,
-  FLUX_AUTO_R,
-  FLUX_AUTO_I,
-  FLUX_AUTO_Z,
-  FLUX_AUTO_Y,
-  FLUXERR_AUTO_G,
-  FLUXERR_AUTO_R,
-  FLUXERR_AUTO_I,
-  FLUXERR_AUTO_Z,
-  FLUXERR_AUTO_Y,
-  MAG_AUTO_G,
-  MAG_AUTO_R,
-  MAG_AUTO_I,
-  MAG_AUTO_Z,
-  MAG_AUTO_Y,
-  MAGERR_AUTO_G,
-  MAGERR_AUTO_R,
-  MAGERR_AUTO_I,
-  MAGERR_AUTO_Z,
-  MAGERR_AUTO_Y
-  FROM Y3A2_COADD_OBJECT_SUMMARY where TILENAME='{tilename}'
-  ORDER BY coadd_object_id
-"
+# DESDM table names
+table_MOF: 'nsevilla.y3a2_mof_tmp'
+table_SEX: 'Y3A2_COADD_OBJECT_SUMMARY'
+    
 # SQL build catalog inputs, these need to match the entries in QUERY_MOF and QUERY_SEX
 # The SExtractor flux/mags set we want
 sex_filters: {

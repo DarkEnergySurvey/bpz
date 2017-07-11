@@ -71,13 +71,18 @@ def cmdline_coadd_files():
 
     return args
 
-def extinction_correct(args,data_out):
+def extinction_correct(args,data_out,ebv_key='EBV_SFD98'):
 
     # get the E(B-V) for each position
-    ra  = data_out[args.RA]
-    dec = data_out[args.DEC]
-    ebv,l,b = extinction.get_EBV_SFD98(ra,dec)
 
+    # Check if we already have e(B-V) in the record array
+    if ebv_key in data_out.dtype.names:
+        ebv = data_out[ebv_key]
+    else:
+        ra  = data_out[args.RA]
+        dec = data_out[args.DEC]
+        ebv,l,b = extinction.get_EBV_SFD98(ra,dec)
+        
     for BAND in args.bands:
         key = "%s_%s" % (args.filters[BAND]['MAG_OR_FLUX'],BAND)
         if args.INPUT_MAGS:
@@ -174,15 +179,13 @@ def read_cats(args):
 
     return data_in
 
-def build_from_coadd_files():
+def build_color_cat_from_coadd_files():
 
     t0 = time.time()
     args = cmdline_coadd_files()
     data_in = read_cats(args)
     write_colorcat(args,data_in)
     LOGGER.info("Wrote ColorCat %s in %s" % (args.outcat,bpz_utils.elapsed_time(t0)))
-
-
 
 # --- SQL Functions ------
 
@@ -223,8 +226,13 @@ def cmdline_sql():
                         help="Optional string with template for MOF SQL query")
     parser.add_argument("--QUERY_SEX", action="store",default=db_utils.QUERY_SEX,
                         help="Optional string with template for SExtractor SQL query")
-    parser.add_argument("--PHOTO_TYPE", action="store",default='MOF_MIX',
+    parser.add_argument("--PHOTO_MODE", action="store",default='MOF_MIX',
                         help="Type of Photometry we want: MOF_MIX/MOF_ONLY/SEX_ONLY")
+    parser.add_argument("--table_MOF", action="store",default='nsevilla.y3a2_mof_tmp',
+                        help="Modify the name of the table that contains the MOF photometry")
+    parser.add_argument("--table_SEX", action="store",default='Y3A2_COADD_OBJECT_SUMMARY',
+                        help="Modify the name of the table that contains the SExtractor COADD photometry")
+
     # Set the defaults of argparse using the values in the yaml config file
     parser.set_defaults(**conf_defaults)
     args = parser.parse_args()
@@ -242,14 +250,18 @@ def cmdline_sql():
     # Get the band's list
     args.bands = [args.filters[fname]['band'] for fname in args.filters]
 
+    # Final sanity check on the QUERY strings in case empty in the conf file
+    if not args.QUERY_MOF:
+        args.QUERY_MOF = db_utils.QUERY_MOF
+    if not args.QUERY_SEX:
+        args.QUERY_SEX = db_utils.QUERY_SEX
+
     #print "Will use:"
     #for k, v in vars(args).iteritems():
     #    print "%s: %s" % (k, v)
-
     return args
 
-
-def get_cat(args,query_type, dbh=None):
+def get_phot_catalog(args,query_type, dbh=None):
     """ Generic query catalog function """
     t0 = time.time()
     # Get db connection
@@ -257,84 +269,146 @@ def get_cat(args,query_type, dbh=None):
         dbh = db_utils.get_dbh(db_section=args.section,verb=True)
     # string query
     if query_type == 'MOF':
-        str_query = args.QUERY_MOF.format(tilename=args.tilename)
+        str_query = args.QUERY_MOF.format(tilename=args.tilename, tablename=args.table_MOF)
     elif query_type == 'SEX':
-        str_query = args.QUERY_SEX.format(tilename=args.tilename)
+        str_query = args.QUERY_SEX.format(tilename=args.tilename, tablename=args.table_SEX)
     else:
         exit("ERROR: Query type %s not supported" % query_type)
     if args.verbose: LOGGER.info("Will execute %s query: %s" % (query_type, str_query))
     reccat = despyastro.query2rec(str_query, dbhandle=dbh)
-    LOGGER.info("Total %s sql Time:%s" % (str_query,bpz_utils.elapsed_time(t0)))
+    if args.verbose: LOGGER.info("Total query time: %s" % bpz_utils.elapsed_time(t0))
+    # Return the record-array catalog from the query
     return reccat
 
-def get_cats_from_sql(args):
+def get_MIX(args,data_in,data_out):
+
+    """ Populate the data_out record array with the proper mix of MOF and SEXtractor quantities"""
+
+    # Find the -9999 objects in MOF catalog, we can do it in any band
+    BAND = args.mof_filters.keys()[0]
+    no_mof_idx = numpy.where(data_in['MOF'][args.mof_filters[BAND]['MAG_OR_FLUX']] == -9999)
+
+    # Fill in the mask
+    data_out['MOF_MASK'][no_mof_idx] = 1
+
+    # Case we want a mix of MOF+SExtractor
+    for BAND in args.bands:
+        # Short-cuts to outkey value/err
+        outkey_val = "%s_%s" % (args.filters[BAND]['MAG_OR_FLUX'],BAND)
+        outkey_err = "%s_%s" % (args.filters[BAND]['ERR'],BAND) 
+        sexkey_val = args.sex_filters[BAND]['MAG_OR_FLUX']
+        sexkey_err = args.sex_filters[BAND]['ERR']
+        if BAND in args.mof_filters.keys():
+            mofkey_val = args.mof_filters[BAND]['MAG_OR_FLUX']
+            mofkey_err = args.mof_filters[BAND]['ERR']
+            data_out[outkey_val] = data_in['MOF'][mofkey_val]
+            data_out[outkey_err] = data_in['MOF'][mofkey_err]
+            # Replace the -9999 with SExtractor values
+            data_out[outkey_val][no_mof_idx] = data_in['SEX'][sexkey_val][no_mof_idx]
+            data_out[outkey_err][no_mof_idx] = data_in['SEX'][sexkey_err][no_mof_idx]
+        elif BAND in args.sex_filters.keys():
+            data_out[outkey_val] = data_in['SEX'][sexkey_val]
+            data_out[outkey_err] = data_in['SEX'][sexkey_err]
+        else:
+            exit("ERROR: filter %s not in input filters" % BAND)
+    return data_out
+
+def get_ONLY(args,data_in, data_out):
+
+    """ Get either the MOF or SExtractor catalog """
+
+    # Define the inputs we want
+    if args.PHOTO_MODE == 'MOF_ONLY':
+        gen_filters = args.mof_filters
+        gencat = data_in['MOF']
+    elif args.PHOTO_MODE  == 'SEX_ONLY':
+        gen_filters = args.sex_filters
+        gencat = data_in['SEX']
+    else:
+        exit("ERROR: Query type: %s is not defined" % args.PHOTO_MODE)
+
+    for BAND in args.bands:
+        # Short-cuts to outkey value/err
+        outkey_val = "%s_%s" % (args.filters[BAND]['MAG_OR_FLUX'],BAND)
+        outkey_err = "%s_%s" % (args.filters[BAND]['ERR'],BAND) 
+        if BAND in gen_filters.keys():
+            genkey_val = gen_filters[BAND]['MAG_OR_FLUX']
+            genkey_err = gen_filters[BAND]['ERR']
+            data_out[outkey_val] = gencat[genkey_val]
+            data_out[outkey_err] = gencat[genkey_err]
+        else:
+            exit("ERROR: filters %s not in input filters" % BAND)
+
+    return data_out
+
+def read_catalogs_sql(args):
 
     t0 = time.time()
     # Get db connection
     dbh = db_utils.get_dbh(db_section=args.section,verb=True)
-    if args.PHOTO_TYPE=='MOF_MIX':
-        mofcat = get_cat(args,'MOF',dbh=dbh)
-        sexcat = get_cat(args,'SEX',dbh=dbh)
-    elif args.PHOTO_TYPE=='MOF_ONLY':
-        mofcat = get_cat(args,'MOF',dbh=dbh)
-    elif args.PHOTO_TYPE=='SEX_ONLY':
-        sexcat = get_cat(args,'SEX',dbh=dbh)
+    data_in = {}
+    # Get the input catalogs using queries
+    if args.PHOTO_MODE == 'SEX_ONLY':
+        data_in['SEX'] = get_phot_catalog(args,'SEX',dbh=dbh)
     else:
-        exit("ERROR: PHOTO_TYPE:%s not defined" % args.PHOTO_TYPE) 
-    LOGGER.info("Total sql Time:%s" % bpz_utils.elapsed_time(t0))
+        data_in['SEX'] = get_phot_catalog(args,'SEX',dbh=dbh)
+        data_in['MOF'] = get_phot_catalog(args,'MOF',dbh=dbh)
+    LOGGER.info("Total sql Time:%s\n" % bpz_utils.elapsed_time(t0))
+    return data_in
 
-    MOF_FILTERS = [f.upper() for f in args.mof_filters]
-    
-    # Find the -9999 objects in MOF catalog, we can do it in any band
-    FILTER = MOF_FILTERS[0]
-    no_mof_idx = numpy.where(mofcat['CM_FLUX_%s' % FILTER] == -9999)
+def write_colorcat_sql(args,data_in):
 
     # Here we pre-make the output record array.
     # It should contain all the output colums we want
-    # Define dtypes and record array for ID, RA and DEC
+    # Define dtypes and record array for ID, and EBV-SFD98
     dtypes = [('COADD_OBJECT_ID','i8'),
               ('EBV_SFD98','f4')]
-
     for BAND in args.bands:
         dtypes.append(("%s_%s" % (args.filters[BAND]['MAG_OR_FLUX'],BAND),'f4'))
         dtypes.append(("%s_%s" % (args.filters[BAND]['ERR'],BAND),'f4'))
-    nrows = len(mofcat['COADD_OBJECT_ID'])
-    data_out = numpy.zeros(nrows, dtype=dtypes)
-    print dtypes
+    # Add the prior magnitude, but make sure we do not duplicate
+    colnames = [ colname for (colname, format) in dtypes]
+    if args.PRIOR_MAGNITUDE not in colnames:
+        dtypes.append((args.PRIOR_MAGNITUDE,'f4'))
 
-    # Case 1, we want a mix of Sextractor+mof
-    for BAND in args.bands:
-        FILTER = BAND.upper()
-        print BAND, FILTER
-        if BAND in args.mof_filters.keys():
-            data_out["FLUX_MOFMIX_%s" % BAND]    = mofcat['CM_FLUX_%s' % FILTER]
-            data_out["FLUXERR_MOFMIX_%s" % BAND] = mofcat['CM_FLUXERR_%s' % FILTER]
-            # Replace the -9999 with SExtractor values
-            data_out["FLUX_MOFMIX_%s" % BAND][no_mof_idx]    = sexcat['FLUX_AUTO_%s' % FILTER][no_mof_idx]
-            data_out["FLUXERR_MOFMIX_%s" % BAND][no_mof_idx] = sexcat['FLUXERR_AUTO_%s' % FILTER][no_mof_idx]
-        elif BAND in args.sex_filters.keys():
-            data_out["FLUX_MOFMIX_%s" % BAND]    = sexcat['FLUX_AUTO_%s' % FILTER]
-            data_out["FLUXERR_MOFMIX_%s" % BAND] = sexcat['FLUXERR_AUTO_%s' % FILTER]
-        else:
-            exit("ERROR: filters %s not in input filters" % BAND)
+    if args.PHOTO_MODE=='MOF_MIX':
+        dtypes.append(('MOF_MASK','i4'))
+
+    nrows = len(data_in['SEX']['COADD_OBJECT_ID'])
+    data_out = numpy.zeros(nrows, dtype=dtypes)
+
+    # Populate the basic information
+    for key in ['COADD_OBJECT_ID','EBV_SFD98']:
+        data_out[key] = data_in['SEX'][key]
+
+    if args.PHOTO_MODE=='MOF_MIX':
+        data_out = get_MIX(args,data_in,data_out)
+    else:
+        data_out = get_ONLY(args,data_in,data_out)
+
+    # Add the prior outside the loop
+    if args.PRIOR_MAGNITUDE not in colnames:
+        data_out[args.PRIOR_MAGNITUDE] = data_in['SEX'][args.PRIOR_MAGNITUDE.upper()] 
+
+    # If we want extinction corrected fluxes/mags
+    if args.extinction:
+        t0 = time.time()
+        LOGGER.info("Computing E(B-V) for all objects")
+        data_out = extinction_correct(args,data_out)
+        LOGGER.info("E(B-V) Compute Time %s" % bpz_utils.elapsed_time(t0))
+    else:
+        LOGGER.info("Skipping extinction correction")
 
     # Now we write the file
-    fitsio.write('mofmix.fits', data_out, extname='OBJECTS', clobber=True)
+    fitsio.write(args.outcat, data_out, extname='OBJECTS', clobber=True)
+    LOGGER.info("Wrote ColorCat: %s" % args.outcat)
+    return 
 
-            
-    #print mofcat['COADD_OBJECT_ID']
-    #print sexcat['COADD_OBJECT_ID']
-    return
-
-def build_from_sql():
+def build_color_cat_from_sql():
 
     t0 = time.time()
     args = cmdline_sql()
-    get_cats_from_sql(args)
-
-  
-    
-#if __name__ == '__main__':
-#    build_from_coadd_files()
-
+    data_in = read_catalogs_sql(args)
+    write_colorcat_sql(args,data_in)
+    LOGGER.info("Total time: %s" % (bpz_utils.elapsed_time(t0)))
 

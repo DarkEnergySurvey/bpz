@@ -19,7 +19,7 @@ data_files.append(('ups',['ups/bpz.table']))
 
 # The main call
 setup(name='bpz',
-      version ='1.2',
+      version ='1.3.0',
       license = "GPL",
       description = "DESDM implementation of BPZ",
       author = "Ben Hoyle, Felipe Menanteau",

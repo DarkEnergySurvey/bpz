@@ -228,7 +228,7 @@ def cmdline_sql():
                         help="Optional string with template for SExtractor SQL query")
     parser.add_argument("--PHOTO_MODE", action="store",default='MOF_MIX',
                         help="Type of Photometry we want: MOF_MIX/MOF_ONLY/SEX_ONLY")
-    parser.add_argument("--table_MOF", action="store",default='nsevilla.y3a2_mof_tmp',
+    parser.add_argument("--table_MOF", action="store",default='y3a2_mof',
                         help="Modify the name of the table that contains the MOF photometry")
     parser.add_argument("--table_SEX", action="store",default='Y3A2_COADD_OBJECT_SUMMARY',
                         help="Modify the name of the table that contains the SExtractor COADD photometry")
@@ -337,7 +337,7 @@ def get_ONLY(args,data_in, data_out):
             data_out[outkey_val] = gencat[genkey_val]
             data_out[outkey_err] = gencat[genkey_err]
         else:
-            exit("ERROR: filters %s not in input filters" % BAND)
+            exit("ERROR: filter %s not in input filters" % BAND)
 
     return data_out
 

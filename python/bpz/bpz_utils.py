@@ -21,6 +21,8 @@ import fitsio
 import collections
 import logging
 
+max_gal_chunk_size = 50000
+
 # Setting paths
 try:
     SED_DIR = os.environ['SED_DIR']
@@ -573,6 +575,10 @@ def bpz_main():
     else:
         gal_chunk_size = int(len(ind)/config['n_jobs'])
         LOGGER.info("Will use auto chunk_size=%s" % gal_chunk_size)
+
+    if gal_chunk_size > max_gal_chunk_size:
+        gal_chunk_size = max_gal_chunk_size
+        LOGGER.info("Re-sizing chunk_size=%s" % gal_chunk_size)
     
     parr_lsts = []
     if config['n_jobs']:

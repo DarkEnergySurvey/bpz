@@ -8,6 +8,7 @@ LOGGER = bpz_utils.create_logger(level=logging.NOTSET,name='BPZ')
 QUERY_MOF = """
 SELECT
    coadd_object_id,
+   tilename,
    cm_flux_g, 
    cm_flux_g/cm_flux_s2n_g as cm_fluxerr_g,
    cm_flux_r,
@@ -17,7 +18,7 @@ SELECT
    cm_flux_z,
    cm_flux_z/cm_flux_s2n_z as cm_fluxerr_z
  FROM {tablename}
- WHERE tilename='{tilename}'
+ WHERE tilename in {tilename}
  ORDER BY coadd_object_id
 """
 
@@ -25,6 +26,7 @@ QUERY_SEX = """
 select
   COADD_OBJECT_ID,
   EBV_SFD98,
+  TILENAME,
 
   FLUX_AUTO_G,
   FLUX_AUTO_R,
@@ -48,7 +50,7 @@ select
   MAGERR_AUTO_Z,
   MAGERR_AUTO_Y
 
-  FROM {tablename} where TILENAME='{tilename}'
+  FROM {tablename} where TILENAME in {tilename}
   ORDER BY coadd_object_id
 
 """

@@ -77,7 +77,7 @@ normalisation_filter: DECam_2014_i.res
 ID: COADD_OBJECT_ID
 
 # If these columns [in the stated case] don't exist a warning will be made, but the code will run.
-ADDITIONAL_OUTPUT_COLUMNS: [MAG_AUTO_i, MOF_MASK]
+ADDITIONAL_OUTPUT_COLUMNS: [MAG_AUTO_i, TILENAME, MOF_MASK]
 
 # Do you wanna output a suffix for a filename -- should be deprecated
 output_file_suffix:

@@ -2,6 +2,7 @@
 Utilities to assemble the input 'color' catalog needed by BPZ
 """
 
+import os
 import time
 import fitsio
 import numpy
@@ -205,7 +206,7 @@ def cmdline_sql():
     parser = argparse.ArgumentParser(description="Build the BPZ input catalog from SQL",
                                      # Inherit options from config_parser
                                      parents=[conf_parser])
-    parser.add_argument("--tilename", action="store",default=None,required=True,
+    parser.add_argument("--tilename", action="store",nargs='+', default=None,required=True,
                         help="Name of Tilename to get")
     parser.add_argument("--outcat", action="store",default=None,required=True,
                         help="Name of output 'color' fits catalog needed by BPZ")
@@ -255,6 +256,22 @@ def cmdline_sql():
         args.QUERY_MOF = db_utils.QUERY_MOF
     if not args.QUERY_SEX:
         args.QUERY_SEX = db_utils.QUERY_SEX
+
+
+    if len(args.tilename) and os.path.exists(args.tilename[0]):
+        args.tilelist = args.tilename[0]
+        args.tilename = []
+        for line in open(args.tilelist):
+            args.tilename.append(line.split()[0])
+
+        #print args.tilelist
+        #print tilelist
+        #exit()
+
+    # Split them if they are comma separated and format for SQL
+    args.tilename = parse_comma_separated_list(args.tilename)
+    args.tilename = ["'%s'" % tilename for tilename in args.tilename]
+    args.tilename = "(%s)" % ','.join(args.tilename)
 
     #print "Will use:"
     #for k, v in vars(args).iteritems():
@@ -353,6 +370,11 @@ def read_catalogs_sql(args):
     else:
         data_in['SEX'] = get_phot_catalog(args,'SEX',dbh=dbh)
         data_in['MOF'] = get_phot_catalog(args,'MOF',dbh=dbh)
+        # Make sure that the two catalogs have the same COADD_OBJECT_ID
+        equal_cats = (data_in['MOF']['COADD_OBJECT_ID']==data_in['SEX']['COADD_OBJECT_ID']).all()
+        if not equal_cats:
+            exit("ERROR: MOF and SExtractor catalogs don't have the same objects")
+        
     LOGGER.info("Total sql Time:%s\n" % bpz_utils.elapsed_time(t0))
     return data_in
 
@@ -361,7 +383,10 @@ def write_colorcat_sql(args,data_in):
     # Here we pre-make the output record array.
     # It should contain all the output colums we want
     # Define dtypes and record array for ID, and EBV-SFD98
+
+    tilename_dtype = ("%s" % data_in['SEX']['TILENAME'].dtype)[1:]
     dtypes = [('COADD_OBJECT_ID','i8'),
+              ('TILENAME',tilename_dtype),
               ('EBV_SFD98','f4')]
     for BAND in args.bands:
         dtypes.append(("%s_%s" % (args.filters[BAND]['MAG_OR_FLUX'],BAND),'f4'))
@@ -378,7 +403,7 @@ def write_colorcat_sql(args,data_in):
     data_out = numpy.zeros(nrows, dtype=dtypes)
 
     # Populate the basic information
-    for key in ['COADD_OBJECT_ID','EBV_SFD98']:
+    for key in ['COADD_OBJECT_ID','EBV_SFD98','TILENAME']:
         data_out[key] = data_in['SEX'][key]
 
     if args.PHOTO_MODE=='MOF_MIX':
@@ -403,6 +428,12 @@ def write_colorcat_sql(args,data_in):
     fitsio.write(args.outcat, data_out, extname='OBJECTS', clobber=True)
     LOGGER.info("Wrote ColorCat: %s" % args.outcat)
     return 
+
+def parse_comma_separated_list(inputlist):
+    if inputlist[0].find(',') >= 0:
+        return inputlist[0].split(',')
+    else:
+        return inputlist
 
 def build_color_cat_from_sql():
 

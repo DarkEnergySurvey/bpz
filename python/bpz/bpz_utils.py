@@ -660,7 +660,9 @@ def bpz_main():
     # Got Additional columns -- add them as f8
     if len(ADDITIONAL_OUTPUT_COLUMNS) > 0:
         for col_name in ADDITIONAL_OUTPUT_COLUMNS:
-            dtypes.append((col_name,'f8'))
+            # Figure out the dtype of the extra column and append
+            col_dtype = ("%s" % orig_table[col_name].dtype)[1:]
+            dtypes.append((col_name,col_dtype))
             cols[col_name] = orig_table[col_name]
 
     data_out = np.zeros(nrows, dtype=dtypes)

@@ -386,6 +386,8 @@ def write_colorcat_sql(args,data_in):
 
     tilename_dtype = ("%s" % data_in['SEX']['TILENAME'].dtype)[1:]
     dtypes = [('COADD_OBJECT_ID','i8'),
+              ('ALPHAWIN_J2000','f4'),
+              ('DELTAWIN_J2000','f4'),
               ('TILENAME',tilename_dtype),
               ('EBV_SFD98','f4')]
     for BAND in args.bands:
@@ -403,7 +405,7 @@ def write_colorcat_sql(args,data_in):
     data_out = numpy.zeros(nrows, dtype=dtypes)
 
     # Populate the basic information
-    for key in ['COADD_OBJECT_ID','EBV_SFD98','TILENAME']:
+    for key in ['COADD_OBJECT_ID','EBV_SFD98','ALPHAWIN_J2000','DELTAWIN_J2000','TILENAME']:
         data_out[key] = data_in['SEX'][key]
 
     if args.PHOTO_MODE=='MOF_MIX':

@@ -47,29 +47,22 @@ mag_undet: 99
 # This dictionary is also used by the routines that build the input catalogs
 # Example: for a mixture of MOF and SExtractor values
 filters: {
-    DECam_2014_g.res: {MAG_OR_FLUX: FLUX_MOFMIX, ERR: FLUXERR_MOFMIX, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: g},
-    DECam_2014_r.res: {MAG_OR_FLUX: FLUX_MOFMIX, ERR: FLUXERR_MOFMIX, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: r},
-    DECam_2014_i.res: {MAG_OR_FLUX: FLUX_MOFMIX, ERR: FLUXERR_MOFMIX, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: i},
-    DECam_2014_z.res: {MAG_OR_FLUX: FLUX_MOFMIX, ERR: FLUXERR_MOFMIX, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: z},
-    #DECam_2014_Y.res: {MAG_OR_FLUX: FLUX_MOFMIX, ERR: FLUXERR_MOFMIX, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: Y}    
+    STD_BANDPASSES_Y3A2_20170715_g.res: {MAG_OR_FLUX: FLUX_MOFMIX, ERR: FLUXERR_MOFMIX, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: g},
+    STD_BANDPASSES_Y3A2_20170715_r.res: {MAG_OR_FLUX: FLUX_MOFMIX, ERR: FLUXERR_MOFMIX, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: r},
+    STD_BANDPASSES_Y3A2_20170715_i.res: {MAG_OR_FLUX: FLUX_MOFMIX, ERR: FLUXERR_MOFMIX, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: i},
+    STD_BANDPASSES_Y3A2_20170715_z.res: {MAG_OR_FLUX: FLUX_MOFMIX, ERR: FLUXERR_MOFMIX, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: z},
+    #STD_BANDPASSES_Y3A2_20170715_Y.res: {MAG_OR_FLUX: FLUX_MOFMIX, ERR: FLUXERR_MOFMIX, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: Y}    
     }
-
 # Example: using only SExtractor values
-# filters: {
-#     DECam_2014_g.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: g},
-#     DECam_2014_r.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: r},
-#     DECam_2014_i.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: i},
-#     DECam_2014_z.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: z}    
-#     #DECam_2014_g.res: {MAG_OR_FLUX: FLUX_AUTO_g, ERR: FLUXERR_AUTO_g, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: g},
-#     #DECam_2014_r.res: {MAG_OR_FLUX: FLUX_AUTO_r, ERR: FLUXERR_AUTO_r, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: r},
-#     #DECam_2014_i.res: {MAG_OR_FLUX: FLUX_AUTO_i, ERR: FLUXERR_AUTO_i, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: i},
-#     #DECam_2014_z.res: {MAG_OR_FLUX: FLUX_AUTO_z, ERR: FLUXERR_AUTO_z, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: z},
-#     ##DECam_2014_Y.res: {MAG_OR_FLUX: FLUX_AUTO_Y, ERR: FLUXERR_AUTO_Y, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band:Y},
-#     ##DECam_2014_Y.res: {MAG: MAG_MOF_Y, ERR: MAGERR_MOF_Y, AB_V: AB, zp_error: 0.02, zp_offset: 0.0}
-#     }
+#filters: {
+#    STD_BANDPASSES_Y3A2_20170715_g.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: g},
+#    STD_BANDPASSES_Y3A2_20170715_r.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: r},
+#    STD_BANDPASSES_Y3A2_20170715_i.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: i},
+#    STD_BANDPASSES_Y3A2_20170715_z.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: z}    
+#    }
 
 # Which magnitude will we use for flux normalisation?
-normalisation_filter: DECam_2014_i.res
+normalisation_filter: STD_BANDPASSES_Y3A2_20170715_i.res
 
 # This is the id column. Don't mess around! use it.
 # Use 'NUMBER' for coadd fits catalogs and 'COADD_OBJECT_ID' for SQL-genrated catalogs
@@ -93,7 +86,7 @@ INTERP: 8
 output_sed_lookup_file:
 
 # Should we parralise the loops?
-n_jobs: 8
+n_jobs: 6
 
 # Define gal_huck_size? 0/False automatic value
 gal_chunk_size: False
@@ -140,4 +133,4 @@ mof_filters: {
 RA:  ALPHAWIN_J2000
 DEC: DELTAWIN_J2000
 # Extinction factors per band
-efactor: {'g':3.185, 'r':2.140, 'i':1.571, 'z':1.198, 'Y':1.052}
+efactor: {'g':3.186, 'r':2.140, 'i':1.569, 'z':1.196, 'Y':1.048}

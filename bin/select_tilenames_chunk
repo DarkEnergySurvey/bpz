@@ -1,0 +1,57 @@
+#!/usr/bin/env python
+
+import os
+try:
+    BPZ_DIR = os.environ['BPZ_DIR']
+except:
+    BPZ_DIR = __file__.split('python')[0]
+
+RELEASE_TILELIST  = os.path.join(BPZ_DIR,'etc','tilenames_Y3A2.dat')
+RELEASE_BLACKLIST = os.path.join(BPZ_DIR,'etc','tilenames_Y3A2_bpz_blacklisted.dat')
+
+def cmdline():
+
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Build tilelist for a chunk")
+    parser.add_argument("--chunk_number", action="store",type=int,required=True,
+                        help="Chunk number to build")
+    parser.add_argument("--outlist", action="store", type=str,required=True,
+                        help="Name of the filename with the selected list of tiles")
+    parser.add_argument("--chunk_size", action="store", type=int,default=100,
+                        help="Chunk size")
+    parser.add_argument("--release_tilelist", action="store", type=str,default=RELEASE_TILELIST,
+                        help="Name of the filename with full list of tiles for a Release")
+    parser.add_argument("--release_blacklist", action="store", type=str,default=RELEASE_BLACKLIST,
+                        help="Name of the filename with full list of tiles for a Release")
+    args = parser.parse_args()
+    return args
+
+if __name__ == "__main__":
+
+    # Get the command line args
+    args = cmdline()
+
+    # Read in the full set of tiles
+    with open(args.release_tilelist) as f:
+        lines = f.read().splitlines()
+
+    # Read in the blacklist
+    with open(args.release_blacklist) as f:
+        blacklist = f.read().splitlines()
+
+    # Define the edges
+    i1 = args.chunk_size*(args.chunk_number-1)
+    i2 = args.chunk_size*args.chunk_number
+    tiles_selection = lines[i1:i2]
+
+    # Remove the tiles that are in the blacklist, if any
+    for tile in tiles_selection:
+        if tile in blacklist:
+            print "# Tilename %s in blacklist, removing it from list" % tile
+            tiles_selection.remove(tile)
+
+    # Write out the list of selected tiles
+    with open(args.outlist, "w") as output:
+        output.write("\n".join(tiles_selection))
+    print "# Wrote: %s" % args.outlist

@@ -319,7 +319,6 @@ def bpz_main():
     # Load filters.
     filters = config['filters'].keys()
 
-
     # Adding band 
     MAG_OR_FLUX = ["%s_%s" % (config['filters'][i]['MAG_OR_FLUX'],config['filters'][i]['band']) for i in filters]
     MAG_OR_FLUXERR = ["%s_%s" % (config['filters'][i]['ERR'],config['filters'][i]['band']) for i in filters]

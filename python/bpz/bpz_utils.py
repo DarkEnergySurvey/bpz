@@ -22,7 +22,7 @@ import collections
 import logging
 import math
 
-max_gal_chunk_size = 50000
+MAX_GAL_CHUNK_SIZE = 50000
 
 # Setting paths
 try:
@@ -84,6 +84,8 @@ def cmdline():
                         help="Number of jobs/cpu per run")
     parser.add_argument("--gal_chunk_size", action="store", default=0, type=int,
                         help="Number of galaxies per loop (0=auto)")
+    parser.add_argument("--max_gal_chunk_size", action="store", default=MAX_GAL_CHUNK_SIZE, type=int,
+                        help="Max Number of galaxies per loop (default=%s)" % MAX_GAL_CHUNK_SIZE)
     parser.add_argument("--mag_unobs", action="store", default=-99, type=float,
                         help="Objects not observed (default=-99)")
     parser.add_argument("--mag_undet", action="store", default=99, type=float,
@@ -577,6 +579,7 @@ def bpz_main():
         LOGGER.info("Will use auto chunk_size=%s" % gal_chunk_size)
 
     # Resize gal_chunk_size if necessary to for to fit n_jobs
+    max_gal_chunk_size = config['max_gal_chunk_size']
     if gal_chunk_size > max_gal_chunk_size:
         scale = math.ceil(float(gal_chunk_size)/float(max_gal_chunk_size))
         gal_chunk_size = int(gal_chunk_size/scale)

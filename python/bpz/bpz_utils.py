@@ -20,6 +20,7 @@ from bpz.galaxy_type_prior import GALAXYTYPE_PRIOR
 import fitsio
 import collections
 import logging
+import math
 
 max_gal_chunk_size = 50000
 
@@ -575,8 +576,10 @@ def bpz_main():
         gal_chunk_size = int(len(ind)/config['n_jobs'])
         LOGGER.info("Will use auto chunk_size=%s" % gal_chunk_size)
 
+    # Resize gal_chunk_size if necessary to for to fit n_jobs
     if gal_chunk_size > max_gal_chunk_size:
-        gal_chunk_size = max_gal_chunk_size
+        scale = math.ceil(gal_chunk_size/max_gal_chunk_size/config['n_jobs'])
+        gal_chunk_size = int(gal_chunk_size/(config['n_jobs']*scale))
         LOGGER.info("Re-sizing chunk_size=%s" % gal_chunk_size)
     
     parr_lsts = []

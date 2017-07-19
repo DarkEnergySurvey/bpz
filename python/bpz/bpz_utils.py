@@ -578,8 +578,8 @@ def bpz_main():
 
     # Resize gal_chunk_size if necessary to for to fit n_jobs
     if gal_chunk_size > max_gal_chunk_size:
-        scale = math.ceil(gal_chunk_size/max_gal_chunk_size/config['n_jobs'])
-        gal_chunk_size = int(gal_chunk_size/(config['n_jobs']*scale))
+        scale = math.ceil(float(gal_chunk_size)/float(max_gal_chunk_size))
+        gal_chunk_size = int(gal_chunk_size/scale)
         LOGGER.info("Re-sizing chunk_size=%s" % gal_chunk_size)
     
     parr_lsts = []

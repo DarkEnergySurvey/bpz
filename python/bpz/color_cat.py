@@ -264,12 +264,10 @@ def cmdline_sql():
         for line in open(args.tilelist):
             args.tilename.append(line.split()[0])
 
-        #print args.tilelist
-        #print tilelist
-        #exit()
-
     # Split them if they are comma separated and format for SQL
     args.tilename = parse_comma_separated_list(args.tilename)
+    # Keep them as a list strcture for later
+    args.tilename_list = args.tilename
     args.tilename = ["'%s'" % tilename for tilename in args.tilename]
     args.tilename = "(%s)" % ','.join(args.tilename)
 
@@ -292,8 +290,12 @@ def get_phot_catalog(args,query_type, dbh=None):
     else:
         exit("ERROR: Query type %s not supported" % query_type)
     if args.verbose: LOGGER.info("Will execute %s query: %s" % (query_type, str_query))
-    reccat = despyastro.query2rec(str_query, dbhandle=dbh)
+    reccat = despyastro.query2rec(str_query, dbhandle=dbh, verb=args.verbose)
     if args.verbose: LOGGER.info("Total query time: %s" % bpz_utils.elapsed_time(t0))
+
+    if reccat is False:
+        exit("ERROR: Query returned False")
+
     # Return the record-array catalog from the query
     return reccat
 
@@ -370,6 +372,20 @@ def read_catalogs_sql(args):
     else:
         data_in['SEX'] = get_phot_catalog(args,'SEX',dbh=dbh)
         data_in['MOF'] = get_phot_catalog(args,'MOF',dbh=dbh)
+
+        # Make sure the have the same lenght
+        N_MOF = len(data_in['MOF']['COADD_OBJECT_ID'])
+        N_SEX = len(data_in['SEX']['COADD_OBJECT_ID'])
+        if N_MOF != N_SEX:
+            LOGGER.info("ERROR: MOF and SExtractor queries returned different catalogs")
+            LOGGER.info("Will attemp to examine the arrays before quitting")
+            for tilename in args.tilename_list:
+                id_MOF = numpy.where(data_in['MOF']['TILENAME'] == tilename)[0]
+                id_SEX = numpy.where(data_in['SEX']['TILENAME'] == tilename)[0]
+                if len(id_MOF) != len(id_SEX):
+                    LOGGER.info("%s -- N(MOF)=%d, N(SEx)=%d" % (tilename, len(id_MOF), len(id_SEX)))
+            exit("ERROR: MOF and SExtractor catalogs don't have the same number of objects")
+
         # Make sure that the two catalogs have the same COADD_OBJECT_ID
         equal_cats = (data_in['MOF']['COADD_OBJECT_ID']==data_in['SEX']['COADD_OBJECT_ID']).all()
         if not equal_cats:

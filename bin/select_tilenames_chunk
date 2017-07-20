@@ -40,18 +40,21 @@ if __name__ == "__main__":
     with open(args.release_blacklist) as f:
         blacklist = f.read().splitlines()
 
+    print blacklist
     # Define the edges
     i1 = args.chunk_size*(args.chunk_number-1)
     i2 = args.chunk_size*args.chunk_number
     tiles_selection = lines[i1:i2]
 
     # Remove the tiles that are in the blacklist, if any
+    tiles_selection_clean = []
     for tile in tiles_selection:
         if tile in blacklist:
             print "# Tilename %s in blacklist, removing it from list" % tile
-            tiles_selection.remove(tile)
+        else:
+            tiles_selection_clean.append(tile)
 
     # Write out the list of selected tiles
     with open(args.outlist, "w") as output:
-        output.write("\n".join(tiles_selection))
+        output.write("\n".join(tiles_selection_clean))
     print "# Wrote: %s" % args.outlist

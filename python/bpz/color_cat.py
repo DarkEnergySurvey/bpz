@@ -218,17 +218,21 @@ def cmdline_sql():
                         help="Work with MAGS [True] or FLUX [False]")
     parser.add_argument("--ID",action="store", default=None,
                         help="Column name for ID (i.e. NUMBER)")
-    parser.add_argument("--no-extinction",action="store_false", dest='extinction', 
-                        help="Do not perform extiction correction")
-    parser.add_argument("--extinction",action="store_true", dest='extinction', default=True,
+    parser.add_argument("--extinction",action="store_true", dest='extinction', default=False,
                         help="Perform extiction correction")
+    parser.add_argument("--no-extinction",action="store_false", dest='extinction', default=True,
+                        help="Do not perform extiction correction")
     # Advanced options
     parser.add_argument("--QUERY_MOF", action="store",default=db_utils.QUERY_MOF,
                         help="Optional string with template for MOF SQL query")
     parser.add_argument("--QUERY_SEX", action="store",default=db_utils.QUERY_SEX,
                         help="Optional string with template for SExtractor SQL query")
+    parser.add_argument("--QUERY_SINGLE", action="store",default=db_utils.QUERY_SINGLE,
+                        help="Optional string with template for SINGLE table SQL query")
     parser.add_argument("--PHOTO_MODE", action="store",default='MOF_MIX',
                         help="Type of Photometry we want: MOF_MIX/MOF_ONLY/SEX_ONLY")
+    parser.add_argument("--table_SINGLE", action="store",default='MCARRAS2.Y3A2_MOF_CM_CORRECTED',
+                        help="Modify the name of the table that contains the SExtractor COADD photometry")
     parser.add_argument("--table_MOF", action="store",default='y3a2_mof',
                         help="Modify the name of the table that contains the MOF photometry")
     parser.add_argument("--table_SEX", action="store",default='Y3A2_COADD_OBJECT_SUMMARY',
@@ -256,7 +260,8 @@ def cmdline_sql():
         args.QUERY_MOF = db_utils.QUERY_MOF
     if not args.QUERY_SEX:
         args.QUERY_SEX = db_utils.QUERY_SEX
-
+    if not args.QUERY_SINGLE:
+        args.QUERY_SINGLE = db_utils.QUERY_SINGLE
 
     if len(args.tilename) and os.path.exists(args.tilename[0]):
         args.tilelist = args.tilename[0]
@@ -287,6 +292,8 @@ def get_phot_catalog(args,query_type, dbh=None):
         str_query = args.QUERY_MOF.format(tilename=args.tilename, tablename=args.table_MOF)
     elif query_type == 'SEX':
         str_query = args.QUERY_SEX.format(tilename=args.tilename, tablename=args.table_SEX)
+    elif query_type == 'SINGLE':
+        str_query = args.QUERY_SINGLE.format(tilename=args.tilename, tablename=args.table_SINGLE)
     else:
         exit("ERROR: Query type %s not supported" % query_type)
     if args.verbose: LOGGER.info("Will execute %s query: %s" % (query_type, str_query))
@@ -360,6 +367,22 @@ def get_ONLY(args,data_in, data_out):
 
     return data_out
 
+def get_SINGLE(args,data_in,data_out):
+
+    """ Get the data_out catalog filled"""
+
+    gencat = data_in[args.PHOTO_MODE]
+    for BAND in args.bands:
+        # Short-cuts to outkey value/err
+        outkey_val = "%s_%s" % (args.filters[BAND]['MAG_OR_FLUX'],BAND)
+        outkey_err = "%s_%s" % (args.filters[BAND]['ERR'],BAND) 
+        genkey_val = "%s_%s" % (args.filters[BAND]['MAG_OR_FLUX'],BAND.upper())
+        genkey_err = "%s_%s" % (args.filters[BAND]['ERR'],BAND.upper())
+        data_out[outkey_val] = gencat[genkey_val]
+        data_out[outkey_err] = gencat[genkey_err]
+
+    return data_out
+
 def read_catalogs_sql(args):
 
     t0 = time.time()
@@ -369,6 +392,8 @@ def read_catalogs_sql(args):
     # Get the input catalogs using queries
     if args.PHOTO_MODE == 'SEX_ONLY':
         data_in['SEX'] = get_phot_catalog(args,'SEX',dbh=dbh)
+    elif args.PHOTO_MODE == 'SINGLE':
+        data_in['SINGLE'] = get_phot_catalog(args,'SINGLE',dbh=dbh)
     else:
         data_in['SEX'] = get_phot_catalog(args,'SEX',dbh=dbh)
         data_in['MOF'] = get_phot_catalog(args,'MOF',dbh=dbh)
@@ -398,14 +423,20 @@ def write_colorcat_sql(args,data_in):
 
     # Here we pre-make the output record array.
     # It should contain all the output colums we want
-    # Define dtypes and record array for ID, and EBV-SFD98
 
-    tilename_dtype = ("%s" % data_in['SEX']['TILENAME'].dtype)[1:]
-    dtypes = [('COADD_OBJECT_ID','i8'),
-              ('ALPHAWIN_J2000','f4'),
-              ('DELTAWIN_J2000','f4'),
-              ('TILENAME',tilename_dtype),
-              ('EBV_SFD98','f4')]
+    MODE=args.PHOTO_MODE
+
+    if args.PHOTO_MODE == 'MOF_MIX' or args.PHOTO_MODE=='SEX':
+        MODE='SEX'
+    else:
+        MODE=args.PHOTO_MODE
+
+    # Figure out the dtypes for additional columns
+    dtypes = []
+    for colname in args.ADDITIONAL_OUTPUT_COLUMNS:
+        dtype = ("%s" % data_in[MODE][colname].dtype)
+        dtypes.append((colname,dtype))
+
     for BAND in args.bands:
         dtypes.append(("%s_%s" % (args.filters[BAND]['MAG_OR_FLUX'],BAND),'f4'))
         dtypes.append(("%s_%s" % (args.filters[BAND]['ERR'],BAND),'f4'))
@@ -417,21 +448,23 @@ def write_colorcat_sql(args,data_in):
     if args.PHOTO_MODE=='MOF_MIX':
         dtypes.append(('MOF_MASK','i4'))
 
-    nrows = len(data_in['SEX']['COADD_OBJECT_ID'])
+    nrows = len(data_in[MODE][:])
     data_out = numpy.zeros(nrows, dtype=dtypes)
 
     # Populate the basic information
-    for key in ['COADD_OBJECT_ID','EBV_SFD98','ALPHAWIN_J2000','DELTAWIN_J2000','TILENAME']:
-        data_out[key] = data_in['SEX'][key]
+    for key in args.ADDITIONAL_OUTPUT_COLUMNS:
+        data_out[key] = data_in[MODE][key]
 
     if args.PHOTO_MODE=='MOF_MIX':
         data_out = get_MIX(args,data_in,data_out)
+    elif args.PHOTO_MODE=='SINGLE':
+        data_out = get_SINGLE(args,data_in,data_out)
     else:
         data_out = get_ONLY(args,data_in,data_out)
 
     # Add the prior outside the loop
     if args.PRIOR_MAGNITUDE not in colnames:
-        data_out[args.PRIOR_MAGNITUDE] = data_in['SEX'][args.PRIOR_MAGNITUDE.upper()] 
+        data_out[args.PRIOR_MAGNITUDE] = data_in[MODE][args.PRIOR_MAGNITUDE.upper()] 
 
     # If we want extinction corrected fluxes/mags
     if args.extinction:

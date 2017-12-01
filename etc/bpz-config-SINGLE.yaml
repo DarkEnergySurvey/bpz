@@ -27,7 +27,7 @@ rearrange_spectra: False
 prior_name: bpz.sed_prior_file.des_y1_prior
 
 # Expect i-band mag. e.g. MAG_AUTO_I
-PRIOR_MAGNITUDE: MAG_AUTO_i
+PRIOR_MAGNITUDE: CM_FLUX_CORRECTED_i
 
 # Work with MAGS [True] or FLUX [False].
 # If left blank [default] the code infers this from the presence of MAG or mag in the XXX of filters: ky: {MAG_OR_FLUX: 'XXX'}
@@ -47,19 +47,11 @@ mag_undet: 99
 # This dictionary is also used by the routines that build the input catalogs
 # Example: for a mixture of MOF and SExtractor values
 filters: {
-    STD_BANDPASSES_Y3A2_20170715_g.res: {MAG_OR_FLUX: FLUX_MOFMIX, ERR: FLUXERR_MOFMIX, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: g},
-    STD_BANDPASSES_Y3A2_20170715_r.res: {MAG_OR_FLUX: FLUX_MOFMIX, ERR: FLUXERR_MOFMIX, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: r},
-    STD_BANDPASSES_Y3A2_20170715_i.res: {MAG_OR_FLUX: FLUX_MOFMIX, ERR: FLUXERR_MOFMIX, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: i},
-    STD_BANDPASSES_Y3A2_20170715_z.res: {MAG_OR_FLUX: FLUX_MOFMIX, ERR: FLUXERR_MOFMIX, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: z},
-    #STD_BANDPASSES_Y3A2_20170715_Y.res: {MAG_OR_FLUX: FLUX_MOFMIX, ERR: FLUXERR_MOFMIX, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: Y}    
+    STD_BANDPASSES_Y3A2_20170715_g.res: {MAG_OR_FLUX: CM_FLUX_CORRECTED, ERR: CM_FLUXERR_CORRECTED, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: g},
+    STD_BANDPASSES_Y3A2_20170715_r.res: {MAG_OR_FLUX: CM_FLUX_CORRECTED, ERR: CM_FLUXERR_CORRECTED, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: r},
+    STD_BANDPASSES_Y3A2_20170715_i.res: {MAG_OR_FLUX: CM_FLUX_CORRECTED, ERR: CM_FLUXERR_CORRECTED, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: i},
+    STD_BANDPASSES_Y3A2_20170715_z.res: {MAG_OR_FLUX: CM_FLUX_CORRECTED, ERR: CM_FLUXERR_CORRECTED, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: z},
     }
-# Example: using only SExtractor values
-#filters: {
-#    STD_BANDPASSES_Y3A2_20170715_g.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: g},
-#    STD_BANDPASSES_Y3A2_20170715_r.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: r},
-#    STD_BANDPASSES_Y3A2_20170715_i.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: i},
-#    STD_BANDPASSES_Y3A2_20170715_z.res: {MAG_OR_FLUX: FLUX_AUTO, ERR: FLUXERR_AUTO, AB_V: AB, zp_error: 0.02, zp_offset: 0.0, band: z}    
-#    }
 
 # Which magnitude will we use for flux normalisation?
 normalisation_filter: STD_BANDPASSES_Y3A2_20170715_i.res
@@ -70,7 +62,7 @@ normalisation_filter: STD_BANDPASSES_Y3A2_20170715_i.res
 ID: COADD_OBJECT_ID
 
 # If these columns [in the stated case] don't exist a warning will be made, but the code will run.
-ADDITIONAL_OUTPUT_COLUMNS: [TILENAME, COADD_OBJECT_ID, EBV_SFD98, ALPHAWIN_J2000, DELTAWIN_J2000]
+ADDITIONAL_OUTPUT_COLUMNS: [COADD_OBJECT_ID,TILENAME, RA, DEC]
 
 # Do you wanna output a suffix for a filename -- should be deprecated
 output_file_suffix:
@@ -102,15 +94,18 @@ verbose: True
 # - MOF_MIX : MOF/SExtractor mix, use SExtractor MAG/FLUX to fill in the gaps
 # - MOF_ONLY : MOF only MAG/FLUX
 # - SEX_ONLY : SExtractor only MAG/FLUX
-PHOTO_MODE: MOF_MIX
+# - SINGLE:   Single table with values
+PHOTO_MODE: SINGLE
 
 # Leave blank unless you know what you are doing!
 QUERY_MOF: 
 QUERY_SEX:
+QUERY_SINGLE:
 
 # DESDM table names
 table_MOF: 'nsevilla.y3a2_mof_tmp'
 table_SEX: 'Y3A2_COADD_OBJECT_SUMMARY'
+table_SINGLE: 'MCARRAS2.Y3A2_SOF_CM_CORRECTED'
     
 # SQL build catalog inputs, these need to match the entries in QUERY_MOF and QUERY_SEX
 # The SExtractor flux/mags set we want
@@ -129,7 +124,7 @@ mof_filters: {
     z: {MAG_OR_FLUX: CM_FLUX_Z, ERR: CM_FLUXERR_Z},
 }
 
-# RA,DEC if we compute extinction from catalogs -- otherwise ignored, do not change.
+## RA,DEC if we compute extinction from catalogs -- otherwise ignored, do not change.
 RA:  ALPHAWIN_J2000
 DEC: DELTAWIN_J2000
 # Extinction factors per band

@@ -5,6 +5,24 @@ import logging
 LOGGER = bpz_utils.create_logger(level=logging.NOTSET,name='BPZ')
 
 
+QUERY_SINGLE = """
+SELECT
+   coadd_object_id,
+   tilename,
+   RA,DEC,
+   CM_FLUX_CORRECTED_G,
+   CM_FLUXERR_CORRECTED_G,
+   CM_FLUX_CORRECTED_R,
+   CM_FLUXERR_CORRECTED_R,
+   CM_FLUX_CORRECTED_I,
+   CM_FLUXERR_CORRECTED_I,
+   CM_FLUX_CORRECTED_Z,
+   CM_FLUXERR_CORRECTED_Z
+ FROM {tablename}
+ WHERE tilename in {tilename}
+ ORDER BY coadd_object_id
+"""
+
 QUERY_MOF = """
 SELECT
    coadd_object_id,

@@ -18,8 +18,8 @@ SELECT
    CM_FLUXERR_CORRECTED_I,
    CM_FLUX_CORRECTED_Z,
    CM_FLUXERR_CORRECTED_Z
- FROM {tablename}
- WHERE tilename in {tilename}
+ FROM {tablename}, GTT_STR
+ WHERE tilename=GTT_STR.STR
  ORDER BY coadd_object_id
 """
 
@@ -35,8 +35,8 @@ SELECT
    cm_flux_i/cm_flux_s2n_i as cm_fluxerr_i,
    cm_flux_z,
    cm_flux_z/cm_flux_s2n_z as cm_fluxerr_z
- FROM {tablename}
- WHERE tilename in {tilename}
+ FROM {tablename}, GTT_STR
+ WHERE tilename=GTT_STR.STR
  ORDER BY coadd_object_id
 """
 
@@ -70,7 +70,8 @@ select
   MAGERR_AUTO_Z,
   MAGERR_AUTO_Y
 
-  FROM {tablename} where TILENAME in {tilename}
+  FROM {tablename}, GTT_STR
+  where TILENAME=GTT_STR.STR
   ORDER BY coadd_object_id
 
 """

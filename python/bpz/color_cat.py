@@ -281,6 +281,18 @@ def cmdline_sql():
     #    print "%s: %s" % (k, v)
     return args
 
+def make_gtt_table(args,dbh=None):
+    t0 = time.time()
+    # Get db connection
+    if not dbh:
+        dbh = db_utils.get_dbh(db_section=args.section,verb=True)
+    list = [ [tilename] for tilename in args.tilename_list]
+    cur=dbh.cursor()
+    LOGGER.info("Cleaning up GTT_STR")
+    cur.execute('delete from GTT_STR')
+    LOGGER.info("Inserting tilelist to GTT_STR.STR")
+    dbh.insert_many('GTT_STR',['STR'],list)
+
 def get_phot_catalog(args,query_type, dbh=None):
     """ Generic query catalog function """
     t0 = time.time()
@@ -388,6 +400,10 @@ def read_catalogs_sql(args):
     t0 = time.time()
     # Get db connection
     dbh = db_utils.get_dbh(db_section=args.section,verb=True)
+
+    # Make the GTT_STR table
+    make_gtt_table(args,dbh=dbh)
+
     data_in = {}
     # Get the input catalogs using queries
     if args.PHOTO_MODE == 'SEX_ONLY':

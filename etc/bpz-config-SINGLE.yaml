@@ -1,5 +1,5 @@
-# BPZv1 configuration file example for bpz-DESDM
-# F.Menanteau June 2017
+# BPZv1 configuration file example for bpz-DESDM, using Y3A2 MOF/SOF dedicated tables
+# F.Menanteau Dec 2017
 
 # Optionally, we can defined inputs and outputs in the config file (not recommended)
 #files: DES2246-4457_r2583p01_griz.fits 
@@ -103,7 +103,7 @@ QUERY_SEX:
 QUERY_SINGLE:
 
 # DESDM table names
-table_MOF: 'nsevilla.y3a2_mof_tmp'
+table_MOF: 'DES_ADMIN.Y3A2_MOF_CM'
 table_SEX: 'Y3A2_COADD_OBJECT_SUMMARY'
 table_SINGLE: 'MCARRAS2.Y3A2_SOF_CM_CORRECTED'
     

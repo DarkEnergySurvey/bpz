@@ -1,5 +1,5 @@
 __author__  = "Ben Hoyle, Felipe Menanteau"
-__version__ = '1.3.0'
+__version__ = '1.5.1'
 version = __version__
 
 import bh_photo_z_validation

@@ -27,7 +27,7 @@ rearrange_spectra: False
 prior_name: bpz.sed_prior_file.des_y1_prior
 
 # Expect i-band mag. e.g. MAG_AUTO_I
-PRIOR_MAGNITUDE: CM_FLUX_CORRECTED_i
+PRIOR_MAGNITUDE: CM_MAG_CORRECTED_i
 
 # Work with MAGS [True] or FLUX [False].
 # If left blank [default] the code infers this from the presence of MAG or mag in the XXX of filters: ky: {MAG_OR_FLUX: 'XXX'}

@@ -35,6 +35,26 @@ def des_y1_prior():
 
     return a, zo, km, k_t, fo_t, momin_hdf, minmag
 
+def des_y1pls_prior():
+    """   Will's COSMOS trained prior (from Laigle etal. 2016 data)
+    for Ellipticals, Spirals, and Irregular/Starbursts
+    Returns an array pi[z[:],:nt]
+    The input magnitude is i mag
+    Adjusted mix of types to allow prior to go to m_i=17
+    """
+    # See Table 1 of Benitez00 https://arxiv.org/pdf/astro-ph/9811189v1.pdf
+    #and eq 29 /30
+
+    a = {'E/S0': 2.460, 'Spiral': 1.836, 'Irr': 1.180}
+    zo = {'E/S0': 0.206, 'Spiral': 0.096, 'Irr': -0.295}
+    km = {'E/S0': 0.112, 'Spiral': 0.101, 'Irr': 0.143}
+    k_t = {'E/S0': 0.296, 'Spiral': 0.156}
+    fo_t = {'E/S0': 0.707, 'Spiral': 0.878}
+    momin_hdf = 17
+    minmag = 17
+
+    return a, zo, km, k_t, fo_t, momin_hdf, minmag
+
 
 #Add any new priors here. Or we could BHM over them.
 def new_priors():

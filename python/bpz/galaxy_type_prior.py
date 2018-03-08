@@ -188,6 +188,11 @@ class GALAXYTYPE_PRIOR:
         #the remaining fraction  are Irr, again / # of Irr SED types
         f_t['Irr'] = np.round(1.0 - np.sum([f_t[gal_typ] * self.num_tmp_type[gal_typ] for gal_typ in f_t.keys()]), decimals=4) / self.num_tmp_type['Irr']
 
+        # Will's prior fix - regularises the mix of types.
+        f_t['Irr'] = max([f_t['Irr'],0.02])
+        f_t['E/S0'] = (1. - f_t['Irr'])*(f_t['E/S0']/(f_t['E/S0']+f_t['Spiral']))
+        f_t['Spiral'] = (1. - f_t['Irr'])*(f_t['Spiral']/(f_t['E/S0']+f_t['Spiral']))
+        
         #calculate probs P(T|mag)
         p_T_m0 = {}
         for gal_typ in ['E/S0', 'Spiral']:

@@ -35,7 +35,7 @@ def des_y1_prior():
 
     return a, zo, km, k_t, fo_t, momin_hdf, minmag
 
-def des_y1pls_prior():
+def des_y3dev_prior():
     """   Will's COSMOS trained prior (from Laigle etal. 2016 data)
     for Ellipticals, Spirals, and Irregular/Starbursts
     Returns an array pi[z[:],:nt]

@@ -369,7 +369,7 @@ def bpz_main():
             print i,sed, full_sed[i]
     # Prepare the prior
     GALPRIOR = GALAXYTYPE_PRIOR(z=z_bins, tipo_prior=config['prior_name'],
-                    mag_bins=np.arange(18, 24.1, 0.1),
+                    mag_bins=np.arange(17, 24.1, 0.1),
                     template_type_list=config['sed_type'])
 
     """Populate the model fluxes here """
